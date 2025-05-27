@@ -1,0 +1,150 @@
+.dashboardLayout {
+  display: flex;
+  min-height: 100vh;
+  background-color: #f8f9fa;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.dashboard {
+  flex: 1;
+  padding: 2rem;
+  font-family: 'Segoe UI', sans-serif;
+  color: #333;
+  transition: background-color 0.4s ease, color 0.4s ease;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #007bff;
+  transition: color 0.4s ease;
+}
+
+.logoutBtn {
+  background-color: #ff9900;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+}
+
+.logoutBtn:hover {
+  background-color: #e68a00;
+}
+
+.toggleBtn {
+  margin-right: 1rem;
+  background: none;
+  border: 2px solid #007bff;
+  color: #007bff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+}
+
+.toggleBtn:hover {
+  background-color: #007bff;
+  color: white;
+}
+
+.cards {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 2rem;
+}
+
+.card {
+  background-color: white;
+  border-left: 6px solid #007bff;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.card.green {
+  border-color: #02aa6d;
+}
+
+.card.orange {
+  border-color: #ff9900;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section h3 {
+  color: #007bff;
+  margin-bottom: 1rem;
+  transition: color 0.4s ease;
+}
+
+.notifications,
+.calendar {
+  background: white;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* 🌙 DARK MODE */
+
+.dark {
+  background-color: #121212;
+  color: #f1f1f1;
+}
+
+.dark .dashboard {
+  background-color: #121212;
+  color: #f1f1f1;
+}
+
+.dark .title,
+.dark .section h3 {
+  color: #66b2ff;
+}
+
+.dark .card {
+  background-color: #1e1e1e;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.05);
+  color: #eee;
+}
+
+.dark .calendar,
+.dark .notifications {
+  background-color: #1e1e1e;
+  color: #eee;
+}
+
+.dark .toggleBtn {
+  border-color: #66b2ff;
+  color: #66b2ff;
+}
+
+.dark .toggleBtn:hover {
+  background-color: #66b2ff;
+  color: #121212;
+}
+
+.dark .logoutBtn {
+  background-color: #ff9900;
+  color: #121212;
+}
+
+.dark .logoutBtn:hover {
+  background-color: #e68a00;
+}

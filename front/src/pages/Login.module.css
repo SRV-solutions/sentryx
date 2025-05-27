@@ -1,0 +1,162 @@
+:root {
+  --primary: #007bff;
+  --accent: #ff9900;
+  --success: #02aa6d;
+  --bg-light: #ffffff;
+  --text-light: #222;
+  --card-bg-light: #f9f9f9;
+  --input-bg-light: #ffffff;
+  --border-light: #ddd;
+
+  --bg-dark: #121212;
+  --text-dark: #f1f1f1;
+  --card-bg-dark: #1e1e1e;
+  --input-bg-dark: #2c2c2c;
+  --border-dark: #333;
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background-color: var(--bg-light);
+  color: var(--text-light);
+  transition: background-color 0.3s ease, color 0.3s ease;
+  padding: 1rem;
+}
+
+.dark {
+  background-color: var(--bg-dark);
+  color: var(--text-dark);
+}
+
+.card {
+  background-color: var(--card-bg-light);
+  padding: 2rem;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 400px;
+  transition: background-color 0.3s ease;
+}
+
+.dark .card {
+  background-color: var(--card-bg-dark);
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: var(--primary);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+}
+
+.label {
+  margin-bottom: 0.3rem;
+}
+
+.input {
+  padding: 0.8rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background-color: var(--input-bg-light);
+  color: var(--text-light);
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+.dark .input {
+  background-color: var(--input-bg-dark);
+  color: var(--text-dark);
+  border-color: var(--border-dark);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.button {
+  background-color: var(--primary);
+  color: white;
+  padding: 0.8rem;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: var(--accent);
+}
+
+/* Toggle Switch Styles */
+.toggleWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 100%;
+  max-width: 400px;
+  margin-bottom: 1rem;
+  user-select: none;
+  gap: 0.5rem;
+  color: var(--text-light);
+}
+
+.dark .toggleWrapper {
+  color: var(--text-dark);
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #ccc;
+  transition: 0.4s;
+  border-radius: 24px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--primary);
+}
+
+input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+.toggleLabel {
+  font-size: 0.9rem;
+}
