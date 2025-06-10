@@ -1,16 +1,34 @@
-import { createContext, useState, useContext } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const AuthContext = createContext();
+const apiUrl = import.meta.env.VITE_API_URL;
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')) || null);
 
-  const login = (email) => {
-    // Podés reemplazar esto con un fetch a tu backend luego
-    setUser({ email, name: 'Juan', asistencia: 10, curso: '3B', profesor: 'Prof. López' });
+  const login = async (email, password) => {
+    try {
+      const res = await fetch(`${apiUrl}/users/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!res.ok) throw new Error('Error al iniciar sesión');
+
+      const data = await res.json();
+      localStorage.setItem('user', JSON.stringify(data));
+      setUser(data);
+    } catch (error) {
+      console.error(error);
+      throw error;
+    }
   };
 
-  const logout = () => setUser(null);
+  const logout = () => {
+    localStorage.removeItem('user');
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider value={{ user, login, logout }}>

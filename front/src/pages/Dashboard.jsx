@@ -8,7 +8,7 @@ import styles from './Dashboard.module.css';
 const Dashboard = () => {
   const { user, logout } = useAuth();
   const { darkMode, toggleTheme } = useTheme();
-
+  
   return (
     <div className={`${styles.dashboardLayout} ${darkMode ? styles.dark : ''}`}>
       <div className={styles.dashboard}>

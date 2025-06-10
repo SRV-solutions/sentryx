@@ -5,7 +5,8 @@ import ProtectedRoute from './routes/ProtectedRoute';
 import ChatSolvix from './components/ChatSolvix.jsx';
 import Sidebar from './components/SideBar.jsx';
 import './App.css';
-
+import NotFound from './pages/NotFound.jsx'
+import UserProfile from './pages/UserProfile.jsx';
 const App = () => {
   const location = useLocation();
   const hideSidebar = location.pathname === '/login';
@@ -15,12 +16,19 @@ const App = () => {
       {!hideSidebar && <Sidebar />}
       <div className="main-content">
         <Routes>
-          <Route path="/login" element={<Login />} />
           <Route
             path="/dashboard"
             element={
               <ProtectedRoute>
                 <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/perfil"
+            element={
+              <ProtectedRoute>
+                <UserProfile/>
               </ProtectedRoute>
             }
           />
@@ -32,7 +40,8 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="*" element={<Navigate to="/login" />} />
+          <Route path="/login/*" element={<Login />} />
+          <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </div>

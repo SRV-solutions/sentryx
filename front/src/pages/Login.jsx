@@ -5,20 +5,27 @@ import styles from './Login.module.css';
 
 const Login = () => {
   const [email, setEmail] = useState('marcos.costa@wearesrv.com');
+  const [password, setPassword] = useState('123456789');
   const { login } = useAuth();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
-    // Chequea el preferido por sistema para inicializar
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    login(email);
-    navigate('/dashboard');
+    if (!email || !password) {
+      alert('Por favor completa email y contraseña.');
+      return;
+    }
+    try {
+      await login(email, password);
+      navigate('/dashboard');
+    } catch (err) {
+      alert('Login inválido. Intenta de nuevo.');
+    }
   };
 
-  // Cambia clase del body para dark mode
   useEffect(() => {
     if (darkMode) {
       document.body.classList.add(styles.dark);
@@ -53,6 +60,17 @@ const Login = () => {
             onChange={(e) => setEmail(e.target.value)}
             required
           />
+
+          <label className={styles.label}>Contraseña</label>
+          <input
+            type="password"
+            className={styles.input}
+            placeholder="********"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
           <button type="submit" className={styles.button}>
             Ingresar
           </button>
