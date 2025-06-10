@@ -11,8 +11,6 @@ const Dashboard = () => {
 
   return (
     <div className={`${styles.dashboardLayout} ${darkMode ? styles.dark : ''}`}>
-      <Sidebar />
-
       <div className={styles.dashboard}>
         <div className={styles.header}>
           <h1 className={styles.title}>Bienvenido, {user.name}</h1>

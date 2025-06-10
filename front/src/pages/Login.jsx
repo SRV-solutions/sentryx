@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import styles from './Login.module.css';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState('marcos.costa@wearesrv.com');
   const { login } = useAuth();
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState(() => {
