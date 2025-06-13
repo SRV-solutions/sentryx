@@ -4,6 +4,8 @@ import jwt from 'jsonwebtoken';
 import Role from '../models/Role';
 import User from '../models/User';
 import Permission from '../models/Permission';
+import UserCourse from '../models/UserCourse';
+import Course from '../models/Course';
 
 // Clave secreta para JWT (colócala en un archivo .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
@@ -113,6 +115,9 @@ export const login = async (req: Request, res: any) => {
       include: [{
         model: Role,
         include: [Permission]
+      }, {
+        model: UserCourse,
+        include: [Course]
       }]
     });
 
@@ -143,6 +148,7 @@ export const login = async (req: Request, res: any) => {
         lastName: user.lastName,
         roleId: user.roleId,
         roleName: user.Role?.roleName,
+        courses: user?.UserCourses,
         permissions: user.Role?.Permissions?.map(p => ({
           entity: p.entity,
           action: p.action
@@ -303,7 +309,7 @@ export const changeMyOwnPassword = async (req: any, res: any) => {
       return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
     }
 
-    // Encriptar la nueva contraseña    
+    // Encriptar la nueva contraseña
     const hashedNewPassword: string = await bcrypt.hash(newPassword, 10)
 
     // Actualizar la contraseña en la base de datos
@@ -338,7 +344,7 @@ export const changePassword = async (req: Request, res: any) => {
       return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
     }
 
-    // Encriptar la nueva contraseña    
+    // Encriptar la nueva contraseña
     const hashedNewPassword: string = await bcrypt.hash(newPassword, 10)
 
     // Actualizar la contraseña en la base de datos

@@ -8,6 +8,7 @@ class UserCourse extends Model {
   public userId!: number;
   public courseId!: number;
   public grantedAt!: Date;
+  public Course!: Course
 
   public static associate() {
     UserCourse.belongsTo(User, { foreignKey: 'userId' });

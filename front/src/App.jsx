@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ProtectedRoute from './routes/ProtectedRoute';
@@ -7,6 +7,9 @@ import Sidebar from './components/SideBar.jsx';
 import './App.css';
 import NotFound from './pages/NotFound.jsx'
 import UserProfile from './pages/UserProfile.jsx';
+import CourseDetail from './pages/CourseDetail.jsx';
+
+
 const App = () => {
   const location = useLocation();
   const hideSidebar = location.pathname === '/login';
@@ -28,7 +31,7 @@ const App = () => {
             path="/perfil"
             element={
               <ProtectedRoute>
-                <UserProfile/>
+                <UserProfile />
               </ProtectedRoute>
             }
           />
@@ -40,6 +43,15 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/curso/:id"
+            element={
+              <ProtectedRoute>
+                <CourseDetail />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/login/*" element={<Login />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

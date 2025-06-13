@@ -3,8 +3,9 @@ import { sequelize } from './config/database';
 
 import userRoutes from './routes/userRoutes';
 import roleRoutes from './routes/roleRoutes';
-import reportsRouts from './routes/reportsRoute'
+import reportRoutes from './routes/reportRoute'
 import aiRoutes from './routes/aiRoutes'
+import courseRoutes from './routes/courseRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
@@ -54,7 +55,8 @@ app.get('/hola', (_req, res) => {
 app.use('/api/ai', aiRoutes);
 app.use('/users', userRoutes);
 app.use('/roles', roleRoutes);
-app.use('/reports', reportsRouts)
+app.use('/reports', reportRoutes)
+app.use('/courses', courseRoutes)
 
 const forceSync = process.env.FORCE_SYNC === "true";
 sequelize.sync({ force: forceSync }).then(() => {

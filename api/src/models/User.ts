@@ -14,6 +14,7 @@ class User extends Model {
   public password!: string; // Campo para almacenar la contraseña
   public roleId!: number;
   public Role!: Role
+  public UserCourses!: Array<UserCourse>
   // Asociaciones con otros modelos
   public static associate() {
     User.belongsTo(Role, { foreignKey: 'roleId' });

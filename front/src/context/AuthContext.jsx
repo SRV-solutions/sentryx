@@ -15,9 +15,11 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!res.ok) throw new Error('Error al iniciar sesión');
-
+      
       const data = await res.json();
       localStorage.setItem('user', JSON.stringify(data));
+      console.log(data);
+      
       setUser(data);
     } catch (error) {
       console.error(error);

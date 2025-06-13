@@ -1,15 +1,11 @@
 const NotificationList = () => {
-  const mockNotifications = [
-    'Entrega de trabajo práctico el viernes.',
-    'Examen de matemática el lunes.',
-    'Reunión de padres el miércoles.',
-  ];
+  const mockNotifications = [];
 
   return (
     <ul>
-      {mockNotifications.map((note, i) => (
-        <li key={i}>{note}</li>
-      ))}
+      {mockNotifications.length !== 0 ? mockNotifications.map((note, i) => (
+        <li style={{ marginLeft: '1rem' }} key={i}>{note}</li>
+      )) : 'Sin Notificaciones'}
     </ul>
   );
 };

@@ -28,7 +28,7 @@ const Sidebar = () => {
     const navItems = [
         { to: '/dashboard', label: 'Dashboard', icon: <Home /> },
         { to: '/perfil', label: 'Perfil', icon: <User /> },
-        { to: '/curso', label: 'Mi Curso', icon: <BookOpen /> },
+        { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
         { to: '/chat', label: 'Chat IA', icon: <MessageCircle /> },
     ];
 
