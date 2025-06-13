@@ -32,6 +32,10 @@ Lesson.init({
     type: DataTypes.STRING,
     allowNull: false,
   },
+  description: {
+    type: DataTypes.STRING,
+    allowNull: false,
+  },
   youtubeUrl: {
     type: DataTypes.STRING,
     allowNull: false,
@@ -40,6 +44,7 @@ Lesson.init({
     type: DataTypes.INTEGER,
     allowNull: false,
   },
+
 }, {
   sequelize,
   modelName: 'Lesson',

@@ -22,13 +22,14 @@ interface AuthRequest extends Request {
 
 // 🛡️ Middleware para verificar si el usuario está autenticado
 export const isAuth = (req: AuthRequest, res: any, next: NextFunction) => {
+  
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-
+  
   if (!token) {
     return res.status(401).json({ message: 'No autorizado. Token no proporcionado.' });
   }
-
+  
   jwt.verify(token, JWT_SECRET, (err, decodedToken) => {
     if (err) {
       return res.status(403).json({ message: 'Token inválido o expirado.' });

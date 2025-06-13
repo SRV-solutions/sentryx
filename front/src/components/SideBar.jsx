@@ -8,6 +8,7 @@ import {
     User,
     LogOut
 } from 'lucide-react';
+import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import styles from './Sidebar.module.css';
 
@@ -15,6 +16,7 @@ const Sidebar = () => {
     const [collapsed, setCollapsed] = useState(false);
     const { logout } = useAuth();
     const navigate = useNavigate();
+    const { darkMode, toggleTheme } = useTheme();
 
     const toggleSidebar = () => {
         setCollapsed(!collapsed);
@@ -62,6 +64,12 @@ const Sidebar = () => {
                     </li>
                 ))}
             </ul>
+
+            <div className={styles.toggleContainer}>
+                <button onClick={toggleTheme} className={styles.toggleBtn}>
+                    {darkMode ? '☀️' : '🌙'}
+                </button>
+            </div>
 
             <div className={styles.logoutContainer}>
                 <button onClick={handleLogout} className={styles.logoutBtn}>

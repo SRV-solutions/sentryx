@@ -1,20 +1,25 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import styles from './CourseDetail.module.css';
+import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext'
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const CourseDetail = () => {
-    const { id } = useParams();
+    const navigate = useNavigate();
+    const { courseId } = useParams();
     const [course, setCourse] = useState(null);
+    const { darkMode } = useTheme();
+    const { authFetch } = useAuth();
 
     useEffect(() => {
         const fetchCurso = async () => {
             const userData = localStorage.getItem('user');
-            const parsedUser = JSON.parse(userData)
+            const parsedUser = JSON.parse(userData);
 
             try {
-                const res = await fetch(`${apiUrl}/courses/me/${id}`, {
+                const res = await authFetch(`${apiUrl}/courses/me/${courseId}`, {
                     headers: {
                         Authorization: `Bearer ${parsedUser.token}`,
                         'Content-Type': 'application/json',
@@ -39,15 +44,20 @@ const CourseDetail = () => {
         };
 
         fetchCurso();
-    }, [id]);
+    }, [courseId]);
 
     if (!course) return <p className={styles.loading}>Cargando curso...</p>;
     if (course.error) return <p className={styles.error}>{course.error}</p>;
-    console.log(course);
-    
+
     return (
-        <div className={styles.container}>
-            <div className={styles.courseHeader}>
+        <div
+            className={`${styles.container} ${darkMode ? styles.darkContainer : ''
+                }`}
+        >
+            <div
+                className={`${styles.courseHeader} ${darkMode ? styles.darkCourseHeader : ''
+                    }`}
+            >
                 <h1>{course.title}</h1>
                 <p>{course.description}</p>
             </div>
@@ -56,7 +66,11 @@ const CourseDetail = () => {
                 <h2>Clases</h2>
                 <div className={styles.classesGrid}>
                     {course.Lessons.map((lesson) => (
-                        <div key={lesson.id} className={styles.card}>
+                        <div
+                            onClick={() => navigate(`/curso/${course.id}/clase/${lesson.id}`)}
+                            key={lesson.id}
+                            className={`${styles.card} ${darkMode ? styles.darkCard : ''}`}
+                        >
                             <h3>{lesson.title}</h3>
                             <p>{lesson.description || 'Sin descripción disponible.'}</p>
                         </div>

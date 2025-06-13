@@ -42,22 +42,6 @@
   background-color: #e68a00;
 }
 
-.toggleBtn {
-  margin-right: 1rem;
-  background: none;
-  border: 2px solid #007bff;
-  color: #007bff;
-  padding: 0.4rem 0.8rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.4s ease;
-}
-
-.toggleBtn:hover {
-  background-color: #007bff;
-  color: white;
-}
-
 .cards {
   display: grid;
   gap: 1.5rem;
@@ -130,15 +114,6 @@
   color: #eee;
 }
 
-.dark .toggleBtn {
-  border-color: #66b2ff;
-  color: #66b2ff;
-}
-
-.dark .toggleBtn:hover {
-  background-color: #66b2ff;
-  color: #121212;
-}
 
 .dark .logoutBtn {
   background-color: #ff9900;

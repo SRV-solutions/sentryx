@@ -6,6 +6,7 @@ import roleRoutes from './routes/roleRoutes';
 import reportRoutes from './routes/reportRoute'
 import aiRoutes from './routes/aiRoutes'
 import courseRoutes from './routes/courseRoutes'
+import lessonRotes from './routes/lessonRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
@@ -32,7 +33,7 @@ const app = express();
 app.use(express.json());
 app.use(limiter)
 app.use((req: Request, res: any, next: NextFunction) => {
-  const allowedOrigins = ['http://localhost:5173', 'https://este.wearesrv.com'];
+  const allowedOrigins = ['http://localhost:5173', 'https://sentryx.wearesrv.com'];
   const origin: any = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.header('Access-Control-Allow-Origin', origin);
@@ -57,6 +58,7 @@ app.use('/users', userRoutes);
 app.use('/roles', roleRoutes);
 app.use('/reports', reportRoutes)
 app.use('/courses', courseRoutes)
+app.use('/lessons', lessonRotes)
 
 const forceSync = process.env.FORCE_SYNC === "true";
 sequelize.sync({ force: forceSync }).then(() => {

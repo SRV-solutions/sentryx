@@ -14,6 +14,8 @@ import {
     Paper,
 } from '@mui/material';
 import styles from './ChatSolvix.module.css';
+import { useAuth } from '../context/AuthContext'
+const apiUrl = import.meta.env.VITE_API_URL;
 
 const ChatSolvixComponent = () => {
     const [messages, setMessages] = useState([
@@ -21,7 +23,7 @@ const ChatSolvixComponent = () => {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-
+    const authFetch = useAuth()
     const sendMessage = async () => {
         if (!input.trim()) return;
         const newMessage = { sender: 'Tú', text: input };
@@ -30,7 +32,7 @@ const ChatSolvixComponent = () => {
         setLoading(true);
 
         try {
-            const res = await fetch('http://localhost:3000/api/ai/chat', {
+            const res = await authFetch(`${apiUrl}/api/ai/chat`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: input }),
@@ -68,7 +70,7 @@ const ChatSolvixComponent = () => {
                         <ListItemAvatar>
                             <Avatar alt="Solvix" src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" />
                         </ListItemAvatar>
-                        <ListItemText style={{color:'black'}} primary="Solvix" secondary="Powered By Sentryx" />
+                        <ListItemText style={{ color: 'black' }} primary="Solvix" secondary="Powered By Sentryx" />
                     </ListItem>
                 </List>
             </Box>

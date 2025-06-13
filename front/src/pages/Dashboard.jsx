@@ -7,18 +7,13 @@ import styles from './Dashboard.module.css';
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { darkMode, toggleTheme } = useTheme();
+  const { darkMode } = useTheme();
 
   return (
     <div className={`${styles.dashboardLayout} ${darkMode ? styles.dark : ''}`}>
       <div className={styles.dashboard}>
         <div className={styles.header}>
           <h1 className={styles.title}>Bienvenido, {user.firstName}</h1>
-          <div>
-            <button onClick={toggleTheme} className={styles.toggleBtn}>
-              {darkMode ? '☀️' : '🌙'}
-            </button>
-          </div>
         </div>
 
         {/* CURSOS */}

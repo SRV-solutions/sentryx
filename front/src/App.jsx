@@ -8,6 +8,8 @@ import './App.css';
 import NotFound from './pages/NotFound.jsx'
 import UserProfile from './pages/UserProfile.jsx';
 import CourseDetail from './pages/CourseDetail.jsx';
+import ClassDetail from './pages/ClassDetail.jsx';
+import MyCourseDetail from './pages/MyCourseDetail.jsx';
 
 
 const App = () => {
@@ -43,11 +45,28 @@ const App = () => {
               </ProtectedRoute>
             }
           />
+           <Route
+            path="/curso"
+            element={
+              <ProtectedRoute>
+                <MyCourseDetail />
+              </ProtectedRoute>
+            }
+          />
           <Route
-            path="/curso/:id"
+            path="/curso/:courseId"
             element={
               <ProtectedRoute>
                 <CourseDetail />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/curso/:courseId/clase/:classId"
+            element={
+              <ProtectedRoute>
+                <ClassDetail />
               </ProtectedRoute>
             }
           />

@@ -32,8 +32,32 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const authFetch = async (url, options = {}) => {
+    const token = user?.token;
+    if (!token) {
+      logout();
+      return null;
+    }
+
+    const res = await fetch(url, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      logout(); // Token inválido o expirado
+      return null;
+    }
+
+    return res;
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout }}>
+    <AuthContext.Provider value={{ user, login, logout, authFetch }}>
       {children}
     </AuthContext.Provider>
   );

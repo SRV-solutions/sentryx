@@ -30,6 +30,7 @@ export const getCourseCatalog = async (req: Request, res: any) => {
 
 export const getMyCourses = async (req: any, res: any) => {
   try {
+    
     const userId = req.user.id;
 
     const assignedCourses = await UserCourse.findAll({
@@ -68,5 +69,42 @@ export const getMyCourseById = async (req: any, res: any) => {
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener tus cursos', error });
+  }
+};
+
+export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
+  
+  const userId = (req as any).user.id; // asumimos que isAuth ya setea req.user
+  const { courseId, lessonId } = req.params;
+
+  try {
+    // Verificar que el usuario esté inscripto al curso
+    const userCourse = await UserCourse.findOne({
+      where: {
+        userId,
+        courseId,
+      },
+    });
+
+    if (!userCourse) {
+      return res.status(403).json({ message: 'No estás inscripto a este curso.' });
+    }
+    
+    // Buscar la lección dentro del curso
+    const lesson = await Lesson.findOne({
+      where: {
+        id: lessonId,
+        courseId,
+      },
+    });
+    
+
+    if (!lesson) {
+      return res.status(404).json({ message: 'Lección no encontrada.' });
+    }    
+    return res.json(lesson);
+  } catch (error) {
+    console.error('Error al obtener lección:', error);
+    return res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };

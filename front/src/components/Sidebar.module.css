@@ -122,3 +122,37 @@
 .icon {
   margin-right: 10px;
 }
+
+.toggleBtn {
+  display: flex;
+  align-items: center;
+  margin-right: 1rem;
+  background: none;
+  border: 2px solid #007bff;
+  color: #007bff;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+}
+
+.toggleBtn:hover {
+  background-color: #007bff;
+  color: white;
+}
+
+.dark .toggleBtn {
+  border-color: #66b2ff;
+  color: #66b2ff;
+}
+
+.dark .toggleBtn:hover {
+  background-color: #66b2ff;
+  color: #121212;
+}
+.toggleContainer {
+  display: flex;
+  justify-content: center;
+  width: '100dvh';
+  padding: 1rem 0;
+}
