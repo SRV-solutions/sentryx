@@ -14,12 +14,25 @@
   box-sizing: border-box;
 }
 
+.darkChatSidebar {
+  background-color: #1e1e1e;
+  color: #f1f1f1;
+  border-right: 1px solid #444;
+}
+
 .chatMain {
   flex-grow: 1;
   display: flex;
   flex-direction: column;
   padding: 1rem;
   box-sizing: border-box;
+  background-color: #fff;
+  color: #000;
+}
+
+.darkChatMain {
+  background-color: #1e1e1e;
+  color: #f1f1f1;
 }
 
 .chatMessages {
@@ -33,25 +46,4 @@
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
-}
-.messageBubble {
-  margin-bottom: 1rem;
-  padding: 0.75rem;
-  border-radius: 8px;
-  max-width: 80%;
-}
-
-.user {
-  background-color: #dcf8c6;
-  align-self: flex-end;
-}
-
-.solvix {
-  background-color: #eee;
-  align-self: flex-start;
-}
-
-.sender {
-  font-weight: bold;
-  margin-bottom: 0.25rem;
 }

@@ -88,12 +88,12 @@
 /* 🌙 DARK MODE */
 
 .dark {
-  background-color: #121212;
+  background-color: #1e1e1e;
   color: #f1f1f1;
 }
 
 .dark .dashboard {
-  background-color: #121212;
+  background-color: #1e1e1e;
   color: #f1f1f1;
 }
 
@@ -117,7 +117,7 @@
 
 .dark .logoutBtn {
   background-color: #ff9900;
-  color: #121212;
+  color: #1e1e1e;
 }
 
 .dark .logoutBtn:hover {

@@ -3,6 +3,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import NotificationList from '../components/NotificationList';
 import styles from './Dashboard.module.css';
+import MyCourseDetail from './MyCourseDetail';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -18,36 +19,7 @@ const Dashboard = () => {
 
         {/* CURSOS */}
         <div className={styles.section}>
-          <h3>Tus Cursos</h3>
-          <div className={styles.cards}>
-            {user.userData.courses.length !== 0 ?
-             user.userData.courses?.map(({ Course, grantedAt }, index) => (
-              <div
-                key={index}
-                className={styles.card}
-                onClick={() => navigate(`/curso/${Course.id}`)}
-                style={{ cursor: 'pointer' }}
-              >
-                {Course.thumbnailUrl && (
-                  <img
-                    src={Course.thumbnailUrl}
-                    alt={`Miniatura de ${Course.title}`}
-                    style={{
-                      width: '100%',
-                      borderRadius: '8px',
-                      marginBottom: '1rem',
-                      objectFit: 'cover',
-                      maxHeight: '160px',
-                    }}
-                  />
-                )}
-                <h3>{Course.title}</h3>
-                <p><strong>Descripción:</strong> {Course.description}</p>
-                <p><strong>Inscripto desde:</strong> {new Date(grantedAt).toLocaleDateString()}</p>
-              </div>
-            )) : 'Usted no posee cursos aun'}
-
-          </div>
+          <MyCourseDetail></MyCourseDetail>
         </div>
 
         {/* CALENDARIO */}

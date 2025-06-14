@@ -10,7 +10,7 @@ const MyCourseDetail = () => {
   const [courses, setCourses] = useState([]);
   const [error, setError] = useState(null);
   const { darkMode } = useTheme();
-const { authFetch } = useAuth();
+  const { authFetch } = useAuth();
   useEffect(() => {
     const fetchCursos = async () => {
       const userData = localStorage.getItem('user');
@@ -46,27 +46,40 @@ const { authFetch } = useAuth();
 
   if (error) return <p className={styles.error}>{error}</p>;
   if (!courses.length) return <p className={styles.loading}>Cargando cursos...</p>;
+  console.log(courses);
 
   return (
     <div className={`${styles.container} ${darkMode ? styles.darkContainer : ''}`}>
       <h1>Mis cursos</h1>
 
-      <div className={styles.classesGrid}>
-        {courses.map((course) => (
-          <div
-            key={course.id}
-            className={styles.card}
-            onClick={() => navigate(`/curso/${course.id}`)}
-          >
-            <img
-              src={course.thumbnailUrl}
-              alt={course.title}
-              style={{ width: '100%', borderRadius: '8px', marginBottom: '1rem' }}
-            />
-            <h3>{course.title}</h3>
-            <p>{course.description}</p>
-          </div>
-        ))}
+      <div className={styles.cards}>
+        {courses.length !== 0 ?
+          courses?.map((Course, index) => (
+            <div
+              key={index}
+              className={styles.card}
+              onClick={() => navigate(`/curso/${Course.id}`)}
+              style={{ cursor: 'pointer' }}
+            >
+              {Course.thumbnailUrl && (
+                <img
+                  src={Course.thumbnailUrl}
+                  alt={`Miniatura de ${Course.title}`}
+                  style={{
+                    width: '100%',
+                    borderRadius: '8px',
+                    marginBottom: '1rem',
+                    objectFit: 'cover',
+                    maxHeight: '160px',
+                  }}
+                />
+              )}
+              <h3>{Course.title}</h3>
+              <p><strong>Descripción:</strong> {Course.description}</p>
+              <p><strong>Inscripto desde:</strong> {new Date(Course.grantedAt).toLocaleDateString()}</p>
+            </div>
+          )) : 'Usted no posee cursos aun'}
+
       </div>
     </div>
   );

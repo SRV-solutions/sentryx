@@ -1,16 +1,52 @@
-.app-container {
-  display: flex;
-  min-height: 100vh;
-}
-
-.main-content {
-  flex: 1;
-  background-color: #f9f9f9; /* o lo que quieras */
-  overflow-y: auto;
-}
-
+/* Global reset */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+}
+
+/* App container */
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  transition: background-color 0.4s ease, color 0.4s ease;
+  color: #111; /* fallback para light */
+  background-color: #fff;
+}
+
+/* Main content */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* Dark mode */
+.dark {
+  background-color: #1e1e1e !important;
+  color: #f9f9f9 !important;
+}
+
+.dark .app-container,
+.dark .main-content,
+.dark body,
+.dark html {
+  background-color: #1e1e1e !important;
+  color: #f9f9f9 !important;
+}
+
+.dark p,
+.dark span,
+.dark h1,
+.dark h2,
+.dark h3,
+.dark h4,
+.dark h5,
+.dark h6,
+.dark a,
+.dark li,
+.dark label,
+.dark input,
+.dark textarea,
+.dark button {
+  color: #f9f9f9 !important;
 }

@@ -10,14 +10,16 @@ import UserProfile from './pages/UserProfile.jsx';
 import CourseDetail from './pages/CourseDetail.jsx';
 import ClassDetail from './pages/ClassDetail.jsx';
 import MyCourseDetail from './pages/MyCourseDetail.jsx';
+import { useTheme } from './context/ThemeContext'; // Importa el contexto
 
 
 const App = () => {
   const location = useLocation();
   const hideSidebar = location.pathname === '/login';
+  const { darkMode } = useTheme(); // Usamos el contexto
 
   return (
-    <div className="app-container">
+    <div className={`app-container ${darkMode ? 'dark' : ''}`}>
       {!hideSidebar && <Sidebar />}
       <div className="main-content">
         <Routes>

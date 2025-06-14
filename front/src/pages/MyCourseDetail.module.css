@@ -2,16 +2,17 @@
   padding: 2rem;
   font-family: 'Segoe UI', sans-serif;
   background-color: #f9f9f9;
-  min-height: 100vh;
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 .courseHeader {
   background: linear-gradient(to right, #007bff, #00c6ff);
-  color: white;
+  color: #f9f9f9;
   padding: 2rem;
   border-radius: 12px;
   margin-bottom: 2rem;
   box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+  transition: background-color 0.4s ease, color 0.4s ease;
 }
 
 .courseHeader h1 {
@@ -74,8 +75,8 @@
 
 /* Modo oscuro */
 .darkContainer {
-  background-color: #121212;
-  color: #f1f1f1;
+  background-color: #1e1e1e;
+  color: #f9f9f9;
 }
 
 .darkCourseHeader {
@@ -88,4 +89,28 @@
   background: #1e1e1e;
   color: #eee;
   border-color: #66b2ff;
+}
+
+.cards {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 2rem;
+}
+
+.card {
+  background-color: white;
+  border-left: 6px solid #007bff;
+  padding: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.card.green {
+  border-color: #02aa6d;
+}
+
+.card.orange {
+  border-color: #ff9900;
 }

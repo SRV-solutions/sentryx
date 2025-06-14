@@ -14,7 +14,9 @@ import {
     Paper,
 } from '@mui/material';
 import styles from './ChatSolvix.module.css';
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const ChatSolvixComponent = () => {
@@ -23,7 +25,9 @@ const ChatSolvixComponent = () => {
     ]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const authFetch = useAuth()
+    const { authFetch } = useAuth();
+    const { darkMode } = useTheme();
+
     const sendMessage = async () => {
         if (!input.trim()) return;
         const newMessage = { sender: 'Tú', text: input };
@@ -56,28 +60,63 @@ const ChatSolvixComponent = () => {
 
     return (
         <Box className={styles.chatContainer}>
-            {/* Chat List */}
-            <Box className={styles.chatSidebar}>
+            <Box
+                className={`${styles.chatSidebar} ${darkMode ? styles.darkChatSidebar : ''}`}
+            >
                 <TextField
                     fullWidth
                     size="small"
                     placeholder="Buscar..."
                     variant="outlined"
+                    sx={{
+                        input: {
+                            color: darkMode ? '#f1f1f1' : '#000',
+                        },
+                        '& .MuiOutlinedInput-root': {
+                            '& fieldset': {
+                                borderColor: darkMode ? '#555' : '#ccc',
+                            },
+                            '&:hover fieldset': {
+                                borderColor: darkMode ? '#888' : '#888',
+                            },
+                        },
+                        '& .MuiInputLabel-root': {
+                            color: darkMode ? '#bbb' : '#000',
+                        },
+                    }}
                 />
-                <Divider sx={{ my: 2 }} />
+                <Divider sx={{ my: 2, borderColor: darkMode ? '#444' : '#ddd' }} />
                 <List>
                     <ListItem selected>
                         <ListItemAvatar>
-                            <Avatar alt="Solvix" src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" />
+                            <Avatar
+                                alt="Solvix"
+                                src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png"
+                            />
                         </ListItemAvatar>
-                        <ListItemText style={{ color: 'black' }} primary="Solvix" secondary="Powered By Sentryx" />
+                        <ListItemText primary="Solvix" secondary="Powered By Sentryx" />
                     </ListItem>
                 </List>
             </Box>
 
-            {/* Chat Window */}
-            <Box className={styles.chatMain}>
-                <Paper elevation={2} className={styles.chatMessages} sx={{ p: 2, overflowY: 'auto', maxHeight: '70vh' }}>
+            <Box
+                className={`${styles.chatMain} ${darkMode ? styles.darkChatMain : ''}`}
+                sx={{
+                    bgcolor: darkMode ? '#121212' : '#fff',
+                    color: darkMode ? '#f1f1f1' : '#000',
+                }}
+            >
+                <Paper
+                    elevation={2}
+                    className={styles.chatMessages}
+                    sx={{
+                        p: 2,
+                        overflowY: 'auto',
+                        maxHeight: '70vh',
+                        bgcolor: darkMode ? '#121212' : '#fff',
+                        color: darkMode ? '#f1f1f1' : '#000',
+                    }}
+                >
                     {messages.map((msg, idx) => {
                         const isUser = msg.sender === 'Tú';
 
@@ -95,7 +134,7 @@ const ChatSolvixComponent = () => {
                                 <Typography
                                     variant="caption"
                                     sx={{
-                                        color: isUser ? '#1976d2' : '#555',
+                                        color: isUser ? '#1976d2' : darkMode ? '#aaa' : '#555',
                                         fontWeight: 'bold',
                                         mb: 0.3,
                                     }}
@@ -108,25 +147,28 @@ const ChatSolvixComponent = () => {
                                     sx={{
                                         maxWidth: '70%',
                                         p: 2,
-                                        bgcolor: isUser ? '#1976d2' : '#e0e0e0',
-                                        color: isUser ? 'white' : 'black',
+                                        bgcolor: isUser ? '#1976d2' : darkMode ? '#333' : '#e0e0e0',
+                                        color: isUser ? 'white' : darkMode ? '#eee' : 'black',
                                         borderRadius: 2,
                                         whiteSpace: 'pre-wrap',
                                         wordBreak: 'break-word',
                                         fontSize: '0.95rem',
-                                        boxShadow: isUser
-                                            ? '0 3px 10px rgba(25, 118, 210, 0.4)'
-                                            : '0 3px 10px rgba(0,0,0,0.1)',
                                     }}
                                 >
                                     <ReactMarkdown
                                         components={{
-                                            p: ({ node, ...props }) => <Typography component="p" sx={{ margin: 0, mb: 1 }} {...props} />,
+                                            p: ({ node, ...props }) => (
+                                                <Typography
+                                                    component="p"
+                                                    sx={{ margin: 0, mb: 1, color: darkMode ? '#eee' : 'inherit' }}
+                                                    {...props}
+                                                />
+                                            ),
                                             code({ inline, children, className }) {
                                                 return inline ? (
                                                     <code
                                                         style={{
-                                                            backgroundColor: '#eee',
+                                                            backgroundColor: darkMode ? '#444' : '#eee',
                                                             padding: '2px 6px',
                                                             borderRadius: 4,
                                                             fontSize: '0.85em',
@@ -139,7 +181,7 @@ const ChatSolvixComponent = () => {
                                                     <Box
                                                         component="pre"
                                                         sx={{
-                                                            backgroundColor: '#f5f5f5',
+                                                            backgroundColor: darkMode ? '#222' : '#f5f5f5',
                                                             p: 1,
                                                             borderRadius: 1,
                                                             overflowX: 'auto',
@@ -161,8 +203,7 @@ const ChatSolvixComponent = () => {
                     })}
                 </Paper>
 
-                {/* Input */}
-                <Box className={styles.inputArea} sx={{ display: 'flex', mt: 2 }}>
+                <Box className={styles.inputArea} sx={{ mt: 1 }}>
                     <TextField
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
@@ -172,12 +213,35 @@ const ChatSolvixComponent = () => {
                         rows={2}
                         placeholder="Escribe tu mensaje..."
                         disabled={loading}
+                        sx={{
+                            textarea: {
+                                color: darkMode ? '#f1f1f1' : '#000',
+                            },
+                            '& .MuiOutlinedInput-root': {
+                                backgroundColor: darkMode ? '#2c2c2c' : '#fff',
+                                '& fieldset': {
+                                    borderColor: darkMode ? '#555' : '#ccc',
+                                },
+                                '&:hover fieldset': {
+                                    borderColor: darkMode ? '#777' : '#888',
+                                },
+                            },
+                            '& .MuiInputLabel-root': {
+                                color: darkMode ? '#bbb' : '#000',
+                            },
+                        }}
                     />
                     <Button
                         variant="contained"
                         onClick={sendMessage}
                         disabled={loading}
-                        sx={{ ml: 2 }}
+                        sx={{
+                            ml: 2,
+                            bgcolor: darkMode ? '#1976d2' : undefined,
+                            '&:hover': {
+                                bgcolor: darkMode ? '#1565c0' : undefined,
+                            },
+                        }}
                     >
                         Enviar
                     </Button>
