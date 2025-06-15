@@ -1,12 +1,13 @@
 import { Router } from 'express';
 import { getCourseCatalog, getMyCourses, getMyCourseById, getMyCoursesAndLessonsById } from '../controllers/courseController';
-import { isAuth } from '../middlewares/auth';
+import { isAuth, checkPermission} from '../middlewares/auth';
+import { Action, Entity } from '../models/enums';
 
 const router = Router();
 
-router.get('/catalogue', isAuth, getCourseCatalog);
-router.get('/me/:courseId', isAuth, getMyCourseById);
-router.get('/me/:courseId/lessons/:lessonId', isAuth, getMyCoursesAndLessonsById);
-router.get('/me', isAuth, getMyCourses); 
+router.get('/catalogue', isAuth, checkPermission(Entity.COURSES, Action.READ), getCourseCatalog);
+router.get('/me/:courseId', isAuth, checkPermission(Entity.COURSES, Action.READ), getMyCourseById);
+router.get('/me/:courseId/module/:moduleId/lessons/:lessonId', isAuth, checkPermission(Entity.COURSES, Action.READ), checkPermission(Entity.LESSONS, Action.READ), getMyCoursesAndLessonsById);
+router.get('/me', isAuth, checkPermission(Entity.COURSES, Action.READ), getMyCourses);
 
 export default router;

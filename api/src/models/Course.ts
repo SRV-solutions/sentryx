@@ -2,6 +2,7 @@ import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import Lesson from './Lesson';
 import UserCourse from './UserCourse';
+import Module from './Module';
 
 class Course extends Model {
   public id!: number;
@@ -10,7 +11,7 @@ class Course extends Model {
   public thumbnailUrl?: string;
 
   public static associate() {
-    Course.hasMany(Lesson, { foreignKey: 'courseId' });
+    Course.hasMany(Module, { foreignKey: 'courseId' });  // nuevo
     Course.hasMany(UserCourse, { foreignKey: 'courseId' });
   }
 }

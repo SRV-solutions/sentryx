@@ -11,13 +11,14 @@
   min-height: 100vh;
   transition: background-color 0.4s ease, color 0.4s ease;
   color: #111; /* fallback para light */
-  background-color: #fff;
+  background-color: #f9f9f9;
 }
 
 /* Main content */
 .main-content {
   flex: 1;
   overflow-y: auto;
+  
 }
 
 /* Dark mode */
@@ -48,5 +49,5 @@
 .dark input,
 .dark textarea,
 .dark button {
-  color: #f9f9f9 !important;
+  color: #ffffff !important;
 }

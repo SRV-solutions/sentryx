@@ -2,6 +2,7 @@ import { Request } from 'express';
 import Course from '../models/Course';
 import UserCourse from '../models/UserCourse';
 import Lesson from '../models/Lesson';
+import Module from '../models/Module';
 
 
 export const getAllCourses = async (req: Request, res: any) => {
@@ -30,7 +31,7 @@ export const getCourseCatalog = async (req: Request, res: any) => {
 
 export const getMyCourses = async (req: any, res: any) => {
   try {
-    
+
     const userId = req.user.id;
 
     const assignedCourses = await UserCourse.findAll({
@@ -38,11 +39,21 @@ export const getMyCourses = async (req: any, res: any) => {
       include: [Course],
     });
 
+
     if (!assignedCourses.length) {
-      return res.status(404).json({ message: 'No tenés cursos asignados' });
+      return res.status(404).json({ message: 'Aun no tenés cursos asignados' });
     }
 
-    const courses = assignedCourses.map((c) => c.Course);
+    const courses = assignedCourses.map((c) => {
+      return {
+        id: c.Course.id,
+        title: c.Course.title,
+        description: c.Course.description,
+        thumbnailUrl: c.Course.thumbnailUrl,
+        grantedAt: c.grantedAt
+      }
+
+    });
     res.json(courses);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener tus cursos', error });
@@ -51,20 +62,24 @@ export const getMyCourses = async (req: any, res: any) => {
 
 export const getMyCourseById = async (req: any, res: any) => {
   try {
+    
     const userId = req.user.id;
     const courseId = req.params.courseId
     const assignedCourse = await UserCourse.findOne({
       where: { userId, courseId },
       include: [{
         model: Course,
-        include: [Lesson]
+        include: [{
+          model: Module,
+          include: [Lesson]
+        }]
       }],
     });
-
+    
     if (!assignedCourse) {
       return res.status(404).json({ message: 'No tenés cursos asignados' });
     }
-
+    
     const courses = assignedCourse.Course
     res.json(courses);
   } catch (error) {
@@ -73,9 +88,9 @@ export const getMyCourseById = async (req: any, res: any) => {
 };
 
 export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
-  
+
   const userId = (req as any).user.id; // asumimos que isAuth ya setea req.user
-  const { courseId, lessonId } = req.params;
+  const { courseId, lessonId, moduleId } = req.params;
 
   try {
     // Verificar que el usuario esté inscripto al curso
@@ -89,19 +104,19 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
     if (!userCourse) {
       return res.status(403).json({ message: 'No estás inscripto a este curso.' });
     }
-    
+
     // Buscar la lección dentro del curso
     const lesson = await Lesson.findOne({
       where: {
         id: lessonId,
-        courseId,
+        moduleId,
       },
     });
-    
+
 
     if (!lesson) {
       return res.status(404).json({ message: 'Lección no encontrada.' });
-    }    
+    }
     return res.json(lesson);
   } catch (error) {
     console.error('Error al obtener lección:', error);

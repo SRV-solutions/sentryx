@@ -65,7 +65,7 @@ const App = () => {
           />
 
           <Route
-            path="/curso/:courseId/clase/:classId"
+            path="/curso/:courseId/modulo/:moduleId/clase/:classId"
             element={
               <ProtectedRoute>
                 <ClassDetail />

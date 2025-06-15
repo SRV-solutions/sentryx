@@ -17,15 +17,16 @@ import { isAuth, checkPermission } from '../middlewares/auth';
 const router = Router();
 
 // Rutas para usuarios
-router.get('/profile', isAuth, checkPermission(Entity.USERS, Action.READ), getMyOwnUser);
 router.post('/login', login);
-router.get('/', isAuth, checkPermission(Entity.USERS, Action.READ), getAllUsers);
-router.get('/:id', isAuth, checkPermission(Entity.USERS, Action.READ), getUser);
-router.post('/', createUser);
+router.get('/', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getAllUsers);
+router.get('/:id', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getUser);
+router.post('/', isAuth, checkPermission(Entity.USERS, Action.CREATE), createUser);
 router.post('/register', isAuth, checkPermission(Entity.USERS, Action.CREATE), register);
 router.patch('/update/:id', isAuth, checkPermission(Entity.USERS, Action.UPDATE), updateUser)
-router.patch('/update', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)
 router.put('/:id/change-password', isAuth, checkPermission(Entity.USERS, Action.UPDATE), changePassword);
+
+router.get('/profile', isAuth, checkPermission(Entity.USERS, Action.READ), getMyOwnUser);
+router.patch('/update', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)
 router.put('/change-password', isAuth, checkPermission(Entity.USERS, Action.READ), changeMyOwnPassword);
 
 

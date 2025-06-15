@@ -30,7 +30,8 @@ const MyCourseDetail = () => {
         }
 
         if (!res.ok) {
-          setError('Ocurrió un error al cargar los cursos.');
+          const data = await res.json()
+          setError(data ? data.message :'Ocurrió un error al cargar los cursos.');
           return;
         }
 
@@ -46,7 +47,6 @@ const MyCourseDetail = () => {
 
   if (error) return <p className={styles.error}>{error}</p>;
   if (!courses.length) return <p className={styles.loading}>Cargando cursos...</p>;
-  console.log(courses);
 
   return (
     <div className={`${styles.container} ${darkMode ? styles.darkContainer : ''}`}>
@@ -54,17 +54,16 @@ const MyCourseDetail = () => {
 
       <div className={styles.cards}>
         {courses.length !== 0 ?
-          courses?.map((Course, index) => (
+          courses?.map((course, index) => (
             <div
               key={index}
-              className={styles.card}
-              onClick={() => navigate(`/curso/${Course.id}`)}
-              style={{ cursor: 'pointer' }}
+              className={`${styles.card} ${darkMode ? styles.darkCard : ''}`}
+              onClick={() => navigate(`/curso/${course.id}`)}
             >
-              {Course.thumbnailUrl && (
+              {course.thumbnailUrl && (
                 <img
-                  src={Course.thumbnailUrl}
-                  alt={`Miniatura de ${Course.title}`}
+                  src={course.thumbnailUrl}
+                  alt={`Miniatura de ${course.title}`}
                   style={{
                     width: '100%',
                     borderRadius: '8px',
@@ -74,9 +73,9 @@ const MyCourseDetail = () => {
                   }}
                 />
               )}
-              <h3>{Course.title}</h3>
-              <p><strong>Descripción:</strong> {Course.description}</p>
-              <p><strong>Inscripto desde:</strong> {new Date(Course.grantedAt).toLocaleDateString()}</p>
+              <h3>{course.title}</h3>
+              <p><strong>Descripción:</strong> {course.description}</p>
+              <p><strong>Inscripto desde:</strong> {new Date(course.grantedAt).toLocaleDateString()}</p>
             </div>
           )) : 'Usted no posee cursos aun'}
 

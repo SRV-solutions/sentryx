@@ -1,15 +1,19 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import Chat from './Chat';
+import User from './User';
 
 class ChatMessage extends Model {
   public id!: number;
   public chatId!: number;
-  public sender!: 'user' | 'assistant';
+  public senderId!: number | null;
   public message!: string;
+  public isAssistant!: boolean;
+
 
   public static associate() {
     ChatMessage.belongsTo(Chat, { foreignKey: 'chatId' });
+    ChatMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
   }
 }
 
@@ -27,9 +31,17 @@ ChatMessage.init({
       key: 'id',
     },
   },
-  sender: {
-    type: DataTypes.ENUM('user', 'assistant'),
-    allowNull: false,
+  senderId: {
+    type: DataTypes.INTEGER,
+    allowNull: true, // null si es el assistant
+    references: {
+      model: 'User',
+      key: 'id',
+    },
+  },
+  isAssistant: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: false,
   },
   message: {
     type: DataTypes.TEXT,

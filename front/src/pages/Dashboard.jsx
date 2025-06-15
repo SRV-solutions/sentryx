@@ -1,12 +1,10 @@
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { useNavigate } from 'react-router-dom';
 import NotificationList from '../components/NotificationList';
 import styles from './Dashboard.module.css';
 import MyCourseDetail from './MyCourseDetail';
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const { darkMode } = useTheme();
 
@@ -14,7 +12,7 @@ const Dashboard = () => {
     <div className={`${styles.dashboardLayout} ${darkMode ? styles.dark : ''}`}>
       <div className={styles.dashboard}>
         <div className={styles.header}>
-          <h1 className={styles.title}>Bienvenido, {user.firstName}</h1>
+          <h1 className={styles.title}>¡Hola {user.userData.firstName}!</h1>
         </div>
 
         {/* CURSOS */}

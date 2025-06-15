@@ -1,16 +1,18 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import Course from './Course';
+import Module from './Module';
 
 class Lesson extends Model {
   public id!: number;
-  public courseId!: number;
+  public moduleId!: number;  // nuevo campo
   public title!: string;
+  public description!: string;
   public youtubeUrl!: string;
   public order!: number;
 
   public static associate() {
-    Lesson.belongsTo(Course, { foreignKey: 'courseId' });
+    Lesson.belongsTo(Module, { foreignKey: 'moduleId' });
   }
 }
 
@@ -20,13 +22,13 @@ Lesson.init({
     primaryKey: true,
     autoIncrement: true,
   },
-  courseId: {
+  moduleId: {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Course',
+      model: 'Module',
       key: 'id',
-    },
+    }
   },
   title: {
     type: DataTypes.STRING,
@@ -44,7 +46,6 @@ Lesson.init({
     type: DataTypes.INTEGER,
     allowNull: false,
   },
-
 }, {
   sequelize,
   modelName: 'Lesson',

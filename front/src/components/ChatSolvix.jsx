@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import {
     Box,
@@ -23,20 +23,47 @@ const ChatSolvixComponent = () => {
     const [messages, setMessages] = useState([
         { sender: 'Solvix', text: 'Hola 👋 ¿En qué puedo ayudarte hoy?' }
     ]);
+
+    const [chatId, setChatId] = useState(null);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const { authFetch } = useAuth();
     const { darkMode } = useTheme();
 
+    useEffect(() => {
+        const initChat = async () => {
+            try {
+                const res = await authFetch(`${apiUrl}/chats/my-ai-chat`);
+                const data = await res.json();
+                
+                setChatId(data.chatId);
+
+                const messagesRes = await authFetch(`${apiUrl}/chats/${data.chatId}/messages`);
+                const msgs = await messagesRes.json();
+                const parsedMessages = msgs.map(m => ({
+                    sender: m.isAssistant ? 'Solvix' : 'Tú',
+                    text: m.message
+                }));
+                setMessages([{ sender: 'Solvix', text: 'Hola 👋 ¿En qué puedo ayudarte hoy?' }, ...parsedMessages]);
+            } catch (err) {
+                console.error('Error al inicializar el chat:', err);
+            }
+        };
+
+        initChat();
+    }, []);
+
+
     const sendMessage = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || !chatId) return;
+
         const newMessage = { sender: 'Tú', text: input };
         setMessages(prev => [...prev, newMessage]);
         setInput('');
         setLoading(true);
 
         try {
-            const res = await authFetch(`${apiUrl}/api/ai/chat`, {
+            const res = await authFetch(`${apiUrl}/chats/${chatId}/messages/ai`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: input }),
@@ -50,6 +77,7 @@ const ChatSolvixComponent = () => {
             setLoading(false);
         }
     };
+
 
     const handleKeyDown = e => {
         if (e.key === 'Enter' && !e.shiftKey) {
@@ -94,7 +122,7 @@ const ChatSolvixComponent = () => {
                                 src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png"
                             />
                         </ListItemAvatar>
-                        <ListItemText primary="Solvix" secondary="Powered By Sentryx" />
+                        <ListItemText primary="Solvix" secondary="" />
                     </ListItem>
                 </List>
             </Box>

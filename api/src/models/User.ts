@@ -4,6 +4,8 @@ import { sequelize } from '../config/database';
 import Chat from './Chat';
 import UserCourse from './UserCourse';
 import Role from './Role';
+import Friendship from './Friendship';
+
 
 class User extends Model {
   public id!: number;
@@ -20,6 +22,12 @@ class User extends Model {
     User.belongsTo(Role, { foreignKey: 'roleId' });
     User.hasMany(Chat, { foreignKey: 'userId' });
     User.hasMany(UserCourse, { foreignKey: 'userId' });
+        // Asociaciones para amistades (Friendships)
+    // Amistades donde el usuario es quien envía la solicitud
+    User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'friendRequestsSent' });
+
+    // Amistades donde el usuario es quien recibe la solicitud
+    User.hasMany(Friendship, { foreignKey: 'receiverId', as: 'friendRequestsReceived' });
   }
 }
 
