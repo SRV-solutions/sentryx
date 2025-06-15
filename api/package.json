@@ -7,6 +7,7 @@
     "start": "ls -a && ls dist/ && node dist/server.js",
     "dev": "ts-node-dev --respawn src/server.ts"
   },
+  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC",
