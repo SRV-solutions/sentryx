@@ -15,7 +15,7 @@ import { useTheme } from './context/ThemeContext'; // Importa el contexto
 
 const App = () => {
   const location = useLocation();
-  const hideSidebar = location.pathname === '/login';
+  const hideSidebar = location.pathname === '/login' || location.pathname === '/login/';
   const { darkMode } = useTheme(); // Usamos el contexto
 
   return (
