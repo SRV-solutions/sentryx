@@ -66,7 +66,7 @@ app.use('/lessons', lessonRotes)
 // app.use('/friends', friendRoutes)
 
 
-const forceSync = process.env.FORCE_SYNC === "true";
+const forceSync = true
 
 sequelize.sync({ force: forceSync }).then(() => {
   if (forceSync) {

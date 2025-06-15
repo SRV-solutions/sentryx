@@ -31,7 +31,7 @@ const Sidebar = () => {
         { to: '/dashboard', label: 'Dashboard', icon: <Home /> },
         { to: '/perfil', label: 'Perfil', icon: <User /> },
         { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
-        { to: '/chat', label: 'Chat IA', icon: <MessageCircle /> },
+        { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
     ];
 
     return (
