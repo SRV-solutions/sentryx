@@ -1,7 +1,7 @@
 {
   "name": "sentryx",
   "version": "1.0.0",
-  "main": "dist/server.js",
+  "main": "index.js",
   "scripts": {
     "build": "npx tsc",
     "start": "ls -a && ls dist/ && node dist/server.js",
