@@ -11,13 +11,16 @@ import CourseDetail from './pages/CourseDetail.jsx';
 import ClassDetail from './pages/ClassDetail.jsx';
 import MyCourseDetail from './pages/MyCourseDetail.jsx';
 import { useTheme } from './context/ThemeContext'; // Importa el contexto
-
+import ReportBugButton from './components/ReportBugButton.jsx';
 
 const App = () => {
   const location = useLocation();
   const hideSidebar = location.pathname === '/login' || location.pathname === '/login/';
   const { darkMode } = useTheme(); // Usamos el contexto
-
+  const handleReport = () => {
+    // Acá podés abrir un modal, redireccionar a un formulario o abrir un mail
+    window.open('https://forms.gle/SnTBRPF3p7CEK6mb8', '_blank'); // ejemplo
+  };
   return (
     <div className={`app-container ${darkMode ? 'dark' : ''}`}>
       {!hideSidebar && <Sidebar />}
@@ -47,7 +50,7 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-           <Route
+          <Route
             path="/curso"
             element={
               <ProtectedRoute>
@@ -76,6 +79,7 @@ const App = () => {
           <Route path="/login/*" element={<Login />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        <ReportBugButton onClick={handleReport} />
       </div>
     </div>
   );
