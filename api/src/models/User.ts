@@ -10,7 +10,7 @@ import Friendship from './Friendship';
 class User extends Model {
   public id!: number;
   public username!: string;
-  public fistName!: string;
+  public firstName!: string;
   public lastName!: string;
   public email!: string;
   public password!: string; // Campo para almacenar la contraseña
@@ -42,7 +42,7 @@ User.init(
       type: DataTypes.STRING,
       allowNull: false,
     },
-    fistName: {
+    firstName: {
       type: DataTypes.STRING,
       allowNull: false,
     },

@@ -65,8 +65,8 @@ export const getMyFriends = async (req: any, res: any) => {
       ]
     },
     include: [
-      { model: User, as: 'requester', attributes: ['id', 'fistName', 'lastName', 'username'] },
-      { model: User, as: 'receiver', attributes: ['id', 'fistName', 'lastName', 'username'] }
+      { model: User, as: 'requester', attributes: ['id', 'firstName', 'lastName', 'username'] },
+      { model: User, as: 'receiver', attributes: ['id', 'firstName', 'lastName', 'username'] }
     ]
   });
 
@@ -75,7 +75,7 @@ export const getMyFriends = async (req: any, res: any) => {
     return {
       id: friend.id,
       username: friend.username,
-      name: `${friend.fistName} ${friend.lastName}`,
+      name: `${friend.firstName} ${friend.lastName}`,
     };
   });
 
@@ -92,11 +92,11 @@ export const searchUsers = async (req: any, res: any) => {
   const users = await User.findAll({
     where: {
       [Op.or]: [
-        { fistName: { [Op.iLike]: `%${q}%` } },
+        { firstName: { [Op.iLike]: `%${q}%` } },
         { lastName: { [Op.iLike]: `%${q}%` } }
       ]
     },
-    attributes: ['id', 'fistName', 'lastName', 'username']
+    attributes: ['id', 'firstName', 'lastName', 'username']
   });
 
   res.json(users);

@@ -60,7 +60,7 @@ export const checkPermission = (entity: Entity, action: Action) => {
       if (!role) {
         return res.status(404).json({ message: 'Rol no encontrado.' });
       }
-      
+
       const hasPermission = role.Permissions?.some((p: any) => p.entity === entity && p.action === action);
 
       if (!hasPermission) {

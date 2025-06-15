@@ -53,7 +53,7 @@ export const getUser = async (req: Request, res: any) => {
 };
 
 export const createUser = async (req: Request, res: any) => {
-  const { username, fistName, lastName, email, password, roleId } = req.body;
+  const { username, firstName, lastName, email, password, roleId } = req.body;
   try {
     // Validar si el rol existe
     const role = await Role.findByPk(roleId);
@@ -70,7 +70,7 @@ export const createUser = async (req: Request, res: any) => {
       email,
       password: hashedPassword,
       roleId,
-      fistName,
+      firstName,
       lastName
     });
 
@@ -144,7 +144,7 @@ export const login = async (req: Request, res: any) => {
       userData: {
         id: user.id,
         email: user.email,
-        firstName: user.fistName,
+        firstName: user.firstName,
         lastName: user.lastName,
         roleId: user.roleId,
         roleName: user.Role?.roleName,

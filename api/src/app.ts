@@ -19,7 +19,7 @@ import UserCourse from './models/UserCourse';
 import Module from './models/Module';
 
 // import limiter from './middlewares/rateLimit';
-import { seedDatabase } from './utils/seedDataBase';
+import { seedDatabase, seedUsers } from './utils/seedDataBase';
 
 User.associate();
 Role.associate();
@@ -68,11 +68,10 @@ app.use('/lessons', lessonRoutes)
 const forceSync = process.env.FORCE_SYNC === "true";
 
 sequelize.sync({ force: forceSync }).then(() => {
-  if (forceSync) {
-    seedDatabase()
-    console.log("Seeder ejecutado con exito");
-
-  }
+  // if (forceSync) {
+  //   seedDatabase()
+  //   console.log("Seeder ejecutado con exito");
+  // }
   console.log('Database connected and synchronized');
 }).catch(err => {
   console.error('Unable to connect to the database:', err);

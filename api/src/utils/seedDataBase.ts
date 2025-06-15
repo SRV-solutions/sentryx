@@ -10,7 +10,7 @@ import Lesson from '../models/Lesson';
 import UserCourse from '../models/UserCourse';
 
 import { PYTHON_COURSE, BACKEND_AVANZADO, INTRODUCCION_BACKEND } from './courses';
-
+import { users } from './firstUsers'
 const createModulesAndLessons = async (courseId: number, data: any[]) => {
     for (let i = 0; i < data.length; i++) {
         const mod = data[i];
@@ -69,10 +69,25 @@ export const seedDatabase = async () => {
             email: 'marcos.costa@wearesrv.com',
             password: hashedPassword,
             roleId: adminRole.id,
-            fistName: 'Marcos',
+            firstName: 'Marcos',
             lastName: 'Costa',
         });
-
+        const newUser2 = await User.create({
+            username: 'Fab333',
+            email: 'fabio.gomez@wearesrv.com',
+            password: hashedPassword,
+            roleId: adminRole.id,
+            firstName: 'Fabio',
+            lastName: 'Gomez',
+        });
+        const newUser3 = await User.create({
+            username: 'Pablinki',
+            email: 'agustin.fernandez@wearesrv.com',
+            password: hashedPassword,
+            roleId: adminRole.id,
+            firstName: 'Agustin',
+            lastName: 'Amiguito Fernandez',
+        });
         // Cursos
         const courses = [
             {
@@ -107,12 +122,53 @@ export const seedDatabase = async () => {
                 courseId: course.id,
                 grantedAt: new Date(),
             });
-
+            await UserCourse.create({
+                userId: newUser2.id,
+                courseId: course.id,
+                grantedAt: new Date(),
+            });
+            await UserCourse.create({
+                userId: newUser3.id,
+                courseId: course.id,
+                grantedAt: new Date(),
+            });
             await createModulesAndLessons(course.id, courseData.content);
         }
-
+        await seedUsers()
         console.log('✅ Seed ejecutado correctamente.');
     } catch (error) {
         console.error('❌ Error en el seed:', error);
     }
+};
+
+export const seedUsers = async () => {
+  for (let i = 0; i < users.length; i++) {
+    const u = users[i];
+
+    try {
+      const hashedPassword = await bcrypt.hash(u.password, 10);
+
+      const newUser = await User.create({
+        email: u.email,
+        password: hashedPassword,
+        firstName: u.nombre,
+        lastName: u.apellido,
+        username: u.email.split('@')[0], // podés personalizar esto
+        roleId: 2 // o el ID del rol que corresponda
+      });
+
+      for (let j = 0; j < u.cursos.length; j++) {
+        const courseId = u.cursos[j];
+        await UserCourse.create({
+          userId: newUser.id,
+          courseId: courseId,
+          grantedAt: new Date()
+        });
+      }
+
+      console.log(`✅ Usuario creado: ${newUser.email}`);
+    } catch (error:any) {
+      console.error(`❌ Error con el usuario ${u.email}:`, error.message);
+    }
+  }
 };
