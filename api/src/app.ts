@@ -7,6 +7,7 @@ import reportRoutes from './routes/reportRoutes'
 import chatRoutes from './routes/chatRoutes'
 import courseRoutes from './routes/courseRoutes'
 import lessonRoutes from './routes/lessonRoutes'
+import embeddingRoutes from './routes/embeddingRoutes';
 
 import Role from './models/Role';
 import User from './models/User';
@@ -64,6 +65,7 @@ app.use('/roles', roleRoutes);
 app.use('/reports', reportRoutes)
 app.use('/courses', courseRoutes)
 app.use('/lessons', lessonRoutes)
+app.use('/embedding', embeddingRoutes);
 // app.use('/friends', friendRoutes)
 
 

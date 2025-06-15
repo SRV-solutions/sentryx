@@ -46,6 +46,19 @@ export const isAuth = (req: AuthRequest, res: any, next: NextFunction) => {
   });
 };
 
+// src/middlewares/verifyEmbeddingToken.ts
+
+export const verifyEmbeddingToken = (req: any, res: any, next: any) => {
+  const token = req.headers['x-embedding-token'];
+
+  if (!token || token !== process.env.EMBEDDING_SECRET) {
+    return res.status(403).json({ error: 'No autorizado' });
+  }
+
+  next();
+};
+
+
 export const checkPermission = (entity: Entity, action: Action) => {
   return async (req: any, res: any, next: NextFunction) => {
     if (!req.user) {

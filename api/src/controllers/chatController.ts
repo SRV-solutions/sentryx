@@ -1,61 +1,11 @@
 import openai from '../utils/openai';
 import Chat from '../models/Chat';
 import ChatMessage from '../models/ChatMessage';
-// Controller
+import pgvector from 'pgvector/pg';
+import { pool } from '../embedding/pgClient'
+
 import { ChatType } from '../models/enums'
 
-export const chatWithGPT = async (req: any, res: any) => {
-    try {
-        const { id: userId } = req.user;
-        const { message } = req.body;
-
-        if (!message) {
-            return res.status(400).json({ error: 'El campo "message" es requerido.' });
-        }
-
-        let chat = await Chat.findOne({ where: { userId }, order: [['createdAt', 'DESC']] });
-
-        if (!chat) {
-            chat = await Chat.create({ userId });
-        }
-
-        // Guarda el mensaje del usuario
-        await ChatMessage.create({
-            chatId: chat.id,
-            senderId: userId,
-            isAssistant: false,
-            message,
-        });
-
-
-        // const completion = await openai.chat.completions.create({
-        //     model: 'gpt-3.5-turbo',
-        //     messages: [
-        //         { role: 'user', content: message }
-        //     ],
-        //     max_tokens: 512,
-        //     temperature: 0.7
-        // });
-        // const respuesta = completion.choices[0].message.content;
-
-        const reply = "Respuesta simulada"; // reemplazá con la real
-
-        // const completion = await openai.chat.completions.create(...)
-
-        // Guarda la respuesta de la IA
-        await ChatMessage.create({
-            chatId: chat.id,
-            senderId: null,
-            isAssistant: true,
-            message: reply,
-        });
-
-        res.json({ reply });
-    } catch (error) {
-        console.error('Error en chatWithGPT:', error);
-        res.status(500).json({ error: 'Error al comunicarse con la IA' });
-    }
-};
 
 export const chatWithGPTInChat = async (req: any, res: any) => {
     try {
@@ -67,13 +17,11 @@ export const chatWithGPTInChat = async (req: any, res: any) => {
             return res.status(400).json({ error: 'El campo "message" es requerido.' });
         }
 
-        // Verifica que el chat pertenezca al usuario
         const chat = await Chat.findOne({ where: { id: chatId, userId } });
         if (!chat) {
             return res.status(404).json({ error: 'Chat no encontrado o no pertenece al usuario.' });
         }
 
-        // Guarda el mensaje del usuario
         await ChatMessage.create({
             chatId: chat.id,
             senderId: userId,
@@ -81,22 +29,38 @@ export const chatWithGPTInChat = async (req: any, res: any) => {
             message,
         });
 
-        // Aquí iría la lógica real con OpenAI:
-        // const completion = await openai.chat.completions.create(...)
-        
+        // 1. Obtener el embedding del mensaje
+        const embeddingResponse = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: message,
+        });
+        const embedding = pgvector.toSql(embeddingResponse.data[0].embedding);
+
+        // 2. Buscar los documentos más cercanos
+        const { rows } = await pool.query(
+            `SELECT content
+             FROM documents
+             ORDER BY embedding <-> $1
+             LIMIT 5`,
+            [embedding]
+        );
+
+        const context = rows.map(r => r.content).join('\n');
+
+        // 3. Enviar el mensaje con contexto a OpenAI
         const completion = await openai.chat.completions.create({
-            model: 'gpt-3.5-turbo',
+            model: 'gpt-4',
             messages: [
-                { role: 'user', content: message }
+                { role: 'system', content: 'Respondé como si fueras un experto de SRV, usando solo información relevante de contexto.' },
+                { role: 'user', content: `Contexto:\n${context}\n\nPregunta:\n${message}` },
             ],
             max_tokens: 512,
-            temperature: 0.7
+            temperature: 0.7,
         });
-        // const respuesta = completion.choices[0].message.content;
-        
+
         const reply = completion.choices[0].message.content;
 
-        // Guarda la respuesta de la IA
+        // 4. Guardar respuesta
         await ChatMessage.create({
             chatId: chat.id,
             senderId: null,
@@ -105,12 +69,12 @@ export const chatWithGPTInChat = async (req: any, res: any) => {
         });
 
         res.json({ reply });
+
     } catch (error) {
         console.error('Error en chatWithGPTInChat:', error);
         res.status(500).json({ error: 'Error al comunicarse con la IA' });
     }
 };
-
 
 
 export const getChatMessages = async (req: any, res: any) => {
