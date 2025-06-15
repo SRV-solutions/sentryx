@@ -7,7 +7,6 @@ import reportRoutes from './routes/reportRoutes'
 import chatRoutes from './routes/chatRoutes'
 import courseRoutes from './routes/courseRoutes'
 import lessonRoutes from './routes/lessonRoutes'
-// import friendRoutes from './routes/friendRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
