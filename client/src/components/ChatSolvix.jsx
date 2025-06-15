@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { useRef } from 'react';
+
 import {
     Box,
     TextField,
@@ -23,6 +25,7 @@ const ChatSolvixComponent = () => {
     const [messages, setMessages] = useState([
         { sender: 'Solvix', text: 'Hola 👋 ¿En qué puedo ayudarte hoy?' }
     ]);
+    const [isTyping, setIsTyping] = useState(false);
 
     const [chatId, setChatId] = useState(null);
     const [input, setInput] = useState('');
@@ -35,7 +38,7 @@ const ChatSolvixComponent = () => {
             try {
                 const res = await authFetch(`${apiUrl}/chats/my-ai-chat`);
                 const data = await res.json();
-                
+
                 setChatId(data.chatId);
 
                 const messagesRes = await authFetch(`${apiUrl}/chats/${data.chatId}/messages`);
@@ -53,6 +56,13 @@ const ChatSolvixComponent = () => {
         initChat();
     }, []);
 
+    const messagesEndRef = useRef(null);
+
+    useEffect(() => {
+        if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+    }, [messages]);
 
     const sendMessage = async () => {
         if (!input.trim() || !chatId) return;
@@ -61,6 +71,7 @@ const ChatSolvixComponent = () => {
         setMessages(prev => [...prev, newMessage]);
         setInput('');
         setLoading(true);
+        setIsTyping(true);
 
         try {
             const res = await authFetch(`${apiUrl}/chats/${chatId}/messages/ai`, {
@@ -75,6 +86,7 @@ const ChatSolvixComponent = () => {
             setMessages(prev => [...prev, { sender: 'Solvix', text: '⚠️ Error al comunicarse con la IA.' }]);
         } finally {
             setLoading(false);
+            setIsTyping(false);
         }
     };
 
@@ -229,6 +241,48 @@ const ChatSolvixComponent = () => {
                             </Box>
                         );
                     })}
+                    {isTyping && (
+                        <Box
+                            sx={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'flex-start',
+                                mb: 1.5,
+                                px: 1,
+                            }}
+                        >
+                            <Typography
+                                variant="caption"
+                                sx={{
+                                    color: darkMode ? '#aaa' : '#555',
+                                    fontWeight: 'bold',
+                                    mb: 0.3,
+                                }}
+                            >
+                                Solvix
+                            </Typography>
+                            <Paper
+                                elevation={3}
+                                sx={{
+                                    maxWidth: '50%',
+                                    p: 2,
+                                    bgcolor: darkMode ? '#333' : '#e0e0e0',
+                                    color: darkMode ? '#eee' : 'black',
+                                    borderRadius: 2,
+                                    fontSize: '0.95rem',
+                                }}
+                            >
+                                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                                    <Dot />
+                                    <Dot delay="0.2s" />
+                                    <Dot delay="0.4s" />
+                                </Box>
+                            </Paper>
+                        </Box>
+                    )}
+
+                    <div ref={messagesEndRef} />
+
                 </Paper>
 
                 <Box className={styles.inputArea} sx={{ mt: 1 }}>
@@ -278,5 +332,23 @@ const ChatSolvixComponent = () => {
         </Box>
     );
 };
+const Dot = ({ delay = '0s' }) => (
+    <Box
+        component="span"
+        sx={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            backgroundColor: '#999',
+            animation: 'dotPulse 1s infinite',
+            animationDelay: delay,
+            '@keyframes dotPulse': {
+                '0%': { transform: 'scale(1)', opacity: 1 },
+                '50%': { transform: 'scale(1.5)', opacity: 0.6 },
+                '100%': { transform: 'scale(1)', opacity: 1 },
+            },
+        }}
+    />
+);
 
 export default ChatSolvixComponent;
