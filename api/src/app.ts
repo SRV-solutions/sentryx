@@ -3,11 +3,11 @@ import { sequelize } from './config/database';
 
 import userRoutes from './routes/userRoutes';
 import roleRoutes from './routes/roleRoutes';
-import reportRoutes from './routes/reportRoute'
+import reportRoutes from './routes/reportRoutes'
 import chatRoutes from './routes/chatRoutes'
 import courseRoutes from './routes/courseRoutes'
-import lessonRotes from './routes/lessonRoutes'
-import friendRoutes from './routes/friendRoutes'
+import lessonRoutes from './routes/lessonRoutes'
+// import friendRoutes from './routes/friendRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
@@ -62,7 +62,7 @@ app.use('/users', userRoutes);
 app.use('/roles', roleRoutes);
 app.use('/reports', reportRoutes)
 app.use('/courses', courseRoutes)
-app.use('/lessons', lessonRotes)
+app.use('/lessons', lessonRoutes)
 // app.use('/friends', friendRoutes)
 
 
