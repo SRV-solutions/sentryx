@@ -52,7 +52,7 @@ app.use((req: Request, res: any, next: NextFunction) => {
   next();
 });
 
-app.get('/hola', (_req, res) => {
+app.get('/', (_req, res) => {
   res.send('Iam in')
 });
 
