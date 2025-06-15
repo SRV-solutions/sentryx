@@ -18,7 +18,7 @@ import Lesson from './models/Lesson';
 import UserCourse from './models/UserCourse';
 import Module from './models/Module';
 
-import limiter from './middlewares/rateLimit';
+// import limiter from './middlewares/rateLimit';
 import { seedDatabase } from './utils/seedDataBase';
 
 User.associate();
@@ -34,7 +34,7 @@ Module.associate()
 const app = express();
 
 app.use(express.json());
-app.use(limiter)
+// app.use(limiter)
 app.use((req: Request, res: any, next: NextFunction) => {
   const allowedOrigins = ['http://localhost:5173', 'https://sentryx.wearesrv.com'];
   const origin: any = req.headers.origin;

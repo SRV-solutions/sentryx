@@ -1,10 +1,10 @@
 {
-  "name": "sentryx",
+  "name": "este",
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "build": "npx tsc",
-    "start": "ls -a && ls dist/ && node dist/server.js",
+    "start": "ls -a && node dist/server.js",
     "dev": "ts-node-dev --respawn src/server.ts"
   },
   "keywords": [],
@@ -18,10 +18,8 @@
     "csv-parser": "^3.2.0",
     "dotenv": "^16.5.0",
     "express": "^4.21.2",
-    "express-rate-limit": "^7.5.0",
     "jsonwebtoken": "^9.0.2",
     "multer": "^2.0.0",
-    "openai": "^5.3.0",
     "pg": "^8.13.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.3",
