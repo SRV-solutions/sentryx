@@ -1,10 +1,35 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
 const apiUrl = import.meta.env.VITE_API_URL;
 
+const isTokenExpired = (token) => {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const currentTime = Math.floor(Date.now() / 1000);
+    return payload.exp < currentTime;
+  } catch (error) {
+    return true;
+  }
+};
+
 export const AuthProvider = ({ children }) => {
+  const navigate = useNavigate();
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')) || null);
+
+  // Validar token al montar
+  useEffect(() => {
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    const token = storedUser?.token;
+
+    if (!token || isTokenExpired(token)) {
+      logout();
+      if (window.location.pathname !== '/login') {
+        navigate('/login');
+      }
+    }
+  }, []);
 
   const login = async (email, password) => {
     try {
@@ -15,10 +40,9 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (!res.ok) throw new Error('Error al iniciar sesión');
-      
+
       const data = await res.json();
       localStorage.setItem('user', JSON.stringify(data));
-      
       setUser(data);
     } catch (error) {
       console.error(error);
@@ -48,7 +72,7 @@ export const AuthProvider = ({ children }) => {
     });
 
     if (res.status === 401 || res.status === 403) {
-      logout(); // Token inválido o expirado
+      logout();
       return null;
     }
 
