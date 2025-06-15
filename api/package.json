@@ -4,7 +4,7 @@
   "main": "dist/server.js",
   "scripts": {
     "build": "npx tsc",
-    "start": "ls -a && node dist/server.js",
+    "start": "ls -a && ls dist/ && node dist/server.js",
     "dev": "ts-node-dev --respawn src/server.ts"
   },
   "keywords": [],
