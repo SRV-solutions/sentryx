@@ -12,6 +12,7 @@ import ClassDetail from './pages/ClassDetail.jsx';
 import MyCourseDetail from './pages/MyCourseDetail.jsx';
 import { useTheme } from './context/ThemeContext'; // Importa el contexto
 import ReportBugButton from './components/ReportBugButton.jsx';
+import FloatingVideoPlayer from './components/FloatingVideoPlayer.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -80,6 +81,7 @@ const App = () => {
           <Route path="*" element={<NotFound />} />
         </Routes>
         <ReportBugButton onClick={handleReport} />
+        <FloatingVideoPlayer />
       </div>
     </div>
   );

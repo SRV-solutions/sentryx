@@ -3,7 +3,16 @@ import Course from '../models/Course';
 import UserCourse from '../models/UserCourse';
 import Lesson from '../models/Lesson';
 import Module from '../models/Module';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+  },
+});
 
 export const getAllCourses = async (req: Request, res: any) => {
   try {
@@ -87,37 +96,46 @@ export const getMyCourseById = async (req: any, res: any) => {
   }
 };
 
-export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
 
-  const userId = (req as any).user.id; // asumimos que isAuth ya setea req.user
+
+export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
+  const userId = (req as any).user.id;
   const { courseId, lessonId, moduleId } = req.params;
 
   try {
-    // Verificar que el usuario esté inscripto al curso
+    // Verificar inscripción al curso
     const userCourse = await UserCourse.findOne({
-      where: {
-        userId,
-        courseId,
-      },
+      where: { userId, courseId },
     });
 
     if (!userCourse) {
       return res.status(403).json({ message: 'No estás inscripto a este curso.' });
     }
 
-    // Buscar la lección dentro del curso
+    // Buscar la lección
     const lesson = await Lesson.findOne({
-      where: {
-        id: lessonId,
-        moduleId,
-      },
+      where: { id: lessonId, moduleId },
     });
-
 
     if (!lesson) {
       return res.status(404).json({ message: 'Lección no encontrada.' });
     }
-    return res.json(lesson);
+
+    // Generar URL firmada si videoPath existe
+    let signedVideoUrl = null;
+    if (lesson.youtubeUrl) {
+      const command = new GetObjectCommand({
+        Bucket: process.env.S3_VIDEO_BUCKET_NAME!,
+        Key: lesson.youtubeUrl,
+      });
+
+      signedVideoUrl = await getSignedUrl(s3, command, { expiresIn: 3600 }); // 1 hora de validez
+    }
+
+    return res.json({
+      ...lesson.toJSON(),
+      videoUrl: signedVideoUrl,
+    });
   } catch (error) {
     console.error('Error al obtener lección:', error);
     return res.status(500).json({ message: 'Error interno del servidor.' });

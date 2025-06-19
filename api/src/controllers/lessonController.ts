@@ -1,5 +1,8 @@
 import Lesson from '../models/Lesson';
 import UserCourse from '../models/UserCourse';
+import LessonComment from '../models/LessonComment';
+import User from '../models/User';
+import { sequelize } from '../config/database';
 
 export const getCourseLessons = async (req: any, res: any) => {
   const userId = req.user.id; // asumimos que lo setea el middleware auth
@@ -28,5 +31,49 @@ export const getCourseLessons = async (req: any, res: any) => {
   } catch (error) {
     console.error('Error al obtener las lecciones', error);
     res.status(500).json({ message: 'Error del servidor', error });
+  }
+};
+
+export const getCommentsByLesson = async (req: any, res: any) => {
+  const { id } = req.params;
+
+  try {
+    const comments = await LessonComment.findAll({
+      where: { lessonId: id },
+      include: [{ model: User, attributes: ['id', 'username', 'firstName', 'lastName'] }],
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Podrías calcular promedio acá y devolverlo también
+    const avgRating: any = await LessonComment
+      .findOne({
+        attributes: [[sequelize.fn('AVG', sequelize.col('rating')), 'avgRating']],
+        where: { lessonId: id },
+        raw: true,
+      });
+
+    res.json({ comments, avgRating: parseFloat(avgRating?.avgRating || 0).toFixed(2) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+export const postCommentToLesson = async (req: any, res: any) => {
+  const { id } = req.params;
+  const userId = req.user.id;
+  const { comment, rating } = req.body;
+
+  if (!comment || !rating || rating < 1 || rating > 5) {
+    return res.status(400).json({ message: 'Comentario o rating inválidos' });
+  }
+
+  try {
+    
+    const newComment = await LessonComment.create({ lessonId: id, userId, comment, rating });
+    res.status(201).json(newComment);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error interno del servidor' });
   }
 };

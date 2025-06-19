@@ -21,6 +21,7 @@ import Module from './models/Module';
 
 // import limiter from './middlewares/rateLimit';
 import { seedDatabase, seedUsers } from './utils/seedDataBase';
+import LessonComment from './models/LessonComment';
 
 User.associate();
 Role.associate();
@@ -31,6 +32,7 @@ Course.associate();
 Lesson.associate();
 UserCourse.associate();
 Module.associate()
+LessonComment.associate()
 
 const app = express();
 

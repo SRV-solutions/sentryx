@@ -1,111 +1,218 @@
-import { useParams } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
+import { useVideoPlayer } from '../context/VideoPlayerContext';
+import ReactPlayer from 'react-player';
+import LessonComments from '../components/LessonComments.jsx';
+import {
+  Box,
+  Typography,
+  Paper,
+  Divider,
+  Button,
+} from '@mui/material';
+
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const ClassDetail = () => {
-    const { courseId, classId, moduleId } = useParams();
-    const { darkMode } = useTheme();
-    const { authFetch } = useAuth();
+  const { courseId, classId, moduleId } = useParams();
+  const { darkMode } = useTheme();
+  const { authFetch } = useAuth();
+  const { setVideoData } = useVideoPlayer();
 
-    const [lesson, setLesson] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [errorMsg, setErrorMsg] = useState('');
+  const [course, setCourse] = useState(null);
+  const [lesson, setLesson] = useState(null);
+  const [relatedLessons, setRelatedLessons] = useState([]);
+  const [videoUrl, setVideoUrl] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [errorMsg, setErrorMsg] = useState('');
+  const playerRef = useRef(null);
 
-    useEffect(() => {
-        const fetchLesson = async () => {
-            try {
-                const userData = localStorage.getItem('user');
-                if (!userData) throw new Error('Usuario no autenticado');
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userData = JSON.parse(localStorage.getItem('user'));
+        if (!userData) throw new Error('Usuario no autenticado');
 
-                const parsedUser = JSON.parse(userData);
-                const res = await authFetch(`${apiUrl}/courses/me/${courseId}/module/${moduleId}/lessons/${classId}`, {
-                    headers: {
-                        Authorization: `Bearer ${parsedUser.token}`,
-                        'Content-Type': 'application/json',
-                    },
-                });
+        const [lessonRes, allLessonsRes] = await Promise.all([
+          authFetch(`${apiUrl}/courses/me/${courseId}/module/${moduleId}/lessons/${classId}`),
+          authFetch(`${apiUrl}/courses/me/${courseId}`),
+        ]);
 
-                if (res.status === 403) return setErrorMsg('No tenés acceso a este curso');
-                if (res.status === 404) return setErrorMsg('Lección no encontrada');
-                if (!res.ok) throw new Error('Error al obtener la lección');
+        if (!lessonRes.ok || !allLessonsRes.ok) throw new Error('Error al obtener datos');
 
-                const data = await res.json();
-                setLesson(data);
-            } catch (err) {
-                console.error(err);
-                setErrorMsg('Ocurrió un error al cargar la clase.');
-            } finally {
-                setLoading(false);
-            }
-        };
+        const lessonData = await lessonRes.json();
+        const allLessonsData = await allLessonsRes.json();
 
-        fetchLesson();
-    }, [courseId, classId]);
+        setLesson(lessonData);
+        setVideoUrl(lessonData.videoUrl);
+        setVideoData({ url: lessonData.videoUrl, title: lessonData.title, classPath: `/curso/${courseId}/modulo/${moduleId}/clase/${classId}` });
 
-    if (loading) return <p style={{ padding: '2rem' }}>Cargando clase...</p>;
-    if (errorMsg) return <p style={{ color: 'red', padding: '2rem' }}>{errorMsg}</p>;
-    if (!lesson) return null;
+        const allLessons = allLessonsData.Modules.flatMap((mod) =>
+          mod.Lessons.map((lesson) => ({ ...lesson, moduleId: mod.id }))
+        );
 
-    const videoId = extractYoutubeId(lesson.youtubeUrl);
-    const videoUrl = videoId ? `https://www.youtube.com/embed/${videoId}?rel=0` : null;
+        const filtered = allLessons.filter((l) => l.id !== lessonData.id);
+        setCourse(allLessonsData)
+        setRelatedLessons(filtered);
+        setRelatedLessons(filtered);
+      } catch (err) {
+        console.error(err);
+        setErrorMsg('Ocurrió un error al cargar la clase.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    const themeStyles = {
+    fetchData();
+  }, [courseId, classId, moduleId]);
+
+  useEffect(() => {
+    const trySeekToSavedTime = () => {
+      const stored = localStorage.getItem('resumeTime');
+      if (stored) {
+        const { path, time } = JSON.parse(stored);
+        if (path === window.location.pathname && playerRef.current) {
+          playerRef.current.seekTo(time, 'seconds');
+        }
+      }
+    };
+
+    // Esperamos a que el player esté listo (puede tomar un pelín de tiempo)
+    const timeout = setTimeout(trySeekToSavedTime, 500);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  const previousClassIdRef = useRef(classId);
+
+  useEffect(() => {
+    return () => {
+      const currentTime = playerRef.current?.getCurrentTime?.();
+      if (currentTime && videoUrl) {
+        localStorage.setItem(
+          'resumeTime',
+          JSON.stringify({
+            path: `/curso/${courseId}/modulo/${moduleId}/clase/${previousClassIdRef.current}`,
+            time: currentTime,
+          })
+        );
+      }
+    };
+  }, [classId]); // Se ejecuta cuando classId cambia
+
+  useEffect(() => {
+    previousClassIdRef.current = classId;
+  }, [classId]);
+
+
+  if (loading) return <p style={{ padding: '2rem' }}>Cargando clase...</p>;
+  if (errorMsg) return <p style={{ color: 'red', padding: '2rem' }}>{errorMsg}</p>;
+  if (!lesson) return null;
+
+  return (
+    <Box
+      sx={{
         backgroundColor: darkMode ? '#121212' : '#f5f5f5',
-        color: darkMode ? '#ffffff' : '#222222',
-        transition: 'all 0.3s ease',
+        color: darkMode ? '#fff' : '#000',
         minHeight: '100vh',
-        padding: '2rem',
-        fontFamily: 'Segoe UI, Roboto, sans-serif',
-    };
+        p: 2,
+        display: 'flex',
+        gap: 3,
+        flexDirection: { xs: 'column', md: 'row' },
+      }}
+    >
+      {/* Columna izquierda: Video + Comentarios */}
+      <Box sx={{ flex: 3 }}>
+        <Paper
+          elevation={3}
+          sx={{
+            borderRadius: 3,
+            p: 3,
+            backgroundColor: darkMode ? '#1f1f1f' : '#fff',
+          }}
+        >
+          <Typography variant="h4" gutterBottom>
+            {lesson.title}
+          </Typography>
+          {lesson.description && (
+            <Typography
+              sx={{ mb: 2, color: darkMode ? '#bbb' : '#555', lineHeight: 1.6 }}
+            >
+              {lesson.description}
+            </Typography>
+          )}
 
-    const cardStyle = {
-        backgroundColor: darkMode ? '#1f1f1f' : '#ffffff',
-        borderRadius: '12px',
-        padding: '2rem',
-        boxShadow: darkMode
-            ? '0 4px 12px rgba(0, 0, 0, 0.6)'
-            : '0 4px 12px rgba(0, 0, 0, 0.1)',
-        maxWidth: '900px',
-        margin: '0 auto',
-    };
+          {videoUrl ? (
+            <ReactPlayer
+              ref={playerRef}
+              url={videoUrl}
+              controls
+              width="100%"
+              height="500px"
+              playing
+              config={{
+                file: {
+                  attributes: {
+                    controlsList: 'nodownload',
+                    onContextMenu: e => e.preventDefault(),
+                  },
+                },
+              }}
+            />
+          ) : (
+            <Typography color="warning.main">
+              El video no está disponible.
+            </Typography>
+          )}
 
-    return (
-        <div style={themeStyles}>
-            <div style={cardStyle}>
-                <h1 style={{ fontSize: '2rem', marginBottom: '1rem' }}>{lesson.title}</h1>
-                {lesson.description && (
-                    <p style={{ fontSize: '1.1rem', color: darkMode ? '#bbb' : '#555', marginBottom: '2rem', lineHeight: '1.6' }}>
-                        {lesson.description}
-                    </p>
-                )}
+          <LessonComments lessonId={lesson.id} />
+        </Paper>
+      </Box>
 
-                {videoUrl ? (
-                    <iframe
-                        width="100%"
-                        height="500"
-                        src={videoUrl}
-                        title={lesson.title}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                        style={{ borderRadius: '10px' }}
-                        referrerPolicy="no-referrer"
-                    />
-                ) : (
-                    <p style={{ color: 'orange' }}>El video no está disponible o no es válido.</p>
-                )}
-            </div>
-        </div>
-    );
+      {/* Columna derecha: Videos relacionados */}
+      <Box sx={{ flex: 1, minWidth: '300px' }}>
+        <Typography variant="h6" gutterBottom>
+          Más clases del curso
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
+        {relatedLessons.map((l) => (
+          <Paper
+            key={l.id}
+            sx={{
+              p: 1,
+              mb: 2,
+              backgroundColor: darkMode ? '#2a2a2a' : '#fafafa',
+              borderRadius: 2,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              '&:hover': {
+                boxShadow: darkMode
+                  ? '0 0 10px rgba(255,255,255,0.1)'
+                  : '0 0 10px rgba(0,0,0,0.1)',
+              },
+            }}
+          >
+            <Link
+              to={`/curso/${courseId}/modulo/${l.moduleId}/clase/${l.id}`}
+              style={{ textDecoration: 'none', display: 'flex', gap: 10, alignItems: 'center' }}
+            >
+              <img
+                src={course?.thumbnailUrl || 'https://via.placeholder.com/120x70?text=Sin+imagen'}
+                alt={l.title}
+                style={{ width: 120, height: 70, borderRadius: 8, objectFit: 'cover' }}
+              />
+              <Typography variant="body1" sx={{ color: darkMode ? '#fff' : '#000' }}>
+                {l.title}
+              </Typography>
+            </Link>
+          </Paper>
+        ))}
+      </Box>
+    </Box>
+  );
 };
-
-// ✅ Extrae el ID del video desde una URL de YouTube válida
-function extractYoutubeId(url) {
-    const regex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^\s&?/]+)/;
-    const match = url?.match(regex);
-    return match ? match[1] : null;
-}
 
 export default ClassDetail;
