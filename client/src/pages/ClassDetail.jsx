@@ -11,9 +11,19 @@ import {
   Paper,
   Divider,
   Button,
+  Slider,
+  Stack,
 } from '@mui/material';
 
 const apiUrl = import.meta.env.VITE_API_URL;
+
+const getEmbedUrl = (youtubeUrl) => {
+  const match = youtubeUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  const videoId = match?.[1];
+  return videoId
+    ? `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1&controls=1&fs=0&showinfo=0`
+    : youtubeUrl;
+};
 
 const ClassDetail = () => {
   const { courseId, classId, moduleId } = useParams();
@@ -27,7 +37,11 @@ const ClassDetail = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [volume, setVolume] = useState(0.7);
+  const [currentTime, setCurrentTime] = useState(0);
   const playerRef = useRef(null);
+  const [isPlaying, setIsPlaying] = useState(true);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,16 +60,19 @@ const ClassDetail = () => {
         const allLessonsData = await allLessonsRes.json();
 
         setLesson(lessonData);
-        setVideoUrl(lessonData.videoUrl);
-        setVideoData({ url: lessonData.videoUrl, title: lessonData.title, classPath: `/curso/${courseId}/modulo/${moduleId}/clase/${classId}` });
+        setVideoUrl(getEmbedUrl(lessonData.videoUrl));
+        setVideoData({
+          url: lessonData.videoUrl,
+          title: lessonData.title,
+          classPath: `/curso/${courseId}/modulo/${moduleId}/clase/${classId}`,
+        });
 
         const allLessons = allLessonsData.Modules.flatMap((mod) =>
           mod.Lessons.map((lesson) => ({ ...lesson, moduleId: mod.id }))
         );
 
         const filtered = allLessons.filter((l) => l.id !== lessonData.id);
-        setCourse(allLessonsData)
-        setRelatedLessons(filtered);
+        setCourse(allLessonsData);
         setRelatedLessons(filtered);
       } catch (err) {
         console.error(err);
@@ -68,25 +85,19 @@ const ClassDetail = () => {
     fetchData();
   }, [courseId, classId, moduleId]);
 
+  // Reanudar video
   useEffect(() => {
-    const trySeekToSavedTime = () => {
-      const stored = localStorage.getItem('resumeTime');
+    const stored = localStorage.getItem('resumeTime');
       if (stored) {
         const { path, time } = JSON.parse(stored);
         if (path === window.location.pathname && playerRef.current) {
           playerRef.current.seekTo(time, 'seconds');
         }
       }
-    };
-
-    // Esperamos a que el player esté listo (puede tomar un pelín de tiempo)
-    const timeout = setTimeout(trySeekToSavedTime, 500);
-
-    return () => clearTimeout(timeout);
   }, []);
 
+  // Guardar tiempo al salir
   const previousClassIdRef = useRef(classId);
-
   useEffect(() => {
     return () => {
       const currentTime = playerRef.current?.getCurrentTime?.();
@@ -100,12 +111,16 @@ const ClassDetail = () => {
         );
       }
     };
-  }, [classId]); // Se ejecuta cuando classId cambia
+  }, [classId]);
 
   useEffect(() => {
     previousClassIdRef.current = classId;
   }, [classId]);
 
+  // Actualizar tiempo actual del video
+  const handleProgress = (state) => {
+    setCurrentTime(state.playedSeconds);
+  };
 
   if (loading) return <p style={{ padding: '2rem' }}>Cargando clase...</p>;
   if (errorMsg) return <p style={{ color: 'red', padding: '2rem' }}>{errorMsg}</p>;
@@ -123,7 +138,6 @@ const ClassDetail = () => {
         flexDirection: { xs: 'column', md: 'row' },
       }}
     >
-      {/* Columna izquierda: Video + Comentarios */}
       <Box sx={{ flex: 3 }}>
         <Paper
           elevation={3}
@@ -145,33 +159,95 @@ const ClassDetail = () => {
           )}
 
           {videoUrl ? (
-            <ReactPlayer
-              ref={playerRef}
-              url={videoUrl}
-              controls
-              width="100%"
-              height="500px"
-              playing
-              config={{
-                file: {
-                  attributes: {
-                    controlsList: 'nodownload',
-                    onContextMenu: e => e.preventDefault(),
+            <Box sx={{ position: 'relative', width: '100%', height: '500px', mb: 2 }}>
+              <ReactPlayer
+                ref={playerRef}
+                url={videoUrl}
+                controls
+                width="100%"
+                height="100%"
+                playing={isPlaying}
+                volume={volume}
+                onProgress={handleProgress}
+                config={{
+                  youtube: {
+                    playerVars: {
+                      rel: 0,
+                      modestbranding: 1,
+                      controls: 1,
+                      fs: 0,
+                      showinfo: 0,
+                      disablekb: 1,
+                    },
                   },
-                },
-              }}
-            />
+                  file: {
+                    attributes: {
+                      controlsList: 'nodownload',
+                      onContextMenu: e => e.preventDefault(),
+                    },
+                  },
+                }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  zIndex: 2,
+                }}
+                onClick={(e) => e.stopPropagation()}
+              />
+            </Box>
           ) : (
             <Typography color="warning.main">
               El video no está disponible.
             </Typography>
           )}
 
+          {/* 🎛 Controles personalizados */}
+          <Stack spacing={2} direction="row" alignItems="center" sx={{ mb: 3 }}>
+            <Button
+              variant="contained"
+              onClick={() => playerRef.current?.seekTo(currentTime - 10)}
+            >
+              ⏪ -10s
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => playerRef.current?.seekTo(currentTime + 10)}
+            >
+              ⏩ +10s
+            </Button>
+            <Button
+              variant="contained"
+              onClick={() => setIsPlaying((prev) => !prev)}
+            >
+              {isPlaying ? '⏸ Pausar' : '▶️ Reproducir'}
+            </Button>
+            <Typography>Volumen</Typography>
+            <Slider
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={(e, newVal) => {
+                setVolume(newVal);
+                playerRef.current?.setVolume(newVal);
+              }}
+              sx={{ width: 100 }}
+            />
+            <Typography variant="body2">
+              {`⏱ ${Math.floor(currentTime)}s`}
+            </Typography>
+          </Stack>
+
           <LessonComments lessonId={lesson.id} />
         </Paper>
       </Box>
 
-      {/* Columna derecha: Videos relacionados */}
+      {/* Columna derecha: clases relacionadas */}
       <Box sx={{ flex: 1, minWidth: '300px' }}>
         <Typography variant="h6" gutterBottom>
           Más clases del curso
