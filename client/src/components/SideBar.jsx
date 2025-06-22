@@ -14,7 +14,7 @@ import styles from './Sidebar.module.css';
 
 const Sidebar = () => {
     const [collapsed, setCollapsed] = useState(false);
-    const { logout } = useAuth();
+    const { logout, isAdmin } = useAuth();  // <-- obtener user
     const navigate = useNavigate();
     const { darkMode, toggleTheme } = useTheme();
 
@@ -33,6 +33,11 @@ const Sidebar = () => {
         { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
         { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
     ];
+
+    // Agregar link admin si el usuario es admin
+    if (isAdmin) {
+        navItems.push({ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> });
+    }
 
     return (
         <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>

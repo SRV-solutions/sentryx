@@ -9,7 +9,10 @@ import {
   updateUser,
   changePassword,
   updateMyOwnUser,
-  changeMyOwnPassword
+  changeMyOwnPassword,
+  resetPasswordByAdmin,
+  getUserCourses,
+  syncUserCourses
 } from '../controllers/userController';
 import { Entity, Action } from '../models/enums';
 import { isAuth, checkPermission } from '../middlewares/auth';
@@ -24,6 +27,10 @@ router.post('/', isAuth, checkPermission(Entity.USERS, Action.CREATE), createUse
 router.post('/register', isAuth, checkPermission(Entity.USERS, Action.CREATE), register);
 router.patch('/update/:id', isAuth, checkPermission(Entity.USERS, Action.UPDATE), updateUser)
 router.put('/:id/change-password', isAuth, checkPermission(Entity.USERS, Action.UPDATE), changePassword);
+router.post('/:id/reset-password', isAuth, checkPermission(Entity.USERS, Action.UPDATE), resetPasswordByAdmin);
+router.get('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE), getUserCourses);
+router.put('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE), syncUserCourses);
+
 
 router.get('/profile', isAuth, checkPermission(Entity.USERS, Action.READ), getMyOwnUser);
 router.patch('/update', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)

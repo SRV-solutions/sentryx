@@ -6,7 +6,8 @@ import User from '../models/User';
 import Permission from '../models/Permission';
 import UserCourse from '../models/UserCourse';
 import Course from '../models/Course';
-
+import { generateRandomPassword } from '../utils/users'
+import { transporter } from '../config/mailer'
 // Clave secreta para JWT (colócala en un archivo .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 interface ValidationErrors {
@@ -22,7 +23,9 @@ export const getAllUsers = async (req: Request, res: any) => {
         'id',
         'username',
         'email',
-        'roleId'
+        'roleId',
+        'firstName',
+        'lastName'
       ]
     });
     if (!users.length) {
@@ -54,28 +57,66 @@ export const getUser = async (req: Request, res: any) => {
 
 export const createUser = async (req: Request, res: any) => {
   const { username, firstName, lastName, email, password, roleId } = req.body;
+
   try {
-    // Validar si el rol existe
     const role = await Role.findByPk(roleId);
     if (!role) {
       return res.status(404).json({ message: 'Rol no encontrado' });
     }
 
-    // Encriptar contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const userPassword = password || generateRandomPassword();
 
-    // Crear usuario
+    const hashedPassword = await bcrypt.hash(userPassword, 10);
+
     const user = await User.create({
       username,
       email,
       password: hashedPassword,
       roleId,
       firstName,
-      lastName
+      lastName,
     });
 
-    res.status(201).json(user);
+    const cuerpo = `
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; font-family: Arial, sans-serif;">
+    <tr>
+      <td align="center" style="padding: 30px 0;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 247, 0.1); color: #FFFFFF;">
+          <tr>
+            <td style="padding: 40px; text-align: center;">
+              <h2 style="color: #00FFF7; margin-bottom: 10px;">¡Hola ${firstName}!</h2>
+              <p style="color: #CCCCCC; font-size: 16px; margin-top: 0;">Tu usuario ha sido creado exitosamente.</p>
+              
+              <p style="font-size: 16px; color: #CCCCCC; margin-top: 30px;">
+                Podés acceder a la plataforma en:<br>
+                <a href="https://sentryx.vercel.app" style="color: #00FFF7; text-decoration: none;">https://sentryx.wearesrv.com</a>
+              </p>
+              <div style="margin: 30px 0; padding: 20px; border: 1px solid #333333; border-radius: 8px;">
+                <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Usuario: <b>${email}</b></p>
+                <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Contraseña temporal: <b>${userPassword}</b></p>
+              </div>
+              <p style="color: #FF6B6B; font-size: 14px; margin-top: 0;"><i>Por favor, cambiala apenas ingreses.</i></p>
+              <p style="color: #CCCCCC; margin-top: 40px;">Saludos,<br><b style="color: #00FFF7;">Equipo weareSRV</b></p>
+            </td>
+          </tr>
+        </table>
+        <img src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" alt="weareSRV Logo" width="150" style="margin-bottom: 20px;" />
+      </td>
+    </tr>
+  </table>
+`;
+
+    await transporter.sendMail({
+      from: `"weareSRV" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: 'Tu acceso a Sentryx',
+      html: cuerpo,
+    });
+
+
+    res.status(201).json({ message: 'Usuario creado y correo enviado.', user: { id: user.id, email: user.email, firstName, lastName, roleId } });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Error al crear el usuario', error });
   }
 };
@@ -195,8 +236,8 @@ export const updateUser = async (req: any, res: any) => {
 
   try {
     const { id } = req.params;
-    const { email, username, roleId, password } = req.body;
-
+    const { email, username, roleId, password, firstName, lastName } = req.body;
+    
     if (!id) {
       return res.status(404).json({ message: 'Id invalido' });
     }
@@ -224,6 +265,8 @@ export const updateUser = async (req: any, res: any) => {
 
     // Si no hay errores, actualiza el usuario
     user.username = username ? username : user.username;
+    user.firstName = firstName ? firstName : user.firstName;
+    user.lastName = lastName ? lastName : user.lastName;
     user.email = email ? email : user.email;
     user.password = password ? await bcrypt.hash(password, 10) : user.password;
     user.roleId = roleId ? roleId : user.roleId;
@@ -354,5 +397,130 @@ export const changePassword = async (req: Request, res: any) => {
     res.status(200).json({ message: 'Contraseña cambiada con éxito' });
   } catch (error) {
     res.status(500).json({ message: 'Error al cambiar la contraseña', error });
+  }
+};
+
+export const resetPasswordByAdmin = async (req: any, res: any) => {
+  const { id } = req.params;
+
+  try {
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    // Generar nueva contraseña aleatoria
+    const newPassword = Math.random().toString(36).slice(-10); // 10 caracteres aleatorios
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    user.password = hashedPassword;
+    await user.save();
+
+    // Enviar mail con el template HTML
+    const cuerpo = `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; font-family: Arial, sans-serif;">
+        <tr>
+          <td align="center" style="padding: 30px 0;">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 247, 0.1); color: #FFFFFF;">
+              <tr>
+                <td style="padding: 40px; text-align: center;">
+                  <h2 style="color: #00FFF7; margin-bottom: 10px;">¡Hola ${user.firstName} ${user.lastName}!</h2>
+                  <p style="color: #CCCCCC; font-size: 16px; margin-top: 0;">Tu contraseña fue restablecida por un administrador.</p>
+                  <p style="font-size: 16px; color: #CCCCCC; margin-top: 30px;">
+                    Podés acceder al portal en:<br>
+                    <a href="https://sentryx.wearesrv.com" style="color: #00FFF7; text-decoration: none;">https://sentryx.wearesrv.com</a>
+                  </p>
+                  <div style="margin: 30px 0; padding: 20px; border: 1px solid #333333; border-radius: 8px;">
+                    <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Usuario: <b>${user.email}</b></p>
+                    <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Contraseña temporal: <b>${newPassword}</b></p>
+                  </div>
+                  <p style="color: #FF6B6B; font-size: 14px; margin-top: 0;"><i>Por favor, cambiala apenas ingreses.</i></p>
+                  <p style="color: #CCCCCC; margin-top: 40px;">Saludos,<br><b style="color: #00FFF7;">Equipo weareSRV</b></p>
+                </td>
+              </tr>
+            </table>
+            <img src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" alt="weareSRV Logo" width="150" style="margin-bottom: 20px;" />
+          </td>
+        </tr>
+      </table>
+    `;
+
+    await transporter.sendMail({
+      from: `"weareSRV" <${process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: 'Tu nueva contraseña - Plataforma Sentryx',
+      html: cuerpo,
+    });
+
+    res.status(200).json({ message: 'Contraseña reseteada y correo enviado' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al resetear la contraseña', error });
+  }
+};
+
+export const getUserCourses = async (req: any, res: any) => {
+  const { id } = req.params;
+
+  try {
+    // Buscar usuario por id incluyendo sus cursos asociados
+    const userWithCourses = await User.findByPk(id, {
+      include: [{
+        model: UserCourse,
+        include: [Course]
+      }]
+    });
+
+    if (!userWithCourses) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    // Retornar los cursos
+    return res.status(200).json(userWithCourses.UserCourses);
+  } catch (error) {
+    console.error('Error fetching user courses:', error);
+    return res.status(500).json({ message: 'Error al obtener cursos del usuario', error });
+  }
+};
+
+export const syncUserCourses = async (req: any, res: any) => {
+  const { id } = req.params;
+  const { courseIds = [] } = req.body; // lista completa de cursos que el usuario debe tener
+
+  try {
+    // Validar usuario
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    // Validar que existan todos los cursos enviados
+    if (courseIds.length > 0) {
+      const courses = await Course.findAll({ where: { id: courseIds } });
+      if (courses.length !== courseIds.length) {
+        return res.status(404).json({ message: 'Algunos cursos no fueron encontrados' });
+      }
+    }
+
+    // Obtener asignaciones actuales del usuario
+    const existingAssignments = await UserCourse.findAll({ where: { userId: id } });
+    const existingCourseIds = existingAssignments.map(a => a.courseId);
+
+    // Cursos a agregar (los que están en courseIds pero no en existing)
+    const toAdd = courseIds.filter((courseId:any) => !existingCourseIds.includes(courseId))
+      .map((courseId:any) => ({ userId: id, courseId }));
+
+    // Cursos a eliminar (los que están en existing pero no en courseIds)
+    const toRemove = existingCourseIds.filter(courseId => !courseIds.includes(courseId));
+
+    // Ejecutar operaciones
+    if (toAdd.length > 0) await UserCourse.bulkCreate(toAdd);
+    if (toRemove.length > 0) await UserCourse.destroy({ where: { userId: id, courseId: toRemove } });
+
+    return res.status(200).json({
+      message: 'Cursos sincronizados correctamente',
+      added: toAdd.length,
+      removed: toRemove.length
+    });
+
+  } catch (error) {
+    console.error('Error sincronizando cursos del usuario:', error);
+    return res.status(500).json({ message: 'Error al sincronizar cursos', error });
   }
 };

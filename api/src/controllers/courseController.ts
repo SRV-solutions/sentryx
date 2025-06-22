@@ -96,8 +96,6 @@ export const getMyCourseById = async (req: any, res: any) => {
   }
 };
 
-
-
 export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
   const userId = (req as any).user.id;
   const { courseId, lessonId, moduleId } = req.params;

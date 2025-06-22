@@ -17,6 +17,8 @@ const isTokenExpired = (token) => {
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')) || null);
+  
+  const isAdmin = user?.userData?.roleName === 'admin'; // 👈 Agregado
 
   // Validar token al montar
   useEffect(() => {
@@ -80,7 +82,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, authFetch }}>
+    <AuthContext.Provider value={{ user, login, logout, authFetch, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

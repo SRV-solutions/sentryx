@@ -13,6 +13,9 @@ import MyCourseDetail from './pages/MyCourseDetail.jsx';
 import { useTheme } from './context/ThemeContext'; // Importa el contexto
 import ReportBugButton from './components/ReportBugButton.jsx';
 import FloatingVideoPlayer from './components/FloatingVideoPlayer.jsx';
+import ManageUsers from './pages/adminPages/ManageUsers.jsx'
+import RequireAdmin from './routes/RequireAdmin.jsx';
+import AssignCourses from './pages/adminPages/AssignCourses.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -27,6 +30,28 @@ const App = () => {
       {!hideSidebar && <Sidebar />}
       <div className="main-content">
         <Routes>
+          <Route
+            path="/admin/usuarios"
+            element={
+              <ProtectedRoute>
+                <RequireAdmin>
+                  <ManageUsers />
+                </RequireAdmin>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/asignar-cursos/:userId"
+            element={
+              <ProtectedRoute>
+                <RequireAdmin>
+                  <AssignCourses />
+                </RequireAdmin>
+              </ProtectedRoute>
+            }
+          />
+
           <Route
             path="/dashboard"
             element={
