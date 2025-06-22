@@ -124,8 +124,7 @@ const ManageUsers = () => {
     const handleRoleChange = async (userId, newRoleId) => {
         // Marcar como cargando ese usuario
         setRoleUpdatingIds((prev) => [...prev, userId]);
-        const selectedUser  = users.find(user => user.id === userId)
-        console.log(selectedUser);
+
         try {
             const res = await authFetch(`${apiUrl}/users/update/${userId}`, {
                 method: 'PATCH',
