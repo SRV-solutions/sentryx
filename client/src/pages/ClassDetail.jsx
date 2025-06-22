@@ -37,7 +37,7 @@ const ClassDetail = () => {
   const [videoUrl, setVideoUrl] = useState('');
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState('');
-  const [volume, setVolume] = useState(0.7);
+  const [volume, setVolume] = useState(1);
   const [currentTime, setCurrentTime] = useState(0);
   const playerRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -88,12 +88,12 @@ const ClassDetail = () => {
   // Reanudar video
   useEffect(() => {
     const stored = localStorage.getItem('resumeTime');
-      if (stored) {
-        const { path, time } = JSON.parse(stored);
-        if (path === window.location.pathname && playerRef.current) {
-          playerRef.current.seekTo(time, 'seconds');
-        }
+    if (stored) {
+      const { path, time } = JSON.parse(stored);
+      if (path === window.location.pathname && playerRef.current) {
+        playerRef.current.seekTo(time, 'seconds');
       }
+    }
   }, []);
 
   // Guardar tiempo al salir
@@ -169,6 +169,16 @@ const ClassDetail = () => {
                 playing={isPlaying}
                 volume={volume}
                 onProgress={handleProgress}
+                onReady={() => {
+                  const stored = localStorage.getItem('resumeTime');
+                  if (stored) {
+                    const { path, time } = JSON.parse(stored);
+                    const actualPath = `/curso/${courseId}/modulo/${moduleId}/clase/${previousClassIdRef.current}`
+                    if (actualPath === path && playerRef.current) {
+                      playerRef.current.seekTo(time, 'seconds');
+                    }
+                  }
+                }}
                 config={{
                   youtube: {
                     playerVars: {
@@ -234,7 +244,6 @@ const ClassDetail = () => {
               value={volume}
               onChange={(e, newVal) => {
                 setVolume(newVal);
-                playerRef.current?.setVolume(newVal);
               }}
               sx={{ width: 100 }}
             />

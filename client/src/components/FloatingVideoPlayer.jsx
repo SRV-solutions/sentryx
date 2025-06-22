@@ -69,7 +69,6 @@ const FloatingVideoPlayer = () => {
       const { path, time } = JSON.parse(stored);
       if (videoData.classPath === path && playerRef.current) {
         playerRef.current.seekTo(time, 'seconds');
-        localStorage.removeItem('resumeTime');
       }
     }
   }, [videoData?.classPath]);
@@ -181,7 +180,6 @@ const FloatingVideoPlayer = () => {
             const { path, time } = JSON.parse(stored);
             if (videoData.classPath === path && playerRef.current) {
               playerRef.current.seekTo(time, 'seconds');
-              localStorage.removeItem('resumeTime');
             }
           }
         }}
