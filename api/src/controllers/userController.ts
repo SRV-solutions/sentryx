@@ -1,5 +1,6 @@
 import { Request } from 'express';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto'
 import jwt from 'jsonwebtoken';
 import Role from '../models/Role';
 import User from '../models/User';
@@ -8,6 +9,7 @@ import UserCourse from '../models/UserCourse';
 import Course from '../models/Course';
 import { generateRandomPassword } from '../utils/users'
 import { transporter } from '../config/mailer'
+import PasswordResetToken from '../models/PasswordResetToken';
 // Clave secreta para JWT (colócala en un archivo .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 interface ValidationErrors {
@@ -237,7 +239,7 @@ export const updateUser = async (req: any, res: any) => {
   try {
     const { id } = req.params;
     const { email, username, roleId, password, firstName, lastName } = req.body;
-    
+
     if (!id) {
       return res.status(404).json({ message: 'Id invalido' });
     }
@@ -503,8 +505,8 @@ export const syncUserCourses = async (req: any, res: any) => {
     const existingCourseIds = existingAssignments.map(a => a.courseId);
 
     // Cursos a agregar (los que están en courseIds pero no en existing)
-    const toAdd = courseIds.filter((courseId:any) => !existingCourseIds.includes(courseId))
-      .map((courseId:any) => ({ userId: id, courseId }));
+    const toAdd = courseIds.filter((courseId: any) => !existingCourseIds.includes(courseId))
+      .map((courseId: any) => ({ userId: id, courseId }));
 
     // Cursos a eliminar (los que están en existing pero no en courseIds)
     const toRemove = existingCourseIds.filter(courseId => !courseIds.includes(courseId));
@@ -522,5 +524,113 @@ export const syncUserCourses = async (req: any, res: any) => {
   } catch (error) {
     console.error('Error sincronizando cursos del usuario:', error);
     return res.status(500).json({ message: 'Error al sincronizar cursos', error });
+  }
+};
+
+export const requestPasswordReset = async (req: any, res: any) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: 'Email requerido' });
+  }
+
+  try {
+    const user = await User.findOne({ where: { email } });
+    if (!user) {
+      // No revelar si el email existe o no
+      return res.status(200).json({ message: 'Si el correo existe, se envió un email para resetear la contraseña' });
+    }
+
+    // Generar token aleatorio y expiración en 1 hora
+    const token = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
+
+    // Eliminar tokens antiguos
+    await PasswordResetToken.destroy({ where: { userId: user.id } });
+
+    // Crear nuevo token
+    await PasswordResetToken.create({ userId: user.id, token, expiresAt });
+
+    // Construir link para reset (ajustar FRONTEND_URL en .env)
+    const resetLink = `https://sentryx.wearesrv.com/reset-password?token=${token}`;
+
+    const cuerpo = `
+      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; font-family: Arial, sans-serif;">
+        <tr>
+          <td align="center" style="padding: 30px 0;">
+            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 247, 0.1); color: #FFFFFF;">
+              <tr>
+                <td style="padding: 40px; text-align: center;">
+                  <h2 style="color: #00FFF7; margin-bottom: 10px;">¡Hola ${user.firstName} ${user.lastName}!</h2>
+                  <p style="color: #CCCCCC; font-size: 16px; margin-top: 0;">
+                    Recibimos una solicitud para restablecer tu contraseña.
+                    Para continuar, hacé clic en el siguiente enlace:
+                  </p>
+                  <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; margin: 20px 0; background-color: #00FFF7; color: #1B1B1B; text-decoration: none; border-radius: 6px; font-weight: bold;">
+                    Restablecer contraseña
+                  </a>
+                  <p style="color: #CCCCCC; font-size: 14px;">
+                    Si no solicitaste este cambio, simplemente ignorá este correo.
+                  </p>
+                  <p style="color: #CCCCCC; margin-top: 40px;">Saludos,<br><b style="color: #00FFF7;">Equipo weareSRV</b></p>
+                </td>
+              </tr>
+            </table>
+            <img src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" alt="weareSRV Logo" width="150" style="margin-bottom: 20px;" />
+          </td>
+        </tr>
+      </table>
+    `;
+
+    await transporter.sendMail({
+      from: `"SRV" <${process.env.SMTP_USER}>`,
+      to: user.email,
+      subject: 'Restablece tu contraseña - Sentryx',
+      html: cuerpo,
+    });
+
+    return res.status(200).json({ message: 'Si el correo existe, se envió un email para resetear la contraseña' });
+  } catch (error) {
+    console.error('Error en requestPasswordReset:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+// Endpoint para resetear la contraseña con token
+export const resetPassword = async (req: any, res: any) => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    return res.status(400).json({ error: 'Token y nueva contraseña son requeridos' });
+  }
+
+  try {
+    // Buscar token válido y no expirado
+    const resetToken = await PasswordResetToken.findOne({ where: { token } });
+    if (!resetToken) {
+      return res.status(400).json({ error: 'Token inválido' });
+    }
+    if (resetToken.expiresAt < new Date()) {
+      // Token expirado
+      await resetToken.destroy(); // Eliminar token expirado
+      return res.status(400).json({ error: 'Token expirado' });
+    }
+
+    // Buscar usuario
+    const user = await User.findByPk(resetToken.userId);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    // Hashear nueva contraseña y guardar
+    const hashedPassword = await bcrypt.hash(password, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    // Borrar token para que no se pueda reutilizar
+    await resetToken.destroy();
+
+    return res.json({ message: 'Contraseña reseteada correctamente' });
+  } catch (error) {
+    console.error('Error en resetPassword:', error);
+    return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };

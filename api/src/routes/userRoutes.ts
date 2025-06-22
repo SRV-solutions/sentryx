@@ -12,7 +12,9 @@ import {
   changeMyOwnPassword,
   resetPasswordByAdmin,
   getUserCourses,
-  syncUserCourses
+  syncUserCourses,
+  requestPasswordReset,
+  resetPassword
 } from '../controllers/userController';
 import { Entity, Action } from '../models/enums';
 import { isAuth, checkPermission } from '../middlewares/auth';
@@ -21,6 +23,10 @@ const router = Router();
 
 // Rutas para usuarios
 router.post('/login', login);
+router.post('/request-password-reset', requestPasswordReset);
+router.post('/reset-password', resetPassword);
+
+
 router.get('/', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getAllUsers);
 router.get('/:id', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getUser);
 router.post('/', isAuth, checkPermission(Entity.USERS, Action.CREATE), createUser);
