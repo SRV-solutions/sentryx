@@ -60,19 +60,23 @@ const Sidebar = () => {
     };
 
     useEffect(() => {
+        if (!user?.token || !user?.userData?.id) return;
+
         fetchNotifications();
+
         socketRef.current = io(import.meta.env.VITE_API_URL, {
-            query: { userId: user?.userData?.id },
-            auth: { token: user?.token }
+            query: { userId: user.userData.id },
+            auth: { token: user.token }
         });
+
         socketRef.current.on('notification', (newNote) => {
             setNotifications(prev => [newNote, ...prev]);
         });
 
         return () => {
-            socketRef.current.disconnect();
+            socketRef.current?.disconnect();
         };
-    }, []);
+    }, [user]);
 
     return (
         <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>

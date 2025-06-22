@@ -7,6 +7,7 @@ import app from './app';
 import { isSocketAuth } from './middlewares/auth';
 
 const PORT = process.env.PORT || 3000;
+
 const server = http.createServer(app);
 
 const io = new SocketIOServer(server, {
@@ -17,12 +18,16 @@ const io = new SocketIOServer(server, {
   },
 });
 
-app.set('io', io);
-
 io.use(isSocketAuth);
 
-io.on('connection', (_socket:any) => {});
+app.set('io', io);
 
+io.on('connection', (socket: any) => {
+  socket.join(`user_${socket.user.id}`);
+  socket.on('disconnect', () => {
+    console.log('Cliente desconectado:', socket.id);
+  });
+});
 server.listen(PORT, () => {
-  console.log(`Server corriendo en puerto ${PORT}`);
+  console.log(`🚀 Server corriendo en puerto ${PORT}`);
 });

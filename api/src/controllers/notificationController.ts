@@ -3,52 +3,52 @@ import UserNotification from '../models/UserNotification';
 import User from '../models/User';
 
 export const getUserNotifications = async (req: any, res: any) => {
-    try {
-        const userId = req.user?.id; // Suponiendo que estás usando middleware JWT
+  try {
+    const userId = req.user?.id; // Suponiendo que estás usando middleware JWT
 
-        const notifications = await UserNotification.findAll({
-            where: { userId },
-            include: [Notification],
-            order: [['createdAt', 'DESC']],
-        });
+    const notifications = await UserNotification.findAll({
+      where: { userId },
+      include: [Notification],
+      order: [['createdAt', 'DESC']],
+    });
 
-        if (!notifications.length) {
-            return res.status(404).json({ message: 'No hay notificaciones disponibles.' });
-        }
-
-        res.json(notifications);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: 'Error al obtener notificaciones', error });
+    if (!notifications.length) {
+      return res.status(404).json({ message: 'No hay notificaciones disponibles.' });
     }
+
+    res.json(notifications);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: 'Error al obtener notificaciones', error });
+  }
 };
 
 export const markAsRead = async (req: any, res: any) => {
-    try {
-        const userId = req.user?.id;
-        const { notificationId } = req.params;
+  try {
+    const userId = req.user?.id;
+    const { notificationId } = req.params;
 
-        const record = await UserNotification.findOne({
-            where: { userId, notificationId },
-        });
+    const record = await UserNotification.findOne({
+      where: { userId, notificationId },
+    });
 
-        if (!record) {
-            return res.status(404).json({ message: 'Notificación no encontrada' });
-        }
-
-        record.read = true;
-        record.seenAt = new Date();
-        await record.save();
-
-        res.json({ message: 'Notificación marcada como leída' });
-    } catch (error) {
-        res.status(500).json({ message: 'Error al marcar como leída', error });
+    if (!record) {
+      return res.status(404).json({ message: 'Notificación no encontrada' });
     }
+
+    record.read = true;
+    record.seenAt = new Date();
+    await record.save();
+
+    res.json({ message: 'Notificación marcada como leída' });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al marcar como leída', error });
+  }
 };
 
 export const sendNotificationToUser = async (req: any, res: any) => {
   try {
-    const io = req.app.get('io'); // Obtener socket.io
+    const io = req.app.get('io'); // Asegurate de haber seteado app.set('io', io);
 
     const { userId, title, message, type, link } = req.body;
 
@@ -63,35 +63,35 @@ export const sendNotificationToUser = async (req: any, res: any) => {
 
     const notification = await Notification.create({ title, message, type, link });
 
-    const userNotification = await UserNotification.create({
+    await UserNotification.create({
       userId,
       notificationId: notification.id,
       read: false,
       seenAt: null,
     });
 
-    // Emitir evento en tiempo real solo al usuario específico
-    io.to(`user_${userId}`).emit('notification', {
+    const payload = {
       id: notification.id,
-      title: notification.title,
-      message: notification.message,
-      type: notification.type,
-      link: notification.link,
+      title,
+      message,
+      type,
+      link,
       createdAt: notification.createdAt,
-      read: userNotification.read,
-    });
+      read: false,
+    };
 
-    res.status(201).json({ message: 'Notificación enviada al usuario' });
+    io.to(`user_${userId}`).emit('notification', payload);
+
+    return res.status(201).json({ message: 'Notificación enviada al usuario', notification: payload });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al enviar notificación', error });
+    console.error('[sendNotificationToUser]', error);
+    res.status(500).json({ message: 'Error al enviar notificación', error});
   }
 };
 
-
 export const sendNotificationToAll = async (req: any, res: any) => {
   try {
-    const io = req.app.get('io'); // Obtener socket.io
+    const io = req.app.get('io');
 
     const { title, message, type, link } = req.body;
 
@@ -112,23 +112,24 @@ export const sendNotificationToAll = async (req: any, res: any) => {
 
     await UserNotification.bulkCreate(userNotifications);
 
-    // Emitir evento a todos los usuarios conectados uno por uno
+    const payload = {
+      id: notification.id,
+      title,
+      message,
+      type,
+      link,
+      createdAt: notification.createdAt,
+      read: false,
+    };
+
     users.forEach((user) => {
-      io.to(`user_${user.id}`).emit('notification', {
-        id: notification.id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        link: notification.link,
-        createdAt: notification.createdAt,
-        read: false,
-      });
+      io.to(`user_${user.id}`).emit('notification', payload);
     });
 
     res.status(201).json({ message: 'Notificación enviada a todos los usuarios' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al enviar notificación', error });
+    console.error('[sendNotificationToAll]', error);
+    res.status(500).json({ message: 'Error al enviar notificación', error});
   }
 };
 
