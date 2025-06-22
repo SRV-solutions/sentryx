@@ -1,5 +1,5 @@
-import  { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
@@ -118,15 +118,11 @@ const Login = () => {
           <button type="submit" className={styles.button}>
             Ingresar
           </button>
-          <p
-            style={{
-              marginTop: '1rem',
-              fontSize: '0.9rem',
-              color: darkMode ? '#ccc' : '#555',
-              textAlign: 'center',
-            }}
-          >
-            ¿Tenés problemas para ingresar? Escribinos a <strong>info@wearesrv.com</strong>
+          <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+            ¿Olvidaste tu contraseña?{' '}
+            <Link to="/forgot-password" style={{ color: '#00FFF7' }}>
+              Recuperarla acá
+            </Link>
           </p>
         </form>
       </div>
