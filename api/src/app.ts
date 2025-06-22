@@ -8,6 +8,7 @@ import chatRoutes from './routes/chatRoutes'
 import courseRoutes from './routes/courseRoutes'
 import lessonRoutes from './routes/lessonRoutes'
 import embeddingRoutes from './routes/embeddingRoutes';
+import notificationRoutes from './routes/notificationRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
@@ -22,6 +23,8 @@ import Module from './models/Module';
 // import limiter from './middlewares/rateLimit';
 import { seedDatabase, seedUsers } from './utils/seedDataBase';
 import LessonComment from './models/LessonComment';
+import Notification from './models/Notification';
+import UserNotification from './models/UserNotification';
 
 User.associate();
 Role.associate();
@@ -33,6 +36,8 @@ Lesson.associate();
 UserCourse.associate();
 Module.associate()
 LessonComment.associate()
+Notification.associate()
+UserNotification.associate()
 
 const app = express();
 
@@ -68,8 +73,8 @@ app.use('/reports', reportRoutes)
 app.use('/courses', courseRoutes)
 app.use('/lessons', lessonRoutes)
 app.use('/embedding', embeddingRoutes);
+app.use('/notifications', notificationRoutes)
 // app.use('/friends', friendRoutes)
-
 
 const forceSync = process.env.FORCE_SYNC === "true";
 

@@ -1,6 +1,5 @@
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import NotificationList from '../components/NotificationList';
 import styles from './Dashboard.module.css';
 import MyCourseDetail from './MyCourseDetail';
 
@@ -27,14 +26,6 @@ const Dashboard = () => {
             <Calendar />
           </div>
         </div> */}
-
-        {/* NOTIFICACIONES */}
-        <div className={styles.section}>
-          <h3>Notificaciones</h3>
-          <div className={styles.notifications}>
-            <NotificationList />
-          </div>
-        </div>
       </div>
     </div>
   );

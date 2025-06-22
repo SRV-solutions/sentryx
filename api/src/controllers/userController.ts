@@ -10,6 +10,8 @@ import Course from '../models/Course';
 import { generateRandomPassword } from '../utils/users'
 import { transporter } from '../config/mailer'
 import PasswordResetToken from '../models/PasswordResetToken';
+import UserNotification from '../models/UserNotification';
+import Notification from '../models/Notification';
 // Clave secreta para JWT (colócala en un archivo .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 interface ValidationErrors {

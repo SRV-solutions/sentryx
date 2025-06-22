@@ -20,7 +20,6 @@ interface AuthRequest extends Request {
   };
 }
 
-// 🛡️ Middleware para verificar si el usuario está autenticado
 export const isAuth = (req: AuthRequest, res: any, next: NextFunction) => {
   
   const authHeader = req.headers['authorization'];
@@ -45,8 +44,6 @@ export const isAuth = (req: AuthRequest, res: any, next: NextFunction) => {
     next();
   });
 };
-
-// src/middlewares/verifyEmbeddingToken.ts
 
 export const verifyEmbeddingToken = (req: any, res: any, next: any) => {
   const token = req.headers['x-embedding-token'];
@@ -85,4 +82,21 @@ export const checkPermission = (entity: Entity, action: Action) => {
       return res.status(500).json({ message: 'Error verificando permisos', error });
     }
   };
+};
+
+
+export const isSocketAuth = (socket: any, next: (err?: Error) => void) => {
+  const token = socket.handshake.auth.token;
+
+  if (!token) {
+    return next(new Error('No autorizado: Token no proporcionado.'));
+  }
+
+  jwt.verify(token, JWT_SECRET, (err:any, decoded:any) => {
+    if (err) {      
+      return next(new Error('Token inválido o expirado.'));
+    }
+    socket.user = decoded;
+    next();
+  });
 };
