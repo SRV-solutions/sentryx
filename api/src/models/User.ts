@@ -16,7 +16,8 @@ class User extends Model {
   public email!: string;
   public password!: string; // Campo para almacenar la contraseña
   public roleId!: number;
-  public Role!: Role
+  public Role!: Role;
+  public lastLogin!: Date | null;
   public UserCourses!: Array<UserCourse>
   // Asociaciones con otros modelos
   public static associate() {
@@ -55,8 +56,13 @@ User.init(
     },
     password: {
       type: DataTypes.STRING,
-      allowNull: false, // Contraseña es obligatoria
+      allowNull: false,
     },
+    lastLogin: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+
     roleId: {
       type: DataTypes.INTEGER,
       references: {

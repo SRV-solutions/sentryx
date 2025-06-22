@@ -4,7 +4,7 @@ dotenv.config();
 import http from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import app from './app';
-import { isAuth, isSocketAuth } from './middlewares/auth';
+import { isSocketAuth } from './middlewares/auth';
 
 const PORT = process.env.PORT || 3000;
 const server = http.createServer(app);

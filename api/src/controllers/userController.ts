@@ -173,6 +173,10 @@ export const login = async (req: Request, res: any) => {
     if (!isPasswordValid) {
       return res.status(401).json({ message: 'Contraseña incorrecta' });
     }
+
+    user.lastLogin = new Date();
+    await user.save();
+
     const token = jwt.sign(
       {
         id: user.id,
