@@ -251,7 +251,7 @@ const ManageUsers = () => {
                                 </TableCell>
 
                                 <TableCell align='center'>
-                                    <Button variant="outlined" onClick={() => handleAssignCourses(u.id)} sx={{ mr: 1 }}>
+                                    <Button variant="contained" color="primary" onClick={() => handleAssignCourses(u.id)} sx={{ mr: 1 }}>
                                         Asignar Cursos
                                     </Button>
                                     <Button
