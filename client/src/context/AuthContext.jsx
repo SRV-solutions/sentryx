@@ -17,7 +17,7 @@ const isTokenExpired = (token) => {
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')) || null);
-  
+
   const isAdmin = user?.userData?.roleName === 'admin'; // 👈 Agregado
 
   // Validar token al montar
@@ -52,6 +52,31 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const updateUserData = async (newData) => {
+    try {
+      const res = await authFetch(`${apiUrl}/users/me`, {
+        method: 'PATCH',
+        body: JSON.stringify(newData),
+      });
+
+      if (!res.ok) throw new Error('Error al actualizar usuario');
+
+      const updatedUser = await res.json();
+      console.log(updatedUser);
+      
+      const updatedData = {
+        ...user,
+        userData: updatedUser, // asumimos que la respuesta es el nuevo userData
+      };
+
+      localStorage.setItem('user', JSON.stringify(updatedData));
+      setUser(updatedData);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+
   const logout = () => {
     localStorage.removeItem('user');
     setUser(null);
@@ -82,7 +107,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, authFetch, isAdmin }}>
+    <AuthContext.Provider value={{ user, login, logout, authFetch, isAdmin, updateUserData }}>
       {children}
     </AuthContext.Provider>
   );

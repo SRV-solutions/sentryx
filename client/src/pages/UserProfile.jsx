@@ -28,7 +28,6 @@ const UserProfile = () => {
   const { user, updateUserData } = useAuth();
   const { darkMode } = useTheme();
   const isMobile = useMediaQuery('(max-width:600px)');
-
   const myCourses = user?.userData?.courses
 
   const [showEdit, setShowEdit] = useState(false);
@@ -46,10 +45,15 @@ const UserProfile = () => {
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
 
-  const handleSave = () => {
-    updateUserData?.(formData);
-    setShowEdit(false);
+  const handleSave = async () => {
+    try {
+      await updateUserData?.(formData);
+      setShowEdit(false);
+    } catch (err) {
+      console.error('Error al guardar perfil:', err);
+    }
   };
+
 
   if (!user) {
     return (
@@ -124,7 +128,6 @@ const UserProfile = () => {
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
             <Button
-              disabled
               variant="outlined"
               startIcon={<Edit />}
               onClick={() => setShowEdit(true)}
