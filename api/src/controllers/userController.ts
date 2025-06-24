@@ -192,10 +192,15 @@ export const login = async (req: Request, res: any) => {
       token,
       userData: {
         id: user.id,
+        username: user.username,
+        phone: '-',
+        biography: '-',
+        avatar: '-',
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         roleId: user.roleId,
+        description: '',
         roleName: user.Role?.roleName,
         courses: user?.UserCourses,
         permissions: user.Role?.Permissions?.map(p => ({
