@@ -39,7 +39,7 @@ router.put('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE),
 
 
 router.get('/profile', isAuth, checkPermission(Entity.USERS, Action.READ), getMyOwnUser);
-router.patch('/update', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)
+router.patch('/me', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)
 router.put('/change-password', isAuth, checkPermission(Entity.USERS, Action.READ), changeMyOwnPassword);
 
 

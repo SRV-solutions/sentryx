@@ -16,6 +16,8 @@ class User extends Model {
   public email!: string;
   public password!: string; // Campo para almacenar la contraseña
   public roleId!: number;
+  public phone!: string | null;
+  public biography!: string | null;
   public Role!: Role;
   public lastLogin!: Date | null;
   public UserCourses!: Array<UserCourse>
@@ -57,6 +59,14 @@ User.init(
     password: {
       type: DataTypes.STRING,
       allowNull: false,
+    },
+    phone: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    biography: {
+      type: DataTypes.TEXT,
+      allowNull: true,
     },
     lastLogin: {
       type: DataTypes.DATE,

@@ -193,8 +193,8 @@ export const login = async (req: Request, res: any) => {
       userData: {
         id: user.id,
         username: user.username,
-        phone: '-',
-        biography: '-',
+        phone: user.phone,
+        biography: user.biography,
         avatar: '-',
         email: user.email,
         firstName: user.firstName,
@@ -298,7 +298,7 @@ export const updateUser = async (req: any, res: any) => {
 export const updateMyOwnUser = async (req: any, res: any) => {
   const errors: ValidationErrors = {};  // Tipo explícito para los errores
   try {
-    const { email, username, roleId, password } = req.body;
+    const { firstName, lastName, email, username, roleId, password, biography, phone } = req.body;
     if (!req.user) {
       return res.status(401).json({ message: 'No autorizado. Usuario no autenticado.' });
     }
@@ -329,12 +329,43 @@ export const updateMyOwnUser = async (req: any, res: any) => {
     user.email = email ? email : user.email;
     user.password = password ? await bcrypt.hash(password, 10) : user.password;
     user.roleId = roleId ? roleId : user.roleId;
+    user.firstName = firstName ? firstName : user.firstName;
+    user.lastName = lastName ? lastName : user.lastName;
+    user.phone = phone ? phone : user.phone;
+    user.biography = biography ? biography : user.biography;
 
     // Buscar el usuario actualizado e incluir su rol
     await user.save(); // Esperar a que se guarde antes de buscarlo nuevamente
-    const updatedUser = await User.findByPk(req.user.id, { include: Role });
-
-    res.status(200).json(updatedUser);
+    const updatedUser = await User.findByPk(req.user.id, {
+      include: [{
+        model: Role,
+        include: [Permission]
+      }, {
+        model: UserCourse,
+        include: [Course]
+      }]
+    });
+    if (!updatedUser) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    res.status(200).json({
+      id: updatedUser.id,
+      username: updatedUser.username,
+      phone: updatedUser.phone,
+      biography: updatedUser.biography,
+      avatar: '-',
+      email: updatedUser.email,
+      firstName: updatedUser.firstName,
+      lastName: updatedUser.lastName,
+      roleId: updatedUser.roleId,
+      description: '',
+      roleName: updatedUser.Role?.roleName,
+      courses: updatedUser?.UserCourses,
+      permissions: updatedUser.Role?.Permissions?.map(p => ({
+        entity: p.entity,
+        action: p.action
+      }))
+    });
 
   } catch (error) {
     res.status(500).json({ message: 'Error al actualizar el usuario' });
