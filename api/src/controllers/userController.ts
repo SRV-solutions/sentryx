@@ -195,12 +195,11 @@ export const login = async (req: Request, res: any) => {
         username: user.username,
         phone: user.phone,
         biography: user.biography,
-        avatar: '-',
+        avatar: user.avatar,
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
         roleId: user.roleId,
-        description: '',
         roleName: user.Role?.roleName,
         courses: user?.UserCourses,
         permissions: user.Role?.Permissions?.map(p => ({
@@ -298,7 +297,7 @@ export const updateUser = async (req: any, res: any) => {
 export const updateMyOwnUser = async (req: any, res: any) => {
   const errors: ValidationErrors = {};  // Tipo explícito para los errores
   try {
-    const { firstName, lastName, email, username, roleId, password, biography, phone } = req.body;
+    const { firstName, lastName, email, username, roleId, password, biography, phone, avatar } = req.body;
     if (!req.user) {
       return res.status(401).json({ message: 'No autorizado. Usuario no autenticado.' });
     }
@@ -333,6 +332,7 @@ export const updateMyOwnUser = async (req: any, res: any) => {
     user.lastName = lastName ? lastName : user.lastName;
     user.phone = phone ? phone : user.phone;
     user.biography = biography ? biography : user.biography;
+    user.avatar = avatar ? avatar : user.avatar;
 
     // Buscar el usuario actualizado e incluir su rol
     await user.save(); // Esperar a que se guarde antes de buscarlo nuevamente
@@ -353,12 +353,11 @@ export const updateMyOwnUser = async (req: any, res: any) => {
       username: updatedUser.username,
       phone: updatedUser.phone,
       biography: updatedUser.biography,
-      avatar: '-',
+      avatar: updatedUser.avatar,
       email: updatedUser.email,
       firstName: updatedUser.firstName,
       lastName: updatedUser.lastName,
       roleId: updatedUser.roleId,
-      description: '',
       roleName: updatedUser.Role?.roleName,
       courses: updatedUser?.UserCourses,
       permissions: updatedUser.Role?.Permissions?.map(p => ({

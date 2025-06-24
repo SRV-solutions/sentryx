@@ -25,6 +25,16 @@ import { Edit } from '@mui/icons-material';
 import styles from './UserProfile.module.css';
 
 const UserProfile = () => {
+  const avatarOptions = [
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png',
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/JS.png',
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOBACKENDAVANZADO.png',
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOFUNDAMENTOSBACKEND.png',
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOPYTHON.png',
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/NODE.png',
+  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/python_ico.png',
+];
+
   const { user, updateUserData } = useAuth();
   const { darkMode } = useTheme();
   const isMobile = useMediaQuery('(max-width:600px)');
@@ -207,6 +217,26 @@ const UserProfile = () => {
           <TextField label="Username" name="username" value={formData.username} onChange={handleChange} fullWidth />
           <TextField label="Teléfono" name="phone" value={formData.phone} onChange={handleChange} fullWidth />
           <TextField label="Biografia" name="biography" value={formData.biography} onChange={handleChange} multiline rows={3} fullWidth />
+          <Typography variant="subtitle1" sx={{ mt: 1 }}>Elegí tu avatar:</Typography>
+          <Grid container spacing={1}>
+            {avatarOptions.map((url) => (
+              <Grid item xs={4} sm={2} key={url}>
+                <Avatar
+                  src={url}
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    cursor: 'pointer',
+                    border: formData.avatar === url ? '2px solid #0078d4' : '2px solid transparent',
+                    transition: '0.2s',
+                    '&:hover': { border: '2px solid #0078d4' },
+                  }}
+                  onClick={() => setFormData({ ...formData, avatar: url })}
+                />
+              </Grid>
+            ))}
+          </Grid>
+
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowEdit(false)}>Cancelar</Button>

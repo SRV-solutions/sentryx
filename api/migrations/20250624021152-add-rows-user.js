@@ -11,10 +11,16 @@ module.exports = {
       type: Sequelize.TEXT,
       allowNull: true,
     });
+
+    await queryInterface.addColumn('User', 'avatar', {
+      type: Sequelize.TEXT,
+      allowNull: true,
+    });
   },
 
   down: async (queryInterface, Sequelize) => {
     await queryInterface.removeColumn('User', 'phone');
+    await queryInterface.removeColumn('User', 'avatar');
     await queryInterface.removeColumn('User', 'biography');
   },
 };

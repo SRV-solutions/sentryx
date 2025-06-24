@@ -18,6 +18,7 @@ class User extends Model {
   public roleId!: number;
   public phone!: string | null;
   public biography!: string | null;
+  public avatar!: string | null;
   public Role!: Role;
   public lastLogin!: Date | null;
   public UserCourses!: Array<UserCourse>
@@ -62,6 +63,10 @@ User.init(
     },
     phone: {
       type: DataTypes.STRING,
+      allowNull: true,
+    },
+    avatar: {
+      type: DataTypes.TEXT,
       allowNull: true,
     },
     biography: {
