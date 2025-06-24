@@ -49,7 +49,7 @@ const UserProfile = () => {
     username: user?.userData?.username || '',
     phone: user?.userData?.phone || '',
     biography: user?.userData?.biography || '',
-    avatar: user?.userData?.avatar || 'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png',
+    avatar: user?.userData?.avatar || '',
   });
 
   const handleChange = (e) =>
