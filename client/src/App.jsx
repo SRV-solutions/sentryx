@@ -18,6 +18,8 @@ import RequireAdmin from './routes/RequireAdmin.jsx';
 import AssignCourses from './pages/adminPages/AssignCourses.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import ResetPassword from './pages/ResetPassword.jsx';
+import UserSearch from './pages/UserSearch.jsx';
+import UserPublicProfile from './pages/UserPublicProfile.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -42,7 +44,14 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
+          <Route
+            path="/usuarios"
+            element={
+              <ProtectedRoute>
+                <UserSearch />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/admin/asignar-cursos/:userId"
             element={
@@ -63,7 +72,15 @@ const App = () => {
             }
           />
           <Route
-            path="/perfil"
+            path="/perfil/:id"
+            element={
+              <ProtectedRoute>
+                <UserPublicProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/perfil/me"
             element={
               <ProtectedRoute>
                 <UserProfile />

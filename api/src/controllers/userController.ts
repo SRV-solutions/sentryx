@@ -10,6 +10,8 @@ import Course from '../models/Course';
 import { generateRandomPassword } from '../utils/users'
 import { transporter } from '../config/mailer'
 import PasswordResetToken from '../models/PasswordResetToken';
+import { Op } from 'sequelize'; // Importante para búsquedas flexibles
+
 import UserNotification from '../models/UserNotification';
 import Notification from '../models/Notification';
 // Clave secreta para JWT (colócala en un archivo .env)
@@ -38,6 +40,21 @@ export const getAllUsers = async (req: Request, res: any) => {
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener los usuarios', error });
+  }
+};
+
+export const getPublicUser = async (req: Request, res: any) => {
+  const { id } = req.params;
+  try {
+    const user = await User.findByPk(id, {
+      attributes: ['id', 'firstName', 'lastName', 'username', 'biography', 'avatar', 'email', 'phone'],
+    });
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener el usuario', error });
   }
 };
 
@@ -673,5 +690,33 @@ export const resetPassword = async (req: any, res: any) => {
   } catch (error) {
     console.error('Error en resetPassword:', error);
     return res.status(500).json({ error: 'Error interno del servidor' });
+  }
+};
+
+
+export const searchUsers = async (req: Request, res: any) => {
+  const { q } = req.query;
+
+  if (!q || typeof q !== 'string') {
+    return res.status(400).json({ message: 'Falta el parámetro de búsqueda (?q=)' });
+  }
+
+  try {
+    const users = await User.findAll({
+      where: {
+        [Op.or]: [
+          { firstName: { [Op.iLike]: `%${q}%` } },
+          { lastName: { [Op.iLike]: `%${q}%` } },
+          { username: { [Op.iLike]: `%${q}%` } },
+          { biography: { [Op.iLike]: `%${q}%` } },
+        ]
+      },
+      attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'biography'], // Solo lo necesario
+      include: [{ model: Role, attributes: ['roleName'] }]
+    });
+
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al buscar usuarios', error });
   }
 };

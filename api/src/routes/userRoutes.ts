@@ -14,7 +14,9 @@ import {
   getUserCourses,
   syncUserCourses,
   requestPasswordReset,
-  resetPassword
+  resetPassword,
+  searchUsers,
+  getPublicUser
 } from '../controllers/userController';
 import { Entity, Action } from '../models/enums';
 import { isAuth, checkPermission } from '../middlewares/auth';
@@ -27,6 +29,7 @@ router.post('/request-password-reset', requestPasswordReset);
 router.post('/reset-password', resetPassword);
 
 
+router.get('/search', isAuth, checkPermission(Entity.USERS, Action.READ), searchUsers); // Podés agregar checkPermission si querés limitarlo
 router.get('/', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getAllUsers);
 router.get('/:id', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getUser);
 router.post('/', isAuth, checkPermission(Entity.USERS, Action.CREATE), createUser);
@@ -38,6 +41,7 @@ router.get('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE),
 router.put('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE), syncUserCourses);
 
 
+router.get('/public/:id', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getPublicUser);
 router.get('/profile', isAuth, checkPermission(Entity.USERS, Action.READ), getMyOwnUser);
 router.patch('/me', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)
 router.put('/change-password', isAuth, checkPermission(Entity.USERS, Action.READ), changeMyOwnPassword);

@@ -5,7 +5,8 @@ import {
     MessageCircle,
     User,
     LogOut,
-    Bell
+    Bell,
+    Search
 } from 'lucide-react'; // o usá @mui/icons-material/Notifications si preferís
 import Badge from '@mui/material/Badge';
 
@@ -96,7 +97,8 @@ const Sidebar = () => {
             <ul className={styles.navList}>
                 {[
                     { to: '/dashboard', label: 'Dashboard', icon: <Home /> },
-                    { to: '/perfil', label: 'Perfil', icon: <User /> },
+                    { to: '/perfil/me', label: 'Perfil', icon: <User /> },
+                    { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
                     { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
                     ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }] : [])
