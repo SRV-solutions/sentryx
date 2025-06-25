@@ -61,9 +61,7 @@ export const AuthProvider = ({ children }) => {
 
       if (!res.ok) throw new Error('Error al actualizar usuario');
 
-      const updatedUser = await res.json();
-      console.log(updatedUser);
-      
+      const updatedUser = await res.json();      
       const updatedData = {
         ...user,
         userData: updatedUser, // asumimos que la respuesta es el nuevo userData

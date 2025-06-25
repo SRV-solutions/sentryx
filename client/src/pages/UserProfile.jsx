@@ -26,14 +26,15 @@ import styles from './UserProfile.module.css';
 
 const UserProfile = () => {
   const avatarOptions = [
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png',
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/JS.png',
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOBACKENDAVANZADO.png',
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOFUNDAMENTOSBACKEND.png',
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOPYTHON.png',
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/NODE.png',
-  'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/python_ico.png',
-];
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png',
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/JS.png',
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOBACKENDAVANZADO.png',
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOFUNDAMENTOSBACKEND.png',
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOPYTHON.png',
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/NODE.png',
+    'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/python_ico.png',
+
+  ];
 
   const { user, updateUserData } = useAuth();
   const { darkMode } = useTheme();
@@ -51,6 +52,15 @@ const UserProfile = () => {
     biography: user?.userData?.biography || '',
     avatar: user?.userData?.avatar || '',
   });
+
+  const biographyWords = formData.biography.trim().split(/\s+/);
+  const containsEasterEgg = biographyWords.some(word => word.toLowerCase() === 'jeb_');
+
+  if (containsEasterEgg) {
+    avatarOptions.push('https://static.wikia.nocookie.net/minecraft_gamepedia/images/3/37/Rainbow_Sheep_%28inventory%29_MCE.png');
+  }
+
+
 
   const handleChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
