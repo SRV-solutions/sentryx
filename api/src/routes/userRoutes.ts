@@ -41,7 +41,7 @@ router.get('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE),
 router.put('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE), syncUserCourses);
 
 
-router.get('/public/:id', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getPublicUser);
+router.get('/public/:id', isAuth, checkPermission(Entity.USERS, Action.READ), getPublicUser);
 router.get('/profile', isAuth, checkPermission(Entity.USERS, Action.READ), getMyOwnUser);
 router.patch('/me', isAuth, checkPermission(Entity.USERS, Action.READ), updateMyOwnUser)
 router.put('/change-password', isAuth, checkPermission(Entity.USERS, Action.READ), changeMyOwnPassword);
