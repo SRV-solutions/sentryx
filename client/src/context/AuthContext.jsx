@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const AuthContext = createContext();
 const apiUrl = import.meta.env.VITE_API_URL;
@@ -16,24 +16,26 @@ const isTokenExpired = (token) => {
 
 export const AuthProvider = ({ children }) => {
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ usamos useLocation
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user')) || null);
 
-  const isAdmin = user?.userData?.roleName === 'admin'; // 👈 Agregado
+  const isAdmin = user?.userData?.roleName === 'admin';
 
-  // Validar token al montar
+  // Validar token al montar o al cambiar de ruta
   useEffect(() => {
     const storedUser = JSON.parse(localStorage.getItem('user'));
     const token = storedUser?.token;
 
     const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+    const currentPath = location.pathname.replace(/\/+$/, ''); // quita barra final
 
     if (!token || isTokenExpired(token)) {
       logout();
-      if (!publicRoutes.includes(window.location.pathname)) {
+      if (!publicRoutes.includes(currentPath)) {
         navigate('/login');
       }
     }
-  }, []);
+  }, [location.pathname]);
 
   const login = async (email, password) => {
     try {
@@ -66,7 +68,7 @@ export const AuthProvider = ({ children }) => {
       const updatedUser = await res.json();
       const updatedData = {
         ...user,
-        userData: updatedUser, // asumimos que la respuesta es el nuevo userData
+        userData: updatedUser,
       };
 
       localStorage.setItem('user', JSON.stringify(updatedData));
@@ -75,7 +77,6 @@ export const AuthProvider = ({ children }) => {
       console.error(error);
     }
   };
-
 
   const logout = () => {
     localStorage.removeItem('user');
