@@ -44,9 +44,9 @@ const app = express();
 app.use(express.json());
 // app.use(limiter)
 app.use((req: Request, res: any, next: NextFunction) => {
-  const allowedOrigins = ['http://localhost:5173', 'https://sentryx.wearesrv.com'];
+  const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173', 'https://sentryx.wearesrv.com'];
   const origin = req.headers.origin;
-  
+
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');

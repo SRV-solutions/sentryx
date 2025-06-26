@@ -34,6 +34,10 @@ const App = () => {
       {!hideSidebar && <Sidebar />}
       <div className="main-content">
         <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="*" element={<NotFound />} />
           <Route
             path="/admin/usuarios"
             element={
@@ -120,11 +124,6 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-
-          <Route path="/login/*" element={<Login />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="*" element={<NotFound />} />
         </Routes>
         <ReportBugButton onClick={handleReport} />
         <FloatingVideoPlayer />

@@ -25,9 +25,11 @@ export const AuthProvider = ({ children }) => {
     const storedUser = JSON.parse(localStorage.getItem('user'));
     const token = storedUser?.token;
 
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+
     if (!token || isTokenExpired(token)) {
       logout();
-      if (window.location.pathname !== '/login') {
+      if (!publicRoutes.includes(window.location.pathname)) {
         navigate('/login');
       }
     }
@@ -61,7 +63,7 @@ export const AuthProvider = ({ children }) => {
 
       if (!res.ok) throw new Error('Error al actualizar usuario');
 
-      const updatedUser = await res.json();      
+      const updatedUser = await res.json();
       const updatedData = {
         ...user,
         userData: updatedUser, // asumimos que la respuesta es el nuevo userData

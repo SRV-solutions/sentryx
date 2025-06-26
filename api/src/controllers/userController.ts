@@ -110,7 +110,7 @@ export const createUser = async (req: Request, res: any) => {
               
               <p style="font-size: 16px; color: #CCCCCC; margin-top: 30px;">
                 Podés acceder a la plataforma en:<br>
-                <a href="https://sentryx.vercel.app" style="color: #00FFF7; text-decoration: none;">https://sentryx.wearesrv.com</a>
+                <a href="https://sentryx.wearesrv.com" style="color: #00FFF7; text-decoration: none;">https://sentryx.wearesrv.com</a>
               </p>
               <div style="margin: 30px 0; padding: 20px; border: 1px solid #333333; border-radius: 8px;">
                 <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Usuario: <b>${email}</b></p>
