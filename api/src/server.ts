@@ -12,7 +12,7 @@ const server = http.createServer(app);
 
 const io = new SocketIOServer(server, {
   cors: {
-    origin: ['http://localhost:5173', 'https://sentryx.wearesrv.com'],
+    origin: ['http://localhost:5174', 'http://localhost:5173', 'https://sentryx.wearesrv.com'],
     methods: ['GET', 'POST'],
     credentials: true,
   },

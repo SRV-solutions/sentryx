@@ -6,7 +6,8 @@ import {
     User,
     LogOut,
     Bell,
-    Search
+    Search,
+    SquareLibrary
 } from 'lucide-react'; // o usá @mui/icons-material/Notifications si preferís
 import Badge from '@mui/material/Badge';
 
@@ -101,7 +102,7 @@ const Sidebar = () => {
                     { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
                     { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
-                    ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }] : [])
+                    ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }, { to: '/admin/solvix', label: 'Enseñarle a Solvix', icon: <SquareLibrary /> }] : [])
                 ].map(({ to, label, icon }) => (
                     <li key={to}>
                         <NavLink
