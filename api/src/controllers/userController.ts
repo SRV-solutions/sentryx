@@ -23,25 +23,52 @@ interface ValidationErrors {
 
 export const getAllUsers = async (req: Request, res: any) => {
   try {
-    const users = await User.findAll({
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const offset = (page - 1) * limit;
+    const search = (req.query.search as string)?.toLowerCase() || "";
+
+    const whereCondition = search
+      ? {
+          [Op.or]: [
+            { firstName: { [Op.iLike]: `%${search}%` } },
+            { lastName: { [Op.iLike]: `%${search}%` } },
+            { email: { [Op.iLike]: `%${search}%` } },
+            { username: { [Op.iLike]: `%${search}%` } },
+          ],
+        }
+      : {};
+
+    const { count, rows: users } = await User.findAndCountAll({
+      where: whereCondition,
       include: [Role],
-      attributes: [
-        'id',
-        'username',
-        'email',
-        'roleId',
-        'firstName',
-        'lastName'
-      ]
+      attributes: ["id", "username", "email", "roleId", "firstName", "lastName"],
+      limit,
+      offset,
+      order: [["id", "ASC"]],
     });
+
     if (!users.length) {
-      return res.status(404).json({ message: 'No hay usuarios disponibles' });
+      return res.status(404).json({ message: "No hay usuarios disponibles" });
     }
-    res.json(users);
+
+    const totalPages = Math.ceil(count / limit);
+
+    return res.json({
+      data: users,
+      pagination: {
+        totalItems: count,
+        totalPages,
+        currentPage: page,
+        itemsPerPage: limit,
+      },
+    });
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener los usuarios', error });
+    console.error("Error al obtener usuarios:", error);
+    res.status(500).json({ message: "Error al obtener los usuarios", error });
   }
 };
+
 
 export const getPublicUser = async (req: Request, res: any) => {
   const { id } = req.params;

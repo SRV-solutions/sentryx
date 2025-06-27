@@ -23,6 +23,7 @@ import {
     InputLabel,
     Snackbar,
     Alert,
+    Pagination
 } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
@@ -39,21 +40,22 @@ const ManageUsers = () => {
     const [dialogOpen, setDialogOpen] = useState(false);
     const [selectedUserId, setSelectedUserId] = useState(null);
     const [resetLoading, setResetLoading] = useState(false);
-    const [roleUpdatingIds, setRoleUpdatingIds] = useState([]); // array de IDs de usuarios cuyo rol se está actualizando
-
-    // Estados para Snackbar
+    const [roleUpdatingIds, setRoleUpdatingIds] = useState([]);
     const [snackbarOpen, setSnackbarOpen] = useState(false);
     const [snackbarMsg, setSnackbarMsg] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+    const [search, setSearch] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
 
     const navigate = useNavigate();
 
-    // Cargar usuarios y roles (igual que antes)
-    const fetchUsers = async () => {
-        const res = await authFetch(`${apiUrl}/users`);
+    const fetchUsers = async (page = 1, searchTerm = '') => {
+        const res = await authFetch(`${apiUrl}/users?page=${page}&limit=10&search=${encodeURIComponent(searchTerm)}`);
         if (res?.ok) {
             const data = await res.json();
-            setUsers(data);
+            setUsers(data.data);
+            setTotalPages(data.pagination.totalPages);
         }
     };
 
@@ -66,9 +68,14 @@ const ManageUsers = () => {
     };
 
     useEffect(() => {
-        fetchUsers();
+        fetchUsers(currentPage, search);
         fetchRoles();
-    }, []);
+    }, [currentPage, search]);
+
+    const handleSearchChange = (e) => {
+        setSearch(e.target.value);
+        setCurrentPage(1);
+    };
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -83,15 +90,14 @@ const ManageUsers = () => {
         });
         if (res?.ok) {
             setForm({ firstName: '', lastName: '', email: '', roleId: '', username: '' });
-            fetchUsers();
+            fetchUsers(currentPage, search);
             setSnackbarSeverity('success');
             setSnackbarMsg('Usuario creado con éxito');
-            setSnackbarOpen(true);
         } else {
             setSnackbarSeverity('error');
             setSnackbarMsg('Error al crear usuario');
-            setSnackbarOpen(true);
         }
+        setSnackbarOpen(true);
         setLoading(false);
     };
 
@@ -122,9 +128,7 @@ const ManageUsers = () => {
     };
 
     const handleRoleChange = async (userId, newRoleId) => {
-        // Marcar como cargando ese usuario
         setRoleUpdatingIds((prev) => [...prev, userId]);
-
         try {
             const res = await authFetch(`${apiUrl}/users/update/${userId}`, {
                 method: 'PATCH',
@@ -133,9 +137,10 @@ const ManageUsers = () => {
             if (res?.ok) {
                 setSnackbarSeverity('success');
                 setSnackbarMsg('Rol actualizado correctamente');
-                // Actualizar la lista de usuarios localmente para reflejar el cambio
                 setUsers((prevUsers) =>
-                    prevUsers.map((u) => (u.id === userId ? { ...u, roleId: newRoleId, Role: roles.find(r => r.id === newRoleId) } : u))
+                    prevUsers.map((u) =>
+                        u.id === userId ? { ...u, roleId: newRoleId, Role: roles.find((r) => r.id === newRoleId) } : u
+                    )
                 );
             } else {
                 setSnackbarSeverity('error');
@@ -145,9 +150,7 @@ const ManageUsers = () => {
             setSnackbarSeverity('error');
             setSnackbarMsg('Error al actualizar el rol');
         }
-
         setSnackbarOpen(true);
-        // Quitar del array de cargando
         setRoleUpdatingIds((prev) => prev.filter((id) => id !== userId));
     };
 
@@ -157,36 +160,20 @@ const ManageUsers = () => {
                 Administrar Usuarios
             </Typography>
 
+            <Box sx={{ mb: 3 }}>
+                <TextField
+                    label="Buscar usuario"
+                    value={search}
+                    onChange={handleSearchChange}
+                    fullWidth
+                />
+            </Box>
+
             <Box component="form" onSubmit={handleCreate} sx={{ mb: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <TextField
-                    name="username"
-                    label="Nombre de usuario"
-                    value={form.username}
-                    onChange={handleChange}
-                    required
-                />
-                <TextField
-                    name="firstName"
-                    label="Nombre"
-                    value={form.firstName}
-                    onChange={handleChange}
-                    required
-                />
-                <TextField
-                    name="lastName"
-                    label="Apellido"
-                    value={form.lastName}
-                    onChange={handleChange}
-                    required
-                />
-                <TextField
-                    name="email"
-                    label="Email"
-                    type="email"
-                    value={form.email}
-                    onChange={handleChange}
-                    required
-                />
+                <TextField name="username" label="Nombre de usuario" value={form.username} onChange={handleChange} required />
+                <TextField name="firstName" label="Nombre" value={form.firstName} onChange={handleChange} required />
+                <TextField name="lastName" label="Apellido" value={form.lastName} onChange={handleChange} required />
+                <TextField name="email" label="Email" type="email" value={form.email} onChange={handleChange} required />
                 <FormControl sx={{ minWidth: 120 }}>
                     <InputLabel id="role-select-label">Rol</InputLabel>
                     <Select
@@ -201,9 +188,7 @@ const ManageUsers = () => {
                             <em>Seleccione un rol</em>
                         </MenuItem>
                         {roles.map((role) => (
-                            <MenuItem key={role.id} value={role.id}>
-                                {role.roleName}
-                            </MenuItem>
+                            <MenuItem key={role.id} value={role.id}>{role.roleName}</MenuItem>
                         ))}
                     </Select>
                 </FormControl>
@@ -220,11 +205,11 @@ const ManageUsers = () => {
                 <Table>
                     <TableHead>
                         <TableRow>
-                            <TableCell align='center' >Nombre</TableCell>
+                            <TableCell align='center'>Nombre</TableCell>
                             <TableCell align='center'>Email</TableCell>
                             <TableCell align='center'>Rol</TableCell>
-                            <TableCell align='center' >Cambiar Rol</TableCell> {/* Nueva columna */}
-                            <TableCell align='center' >Acciones</TableCell>
+                            <TableCell align='center'>Cambiar Rol</TableCell>
+                            <TableCell align='center'>Acciones</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
@@ -233,7 +218,6 @@ const ManageUsers = () => {
                                 <TableCell align='center'>{u.firstName} {u.lastName}</TableCell>
                                 <TableCell align='center'>{u.email}</TableCell>
                                 <TableCell align='center'>{u?.Role?.roleName || u.role || 'N/D'}</TableCell>
-
                                 <TableCell align='center'>
                                     <FormControl fullWidth size="small" sx={{ minWidth: 120 }}>
                                         <Select
@@ -242,27 +226,16 @@ const ManageUsers = () => {
                                             disabled={roleUpdatingIds.includes(u.id)}
                                         >
                                             {roles.map((role) => (
-                                                <MenuItem key={role.id} value={role.id}>
-                                                    {role.roleName}
-                                                </MenuItem>
+                                                <MenuItem key={role.id} value={role.id}>{role.roleName}</MenuItem>
                                             ))}
                                         </Select>
                                     </FormControl>
                                 </TableCell>
-
                                 <TableCell align='center'>
                                     <Button variant="contained" color="primary" onClick={() => handleAssignCourses(u.id)} sx={{ mr: 1 }}>
                                         Asignar Cursos
                                     </Button>
-                                    <Button
-                                        variant="contained"
-                                        color="warning"
-                                        onClick={() => {
-                                            setSelectedUserId(u.id);
-                                            setDialogOpen(true);
-                                        }}
-                                        disabled={resetLoading}
-                                    >
+                                    <Button variant="contained" color="warning" onClick={() => { setSelectedUserId(u.id); setDialogOpen(true); }} disabled={resetLoading}>
                                         {resetLoading ? <CircularProgress size={24} color="inherit" /> : 'Resetear Contraseña'}
                                     </Button>
                                 </TableCell>
@@ -271,6 +244,15 @@ const ManageUsers = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
+
+            <Box mt={2} display="flex" justifyContent="center">
+                <Pagination
+                    count={totalPages}
+                    page={currentPage}
+                    onChange={(e, value) => setCurrentPage(value)}
+                    color="primary"
+                />
+            </Box>
 
             <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)}>
                 <DialogTitle>Confirmar reseteo</DialogTitle>
@@ -293,11 +275,7 @@ const ManageUsers = () => {
                 onClose={() => setSnackbarOpen(false)}
                 anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
             >
-                <Alert
-                    onClose={() => setSnackbarOpen(false)}
-                    severity={snackbarSeverity}
-                    sx={{ width: '100%' }}
-                >
+                <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity} sx={{ width: '100%' }}>
                     {snackbarMsg}
                 </Alert>
             </Snackbar>
