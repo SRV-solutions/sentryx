@@ -55,8 +55,14 @@ const ManageUsers = () => {
         if (res?.ok) {
             const data = await res.json();
             setUsers(data.data);
+            if (data.data.length === 0) {
+                setSnackbarSeverity('error');
+                setSnackbarMsg('Usuario no encontrado');
+                setSnackbarOpen(true);
+            }
             setTotalPages(data.pagination.totalPages);
         }
+
     };
 
     const fetchRoles = async () => {
@@ -65,6 +71,7 @@ const ManageUsers = () => {
             const data = await res.json();
             setRoles(data);
         }
+
     };
 
     useEffect(() => {

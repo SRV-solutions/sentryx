@@ -48,9 +48,9 @@ export const getAllUsers = async (req: Request, res: any) => {
       order: [["id", "ASC"]],
     });
 
-    if (!users.length) {
-      return res.status(404).json({ message: "No hay usuarios disponibles" });
-    }
+    // if (!users.length) {
+    //   return res.status(404).json({ message: "No hay usuarios disponibles", users });
+    // }
 
     const totalPages = Math.ceil(count / limit);
 
@@ -228,7 +228,7 @@ export const login = async (req: Request, res: any) => {
         roleId: user.roleId,
       },
       JWT_SECRET,
-      { expiresIn: '1h' }
+      { expiresIn: '8h' }
     );
 
     res.status(200).json({
