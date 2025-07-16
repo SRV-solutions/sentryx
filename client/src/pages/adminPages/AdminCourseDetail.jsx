@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
+import styles from '../CourseDetail.module.css'
 import {
   Box,
   Modal,
@@ -286,18 +287,15 @@ const CourseDetail = () => {
                   <Grid item xs={12} sm={6} md={4} key={lesson.id}>
                     <Paper
                       elevation={3}
+                      className={`${styles.card} ${darkMode ? styles.darkCard : ''}`}
                       sx={{
-                        p: 2,
-                        cursor: 'pointer',
-                        bgcolor: darkMode ? '#1e1e1e' : 'grey.50',
-                        color: darkMode ? '#eee' : 'text.primary',
-                        '&:hover': {
-                          bgcolor: darkMode ? '#333' : 'grey.100',
-                        },
+                        backgroundColor: 'transparent', // le decís a MUI: "no me pongas blanco por defecto"
                       }}
                       onClick={() => handleOpenModalLesson(lesson)}
-                      title="Editar clase"
                     >
+
+
+
                       <Typography variant="h6" gutterBottom>
                         {lesson.title}
                       </Typography>

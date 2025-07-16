@@ -8,6 +8,28 @@
   margin: 0 auto;
 }
 
+.card {
+  padding: 16px;
+  cursor: pointer;
+  background-color: #f5f5f5;
+  color: #333;
+  transition: background-color 0.3s ease;
+}
+
+.card:hover {
+  background-color: #e0e0e0;
+}
+
+.darkCard {
+  background-color: #1e1e1e;
+  color: #eee;
+}
+
+.darkCard:hover {
+  background-color: #333;
+}
+
+
 .darkContainer {
   background-color: #121212;
   color: #eee;
