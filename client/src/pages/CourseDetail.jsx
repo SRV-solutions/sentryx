@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import styles from './CourseDetail.module.css';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext'
+import DescriptionPreview from '../components/DescriptionPreview';
+import { Typography } from '@mui/material';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -71,8 +73,9 @@ const CourseDetail = () => {
                       className={`${styles.card} ${darkMode ? styles.darkCard : ''}`}
                     >
                       <h4>{lesson.title}</h4>
-                      <p>{lesson.description || 'Sin descripción disponible.'}</p>
-                    </div>
+                      <Typography variant="body2" noWrap sx={{ opacity: 0.8 }}>
+                        <DescriptionPreview text={lesson.description} showExpanded={false} />
+                      </Typography>                    </div>
                   ))
                 ) : (
                   <p>No hay clases en este módulo.</p>

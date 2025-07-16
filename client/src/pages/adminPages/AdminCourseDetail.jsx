@@ -14,6 +14,7 @@ import {
   Divider,
   Stack,
 } from '@mui/material';
+import DescriptionPreview from '../../components/DescriptionPreview';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -301,8 +302,9 @@ const CourseDetail = () => {
                         {lesson.title}
                       </Typography>
                       <Typography variant="body2" noWrap sx={{ opacity: 0.8 }}>
-                        {lesson.description || 'Sin descripción disponible.'}
+                        <DescriptionPreview text={lesson.description} showExpanded={false} />
                       </Typography>
+
                     </Paper>
                   </Grid>
                 ))
