@@ -69,11 +69,34 @@ export const postCommentToLesson = async (req: any, res: any) => {
   }
 
   try {
-    
+
     const newComment = await LessonComment.create({ lessonId: id, userId, comment, rating });
     res.status(201).json(newComment);
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Error interno del servidor' });
+  }
+};
+
+export const updateLesson = async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { title, description, youtubeUrl, order } = req.body;
+
+    const lesson = await Lesson.findByPk(id);
+    if (!lesson) {
+      return res.status(404).json({ message: 'Clase no encontrada' });
+    }
+
+    lesson.title = title ?? lesson.title;
+    lesson.description = description ?? lesson.description;
+    lesson.youtubeUrl = youtubeUrl ?? lesson.youtubeUrl;
+    lesson.order = order ?? lesson.order;
+
+    await lesson.save();
+
+    res.json({ message: 'Clase actualizada', lesson });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al actualizar la clase', error });
   }
 };

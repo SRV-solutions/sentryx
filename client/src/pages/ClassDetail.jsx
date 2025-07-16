@@ -150,13 +150,7 @@ const ClassDetail = () => {
           <Typography variant="h4" gutterBottom>
             {lesson.title}
           </Typography>
-          {lesson.description && (
-            <Typography
-              sx={{ mb: 2, color: darkMode ? '#bbb' : '#555', lineHeight: 1.6 }}
-            >
-              {lesson.description}
-            </Typography>
-          )}
+
 
           {videoUrl ? (
             <Box sx={{ position: 'relative', width: '100%', height: '500px', mb: 2 }}>
@@ -251,7 +245,21 @@ const ClassDetail = () => {
               {`⏱ ${Math.floor(currentTime)}s`}
             </Typography>
           </Stack>
-
+          {lesson.description && (
+            <>
+              <Typography
+                variant='h4'
+                sx={{ mb: 1, color: darkMode ? '#bbb' : '#555', lineHeight: 1.6 }}
+              >
+                Descripcion
+              </Typography>
+              <Typography
+                sx={{ mb: 2, color: darkMode ? '#bbb' : '#555', lineHeight: 1.6 }}
+              >
+                {lesson.description}
+              </Typography>
+            </>
+          )}
           <LessonComments lessonId={lesson.id} />
         </Paper>
       </Box>

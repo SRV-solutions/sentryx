@@ -21,6 +21,8 @@ import ResetPassword from './pages/ResetPassword.jsx';
 import UserSearch from './pages/UserSearch.jsx';
 import UserPublicProfile from './pages/UserPublicProfile.jsx';
 import IAEmbeddingUploader from './pages/adminPages/IAEmbeddingUploader.jsx'
+import AdminCourseList from './pages/adminPages/AdminCourseList.jsx';
+import AdminCourseDetail from './pages/adminPages/AdminCourseDetail.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -67,12 +69,32 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-           <Route
+          <Route
             path="/admin/solvix"
             element={
               <ProtectedRoute>
                 <RequireAdmin>
                   <IAEmbeddingUploader />
+                </RequireAdmin>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/cursos"
+            element={
+              <ProtectedRoute>
+                <RequireAdmin>
+                  <AdminCourseList />
+                </RequireAdmin>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/cursos/:courseId"
+            element={
+              <ProtectedRoute>
+                <RequireAdmin>
+                  <AdminCourseDetail />
                 </RequireAdmin>
               </ProtectedRoute>
             }

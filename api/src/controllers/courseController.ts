@@ -16,7 +16,9 @@ const s3 = new S3Client({
 
 export const getAllCourses = async (req: Request, res: any) => {
   try {
-    const courses = await Course.findAll();
+    const courses = await Course.findAll({
+      include: [Module]
+    });
     if (!courses.length) {
       return res.status(404).json({ message: 'No hay usuarios disponibles' });
     }
@@ -71,7 +73,7 @@ export const getMyCourses = async (req: any, res: any) => {
 
 export const getMyCourseById = async (req: any, res: any) => {
   try {
-    
+
     const userId = req.user.id;
     const courseId = req.params.courseId
     const assignedCourse = await UserCourse.findOne({
@@ -84,11 +86,11 @@ export const getMyCourseById = async (req: any, res: any) => {
         }]
       }],
     });
-    
+
     if (!assignedCourse) {
       return res.status(404).json({ message: 'No tenés cursos asignados' });
     }
-    
+
     const courses = assignedCourse.Course
     res.json(courses);
   } catch (error) {
@@ -139,3 +141,44 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
     return res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };
+
+export const getCourseById = async (req: Request, res: any) => {
+  try {
+    const { id } = req.params
+    const course = await Course.findByPk(id, {
+      include: [{
+        model: Module,
+        include: [Lesson]
+      }]
+    });
+    if (!course) {
+      return res.status(404).json({ message: 'No hay usuarios disponibles' });
+    }
+    res.json(course);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener los usuarios', error });
+  }
+};
+
+export const updateCourse = async (req: Request, res: any) => {
+  try {
+    const { id } = req.params;
+    const { title, description, thumbnailUrl } = req.body;
+
+    const course = await Course.findByPk(id);
+    if (!course) {
+      return res.status(404).json({ message: 'Curso no encontrado' });
+    }
+
+    course.title = title ?? course.title;
+    course.description = description ?? course.description;
+    course.thumbnailUrl = thumbnailUrl ?? course.thumbnailUrl;
+
+    await course.save();
+
+    res.json({ message: 'Curso actualizado correctamente', course });
+  } catch (error) {
+    res.status(500).json({ message: 'Error al actualizar el curso', error });
+  }
+};
+
