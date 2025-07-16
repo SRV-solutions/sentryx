@@ -9,6 +9,7 @@ class Module extends Model {
   public courseId!: number;
   public title!: string;
   public order!: number;
+  public Lessons!: Array<Lesson>;
 
   public static associate() {
     Module.belongsTo(Course, { foreignKey: 'courseId' });

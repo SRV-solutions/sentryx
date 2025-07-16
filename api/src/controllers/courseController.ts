@@ -73,9 +73,9 @@ export const getMyCourses = async (req: any, res: any) => {
 
 export const getMyCourseById = async (req: any, res: any) => {
   try {
-
     const userId = req.user.id;
-    const courseId = req.params.courseId
+    const courseId = req.params.courseId;
+
     const assignedCourse = await UserCourse.findOne({
       where: { userId, courseId },
       include: [{
@@ -91,12 +91,27 @@ export const getMyCourseById = async (req: any, res: any) => {
       return res.status(404).json({ message: 'No tenés cursos asignados' });
     }
 
-    const courses = assignedCourse.Course
-    res.json(courses);
+    const course = assignedCourse.Course;
+
+    // Ordenar las lecciones dentro de cada módulo
+    course.Modules = course.Modules?.map((module) => {
+      if (module.Lessons && module.Lessons.length > 0) {
+        module.Lessons = module.Lessons.sort((a, b) => {
+          // Extraer número inicial del título
+          const numA = parseInt(a.title.split(' ')[0], 10);
+          const numB = parseInt(b.title.split(' ')[0], 10);
+          return numA - numB;
+        });
+      }
+      return module;
+    });
+
+    res.json(course);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener tus cursos', error });
   }
 };
+
 
 export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
   const userId = (req as any).user.id;

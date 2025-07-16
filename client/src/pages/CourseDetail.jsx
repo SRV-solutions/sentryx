@@ -21,12 +21,7 @@ const CourseDetail = () => {
       const parsedUser = JSON.parse(userData);
 
       try {
-        const res = await authFetch(`${apiUrl}/courses/me/${courseId}`, {
-          headers: {
-            Authorization: `Bearer ${parsedUser.token}`,
-            'Content-Type': 'application/json',
-          },
-        });
+        const res = await authFetch(`${apiUrl}/courses/me/${courseId}`);
 
         if (res.status === 403) {
           setCourse({ error: 'No tienes acceso a este curso.' });

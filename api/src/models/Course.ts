@@ -9,6 +9,8 @@ class Course extends Model {
   public title!: string;
   public description!: string;
   public thumbnailUrl?: string;
+  public Modules?: Array<Module>;
+
 
   public static associate() {
     Course.hasMany(Module, { foreignKey: 'courseId' });  // nuevo
