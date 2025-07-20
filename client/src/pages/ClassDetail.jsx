@@ -95,6 +95,20 @@ const ClassDetail = () => {
       }
     }
   }, []);
+  const handleFullscreen = () => {
+    const elem = playerRef.current;
+    if (!elem) return;
+
+    if (elem.requestFullscreen) {
+      elem.requestFullscreen();
+    } else if (elem.mozRequestFullScreen) { /* Firefox */
+      elem.mozRequestFullScreen();
+    } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari y Opera */
+      elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE/Edge */
+      elem.msRequestFullscreen();
+    }
+  };
 
   // Guardar tiempo al salir
   const previousClassIdRef = useRef(classId);
@@ -153,7 +167,8 @@ const ClassDetail = () => {
 
 
           {videoUrl ? (
-            <Box sx={{ position: 'relative', width: '100%', height: '500px', mb: 2 }}>
+            <Box ref={playerRef}
+              sx={{ position: 'relative', width: '100%', height: '500px', mb: 2 }}>
               <ReactPlayer
                 ref={playerRef}
                 url={videoUrl}
@@ -230,6 +245,12 @@ const ClassDetail = () => {
             >
               {isPlaying ? '⏸ Pausar' : '▶️ Reproducir'}
             </Button>
+            <Button
+              variant="contained"
+              onClick={handleFullscreen}
+            >
+              ⛶ Pantalla completa
+            </Button>
             <Typography>Volumen</Typography>
             <Slider
               min={0}
@@ -251,7 +272,7 @@ const ClassDetail = () => {
                 variant='h4'
                 sx={{ mb: 1, color: darkMode ? '#bbb' : '#555', lineHeight: 1.6 }}
               >
-                Descripcion
+                Descripción
               </Typography>
               <Typography
                 sx={{ mb: 2, color: darkMode ? '#bbb' : '#555', lineHeight: 1.6 }}
