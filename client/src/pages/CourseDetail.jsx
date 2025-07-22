@@ -18,7 +18,6 @@ const CourseDetail = () => {
   useEffect(() => {
     const fetchCurso = async () => {
       const userData = localStorage.getItem('user');
-      const parsedUser = JSON.parse(userData);
 
       try {
         const res = await authFetch(`${apiUrl}/courses/me/${courseId}`);
@@ -61,17 +60,50 @@ const CourseDetail = () => {
               <h3>{module.title}</h3>
               <div className={styles.classesGrid}>
                 {module.Lessons && module.Lessons.length > 0 ? (
-                  module.Lessons.map((lesson) => (
-                    <div
-                      onClick={() => navigate(`/curso/${course.id}/modulo/${module.id}/clase/${lesson.id}`)}
-                      key={lesson.id}
-                      className={`${styles.card} ${darkMode ? styles.darkCard : ''}`}
-                    >
-                      <h4>{lesson.title}</h4>
-                      <Typography variant="body2" noWrap sx={{ opacity: 0.8 }}>
-                        <DescriptionPreview text={lesson.description} showExpanded={false} />
-                      </Typography>                    </div>
-                  ))
+                  module.Lessons.map((lesson) => {
+                    const progress = lesson?.UserLessonProgresses?.[0];
+                    const isCompleted = progress?.completed;
+                    const watchedDuration = progress?.watchedDuration || 0;
+                    const hasProgress = watchedDuration > 0;
+
+                    return (
+                      <div
+                        onClick={() => navigate(`/curso/${course.id}/modulo/${module.id}/clase/${lesson.id}`)}
+                        key={lesson.id}
+                        className={`
+        ${styles.card}
+        ${darkMode ? styles.darkCard : ''}
+        ${isCompleted ? styles.completedCard : ''}
+        ${!isCompleted && hasProgress ? styles.inProgressCard : ''}
+      `}
+                        style={{
+                          borderLeft: isCompleted
+                            ? '5px solid #4caf50'
+                            : hasProgress
+                              ? '5px solid #ff9800'
+                              : '5px solid transparent',
+                          position: 'relative',
+                        }}
+                      >
+                        <h4>{lesson.title}</h4>
+                        <Typography variant="body2" noWrap sx={{ opacity: 0.8 }}>
+                          <DescriptionPreview text={lesson.description} showExpanded={false} />
+                        </Typography>
+
+                        {/* Etiquetas visuales */}
+                        {isCompleted && (
+                          <span className={styles.label} style={{ backgroundColor: '#4caf50' }}>
+                            Clase Vista
+                          </span>
+                        )}
+                        {hasProgress && !isCompleted && (
+                          <span className={styles.label} style={{ backgroundColor: '#ff9800' }}>
+                            Continuar ({Math.round(watchedDuration)}s)
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
                 ) : (
                   <p>No hay clases en este módulo.</p>
                 )}

@@ -3,6 +3,34 @@ import UserCourse from '../models/UserCourse';
 import LessonComment from '../models/LessonComment';
 import User from '../models/User';
 import { sequelize } from '../config/database';
+import UserLessonProgress from '../models/UserLessonProgress';
+
+export const saveLessonProgress = async (req: any, res: any) => {
+  const userId = req.user.id;
+  const lessonId = Number(req.params.lessonId); // mejor que videoId, coincide con modelo
+  const { watchedDuration, completed } = req.body;
+
+  try {
+    const [progress, created] = await UserLessonProgress.findOrCreate({
+      where: { userId, lessonId },  
+      defaults: {
+        watchedDuration,
+        completed: !!completed,
+      },
+    });
+    
+    if (!created) {
+      if (watchedDuration !== undefined) progress.watchedDuration = watchedDuration;
+      if (completed !== undefined) progress.completed = progress.completed ? true : completed;
+      await progress.save();
+    }
+
+    res.status(200).json(progress);
+  } catch (error) {
+    console.error('Error al guardar progreso:', error);
+    res.status(500).json({ message: 'Error del servidor', error });
+  }
+};
 
 export const getCourseLessons = async (req: any, res: any) => {
   const userId = req.user.id; // asumimos que lo setea el middleware auth

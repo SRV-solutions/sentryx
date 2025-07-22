@@ -155,7 +155,7 @@ const CourseDetail = () => {
 
   // Funciones modal curso
   const handleOpenModalCourse = () => {
-    setCourseData({ title: course.title, description: course.description });
+    setCourseData({ title: course.title, description: course.description, thumbnailUrl: course.thumbnailUrl });
     setOpenModalCourse(true);
   };
 

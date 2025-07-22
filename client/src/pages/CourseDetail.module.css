@@ -25,6 +25,25 @@
   color: #eee;
 }
 
+.completedCard {
+  background-color: #e6f4ea;
+}
+
+.inProgressCard {
+  background-color: #fff8e1;
+}
+
+.label {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: white;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
 .darkCard:hover {
   background-color: #333;
 }

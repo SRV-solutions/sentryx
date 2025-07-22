@@ -1,7 +1,7 @@
 import { Model, DataTypes } from 'sequelize';
 import { sequelize } from '../config/database';
-import Course from './Course';
 import Module from './Module';
+import UserLessonProgress from './UserLessonProgress';
 
 class Lesson extends Model {
   public id!: number;
@@ -10,9 +10,11 @@ class Lesson extends Model {
   public description!: string;
   public youtubeUrl!: string;
   public order!: number;
+  public UserLessonProgress!: Array<UserLessonProgress>;
 
   public static associate() {
     Lesson.belongsTo(Module, { foreignKey: 'moduleId' });
+    Lesson.hasMany(UserLessonProgress, { foreignKey: 'lessonId' }); // <- esta es la nueva relación
   }
 }
 

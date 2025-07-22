@@ -40,7 +40,6 @@ const FloatingVideoPlayer = () => {
   const { videoData, clearVideoData } = useVideoPlayer();
   const { pathname } = useLocation();
   const isOnClassPage = /^\/curso\/[^/]+\/modulo\/[^/]+\/clase\/[^/]+$/.test(pathname);
-
   const navigate = useNavigate();
   const playerRef = useRef(null);
   const containerRef = useRef(null);
