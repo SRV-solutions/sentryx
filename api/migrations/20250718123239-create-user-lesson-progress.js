@@ -13,19 +13,21 @@ module.exports = {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'User', // Nombre exacto de la tabla Users
+          model: 'User', // nombre exacto de la tabla Users en tu DB
           key: 'id',
         },
         onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
       },
       lessonId: {
         type: Sequelize.INTEGER,
         allowNull: false,
         references: {
-          model: 'Lesson', // Nombre exacto de la tabla Lessons
+          model: 'Lesson', // nombre exacto de la tabla Lessons en tu DB
           key: 'id',
         },
         onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
       },
       watchedDuration: {
         type: Sequelize.FLOAT,
@@ -37,19 +39,19 @@ module.exports = {
         allowNull: false,
         defaultValue: false,
       },
-      updatedAt: {
+      createdAt: {
         allowNull: false,
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
-      createdAt: {
+      updatedAt: {
         allowNull: false,
         type: Sequelize.DATE,
         defaultValue: Sequelize.literal('CURRENT_TIMESTAMP'),
       },
     });
 
-    // Opcional: índice único para evitar duplicados userId + lessonId
+    // Índice único para evitar que un usuario tenga más de un progreso por lección
     await queryInterface.addConstraint('UserLessonProgress', {
       fields: ['userId', 'lessonId'],
       type: 'unique',

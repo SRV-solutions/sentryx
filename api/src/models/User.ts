@@ -6,6 +6,7 @@ import UserCourse from './UserCourse';
 import Role from './Role';
 import Friendship from './Friendship';
 import Notification from './Notification';
+import UserVideoProgress from './UserLessonProgress';
 
 
 class User extends Model {
@@ -30,6 +31,7 @@ class User extends Model {
     User.belongsToMany(Notification, { through: 'UserNotification', foreignKey: 'userId' });
     User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'friendRequestsSent' });
     User.hasMany(Friendship, { foreignKey: 'receiverId', as: 'friendRequestsReceived' });
+    User.hasMany(UserVideoProgress, { foreignKey: 'userId' });
   }
 }
 

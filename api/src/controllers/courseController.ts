@@ -5,6 +5,7 @@ import Lesson from '../models/Lesson';
 import Module from '../models/Module';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import UserLessonProgress from '../models/UserLessonProgress';
 
 const s3 = new S3Client({
   region: process.env.AWS_REGION,
@@ -82,7 +83,16 @@ export const getMyCourseById = async (req: any, res: any) => {
         model: Course,
         include: [{
           model: Module,
-          include: [Lesson]
+          include: [{
+            model: Lesson,
+             include: [
+              {
+                model: UserLessonProgress,
+                where: { userId },
+                required: false,
+              },
+            ],
+          }]
         }]
       }],
     });
@@ -114,7 +124,7 @@ export const getMyCourseById = async (req: any, res: any) => {
 
 
 export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
-  const userId = (req as any).user.id;
+  const userId = req.user.id;
   const { courseId, lessonId, moduleId } = req.params;
 
   try {
@@ -127,35 +137,63 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
       return res.status(403).json({ message: 'No estás inscripto a este curso.' });
     }
 
-    // Buscar la lección
+    // Buscar la lección con progreso del usuario
     const lesson = await Lesson.findOne({
       where: { id: lessonId, moduleId },
+      include: [
+        {
+          model: UserLessonProgress,
+          where: { userId },
+          required: false,
+        },
+      ],
     });
 
     if (!lesson) {
       return res.status(404).json({ message: 'Lección no encontrada.' });
     }
 
-    // Generar URL firmada si videoPath existe
+    // Extraer progreso (viene como array o objeto)
+    const progress = lesson.UserLessonProgress?.[0] || null;
+
+    // Generar URL firmada si existe videoPath (por ejemplo para S3)
     let signedVideoUrl = null;
     if (lesson.youtubeUrl) {
+      // asumiendo que videoPath es la ruta para S3
       const command = new GetObjectCommand({
         Bucket: process.env.S3_VIDEO_BUCKET_NAME!,
         Key: lesson.youtubeUrl,
       });
 
-      signedVideoUrl = await getSignedUrl(s3, command, { expiresIn: 3600 }); // 1 hora de validez
+      signedVideoUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
     }
+
+    // Si es video de YouTube podés también devolver la URL embebida
+    const youtubeEmbedUrl = lesson.youtubeUrl
+      ? `https://www.youtube.com/embed/${extractYoutubeId(lesson.youtubeUrl)}`
+      : null;
 
     return res.json({
       ...lesson.toJSON(),
-      videoUrl: signedVideoUrl,
+      progress: progress ? {
+        watchedDuration: progress.watchedDuration,
+        completed: progress.completed,
+        updatedAt: progress.updatedAt,
+      } : null,
+      videoUrl: signedVideoUrl || youtubeEmbedUrl,
     });
   } catch (error) {
     console.error('Error al obtener lección:', error);
     return res.status(500).json({ message: 'Error interno del servidor.' });
   }
 };
+
+// Función para extraer el ID de un link Youtube
+function extractYoutubeId(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  return match ? match[1] : null;
+}
+
 
 export const getCourseById = async (req: Request, res: any) => {
   try {
