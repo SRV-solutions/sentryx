@@ -163,7 +163,7 @@ const ClassDetail = () => {
     return () => clearInterval(interval);
   }, [isPlaying, currentTime]);
 
-  const handleDuration = (duration) => {
+  const handleDuration = (duration) => {    
     setLessonDuration(duration);
   };
 

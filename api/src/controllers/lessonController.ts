@@ -12,16 +12,16 @@ export const saveLessonProgress = async (req: any, res: any) => {
 
   try {
     const [progress, created] = await UserLessonProgress.findOrCreate({
-      where: { userId, lessonId },
+      where: { userId, lessonId },  
       defaults: {
         watchedDuration,
         completed: !!completed,
       },
     });
-
+    
     if (!created) {
       if (watchedDuration !== undefined) progress.watchedDuration = watchedDuration;
-      if (completed !== undefined) progress.completed = completed;
+      if (completed !== undefined) progress.completed = progress.completed ? true : completed;
       await progress.save();
     }
 
