@@ -90,7 +90,7 @@ const forceSync = process.env.FORCE_SYNC === "true";
 
 sequelize.sync({ force: forceSync }).then(() => {
   // if (forceSync) {
-  //   seedDatabase()
+  //  seedDatabase()
   //   console.log("Seeder ejecutado con exito");
   // }
   console.log('Database connected and synchronized');
