@@ -148,11 +148,10 @@ const UserProfile = () => {
 
           <Typography variant="body2"><strong>Email:</strong> {user.userData.email}</Typography>
           <Typography variant="body2"><strong>Teléfono:</strong> {formData.phone || 'No especificado'}</Typography>
-          <LevelBadge
-            points={user.userData.points.points || 0}
-            level={user.userData.points.level || 1}
-          />
-
+          {(user.userData?.points?.points || user.userData?.points?.level) && <LevelBadge
+            points={user.userData?.points?.points || 0}
+            level={user.userData?.points?.level || 1}
+          />}
           <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
             <Button
               variant="outlined"

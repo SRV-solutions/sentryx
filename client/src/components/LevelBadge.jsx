@@ -1,4 +1,3 @@
-// src/components/LevelBadge.jsx
 import { Box, Typography } from '@mui/material';
 import { styled } from '@mui/system';
 
