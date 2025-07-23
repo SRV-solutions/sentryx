@@ -14,6 +14,7 @@ import { Op } from 'sequelize'; // Importante para búsquedas flexibles
 
 import UserNotification from '../models/UserNotification';
 import Notification from '../models/Notification';
+import UserPoints from '../models/UserPoints';
 // Clave secreta para JWT (colócala en un archivo .env)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
 interface ValidationErrors {
@@ -30,13 +31,13 @@ export const getAllUsers = async (req: Request, res: any) => {
 
     const whereCondition = search
       ? {
-          [Op.or]: [
-            { firstName: { [Op.iLike]: `%${search}%` } },
-            { lastName: { [Op.iLike]: `%${search}%` } },
-            { email: { [Op.iLike]: `%${search}%` } },
-            { username: { [Op.iLike]: `%${search}%` } },
-          ],
-        }
+        [Op.or]: [
+          { firstName: { [Op.iLike]: `%${search}%` } },
+          { lastName: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } },
+          { username: { [Op.iLike]: `%${search}%` } },
+        ],
+      }
       : {};
 
     const { count, rows: users } = await User.findAndCountAll({
@@ -207,7 +208,8 @@ export const login = async (req: Request, res: any) => {
       }, {
         model: UserCourse,
         include: [Course]
-      }]
+      },
+        UserPoints]
     });
 
     if (!user) {
@@ -230,7 +232,6 @@ export const login = async (req: Request, res: any) => {
       JWT_SECRET,
       { expiresIn: '8h' }
     );
-
     res.status(200).json({
       message: 'Login exitoso',
       token,
@@ -246,6 +247,7 @@ export const login = async (req: Request, res: any) => {
         roleId: user.roleId,
         roleName: user.Role?.roleName,
         courses: user?.UserCourses,
+        points: user?.UserPoint,
         permissions: user.Role?.Permissions?.map(p => ({
           entity: p.entity,
           action: p.action

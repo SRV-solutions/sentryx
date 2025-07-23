@@ -7,6 +7,8 @@ import Role from './Role';
 import Friendship from './Friendship';
 import Notification from './Notification';
 import UserVideoProgress from './UserLessonProgress';
+import UserPoints from './UserPoints';
+import UserReward from './UserReward';
 
 
 class User extends Model {
@@ -23,6 +25,7 @@ class User extends Model {
   public Role!: Role;
   public lastLogin!: Date | null;
   public UserCourses!: Array<UserCourse>
+  public UserPoint!: UserPoints
   // Asociaciones con otros modelos
   public static associate() {
     User.belongsTo(Role, { foreignKey: 'roleId' });
@@ -32,6 +35,9 @@ class User extends Model {
     User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'friendRequestsSent' });
     User.hasMany(Friendship, { foreignKey: 'receiverId', as: 'friendRequestsReceived' });
     User.hasMany(UserVideoProgress, { foreignKey: 'userId' });
+    User.hasMany(UserReward, { foreignKey: 'userId' });
+    User.hasOne(UserPoints, { foreignKey: 'userId' });
+
   }
 }
 

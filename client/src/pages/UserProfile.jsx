@@ -23,6 +23,7 @@ import {
 } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 import styles from './UserProfile.module.css';
+import LevelBadge from '../components/LevelBadge';
 
 const UserProfile = () => {
   const avatarOptions = [
@@ -37,6 +38,8 @@ const UserProfile = () => {
   ];
 
   const { user, updateUserData } = useAuth();
+  console.log(user);
+
   const { darkMode } = useTheme();
   const isMobile = useMediaQuery('(max-width:600px)');
   const myCourses = user?.userData?.courses
@@ -145,6 +148,10 @@ const UserProfile = () => {
 
           <Typography variant="body2"><strong>Email:</strong> {user.userData.email}</Typography>
           <Typography variant="body2"><strong>Teléfono:</strong> {formData.phone || 'No especificado'}</Typography>
+          <LevelBadge
+            points={user.userData.points.points || 0}
+            level={user.userData.points.level || 1}
+          />
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3, flexWrap: 'wrap' }}>
             <Button
@@ -160,6 +167,12 @@ const UserProfile = () => {
               onClick={() => setShowChangePassword(true)}
             >
               Cambiar Contraseña
+            </Button>
+            <Button
+              variant="contained"
+              color="warning"
+            >
+              Canjear Puntos
             </Button>
           </Box>
         </Box>

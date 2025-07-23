@@ -20,13 +20,23 @@ import Lesson from './models/Lesson';
 import UserCourse from './models/UserCourse';
 import Module from './models/Module';
 
+
 // import limiter from './middlewares/rateLimit';
 import { seedDatabase, seedUsers } from './utils/seedDataBase';
 import LessonComment from './models/LessonComment';
 import Notification from './models/Notification';
 import UserNotification from './models/UserNotification';
+import UserLessonProgress from './models/UserLessonProgress';
+import UserPoints from './models/UserPoints';
+import UserReward from './models/UserReward';
+import Reward from './models/Reward';
+
 
 User.associate();
+UserLessonProgress.associate()
+UserPoints.associate()
+UserReward.associate()
+Reward.associate()
 Role.associate();
 Permission.associate();
 Chat.associate();
