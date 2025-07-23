@@ -47,6 +47,17 @@ const ManageUsers = () => {
     const [search, setSearch] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [selectedUserIds, setSelectedUserIds] = useState([]);
+    const [notificationModalOpen, setNotificationModalOpen] = useState(false);
+    const [notificationToAll, setNotificationToAll] = useState(false);
+    const [notificationForm, setNotificationForm] = useState({
+        title: '',
+        message: '',
+        type: 'info',
+        link: ''
+    });
+    const [sendingNotification, setSendingNotification] = useState(false);
+
 
     const navigate = useNavigate();
 
@@ -212,6 +223,7 @@ const ManageUsers = () => {
                 <Table>
                     <TableHead>
                         <TableRow>
+                            <TableCell align='center'>Seleccionar</TableCell>
                             <TableCell align='center'>Nombre</TableCell>
                             <TableCell align='center'>Email</TableCell>
                             <TableCell align='center'>Rol</TableCell>
@@ -222,6 +234,19 @@ const ManageUsers = () => {
                     <TableBody>
                         {users.map((u) => (
                             <TableRow key={u.id}>
+                                <TableCell align="center">
+                                    <input
+                                        type="checkbox"
+                                        checked={selectedUserIds.includes(u.id)}
+                                        onChange={(e) => {
+                                            if (e.target.checked) {
+                                                setSelectedUserIds([...selectedUserIds, u.id]);
+                                            } else {
+                                                setSelectedUserIds(selectedUserIds.filter(id => id !== u.id));
+                                            }
+                                        }}
+                                    />
+                                </TableCell>
                                 <TableCell align='center'>{u.firstName} {u.lastName}</TableCell>
                                 <TableCell align='center'>{u.email}</TableCell>
                                 <TableCell align='center'>{u?.Role?.roleName || u.role || 'N/D'}</TableCell>
@@ -251,6 +276,29 @@ const ManageUsers = () => {
                     </TableBody>
                 </Table>
             </TableContainer>
+            <Box mt={2} display="flex" justifyContent="center" gap={2}>
+                <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => {
+                        setNotificationToAll(false);
+                        setNotificationModalOpen(true);
+                    }}
+                    disabled={selectedUserIds.length === 0}
+                >
+                    Enviar notificación a seleccionados
+                </Button>
+                <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={() => {
+                        setNotificationToAll(true);
+                        setNotificationModalOpen(true);
+                    }}
+                >
+                    Enviar notificación a todos
+                </Button>
+            </Box>
 
             <Box mt={2} display="flex" justifyContent="center">
                 <Pagination
@@ -286,6 +334,72 @@ const ManageUsers = () => {
                     {snackbarMsg}
                 </Alert>
             </Snackbar>
+            <Dialog open={notificationModalOpen} onClose={() => setNotificationModalOpen(false)}>
+                <DialogTitle>Enviar Notificación</DialogTitle>
+                <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <TextField
+                        label="Título"
+                        value={notificationForm.title}
+                        onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
+                        required
+                    />
+                    <TextField
+                        label="Mensaje"
+                        multiline
+                        rows={4}
+                        value={notificationForm.message}
+                        onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
+                        required
+                    />
+                    <TextField
+                        label="Tipo (info, warning, error)"
+                        value={notificationForm.type}
+                        onChange={(e) => setNotificationForm({ ...notificationForm, type: e.target.value })}
+                    />
+                    <TextField
+                        label="Link (opcional)"
+                        value={notificationForm.link}
+                        onChange={(e) => setNotificationForm({ ...notificationForm, link: e.target.value })}
+                    />
+                </DialogContent>
+                <DialogActions>
+                    <Button onClick={() => setNotificationModalOpen(false)}>Cancelar</Button>
+                    <Button
+                        onClick={async () => {
+                            setSendingNotification(true);
+                            const url = `${apiUrl}/notifications/${notificationToAll ? 'all' : 'some'}`;
+                            const payload = {
+                                ...notificationForm,
+                                ...(notificationToAll ? {} : { userIds: selectedUserIds })
+                            };
+
+                            const res = await authFetch(url, {
+                                method: 'POST',
+                                body: JSON.stringify(payload)
+                            });
+
+                            setNotificationModalOpen(false);
+                            setNotificationForm({ title: '', message: '', type: 'info', link: '' });
+                            setSendingNotification(false);
+
+                            if (res?.ok) {
+                                setSnackbarSeverity('success');
+                                setSnackbarMsg('Notificación enviada con éxito');
+                                setSelectedUserIds([]);
+                            } else {
+                                setSnackbarSeverity('error');
+                                setSnackbarMsg('Error al enviar notificación');
+                            }
+
+                            setSnackbarOpen(true);
+                        }}
+                        disabled={sendingNotification}
+                    >
+                        {sendingNotification ? <CircularProgress size={24} /> : 'Enviar'}
+                    </Button>
+                </DialogActions>
+            </Dialog>
+
         </Container>
     );
 };

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getUserNotifications, markAsRead, sendNotificationToAll, sendNotificationToUser } from '../controllers/notificationController';
+import { getUserNotifications, markAsRead, sendNotificationToAll, sendNotificationToSomeUsers, sendNotificationToUser } from '../controllers/notificationController';
 import { Entity, Action } from '../models/enums';
 import { isAuth, checkPermission } from '../middlewares/auth';
 
@@ -32,5 +32,13 @@ router.post(
   checkPermission(Entity.USERS, Action.CREATE),
   sendNotificationToUser
 );
+
+router.post(
+  '/some',
+  isAuth,
+  checkPermission(Entity.USERS, Action.CREATE),
+  sendNotificationToSomeUsers
+);
+
 
 export default router;
