@@ -257,39 +257,40 @@ export const removeFriend = async (req: any, res: any) => {
   }
 };
 
-/**
- * Obtener mis amigos
- */
+
 export const getMyFriends = async (req: any, res: any) => {
   const userId = req.user?.id;
 
   try {
     const friendships = await Friendship.findAll({
-      where: {
-        status: 'accepted',
-      },
+      where: { status: 'accepted' },
       include: [
         {
           model: User,
           as: 'requester',
-          where: { id: userId },
-          required: false,
+          attributes: ['id', 'firstName', 'lastName', 'username', 'email', 'avatar'],
         },
         {
           model: User,
           as: 'receiver',
-          where: { id: userId },
-          required: false,
+          attributes: ['id', 'firstName', 'lastName', 'username', 'email', 'avatar'],
         },
       ],
     });
 
-    const friends = friendships.map((f) =>
-      f.requesterId === userId ? f.receiverId : f.requesterId
+    // Filtrar las amistades donde el usuario está involucrado
+    const userFriendships = friendships.filter(
+      (f: any) => f.requester.id === userId || f.receiver.id === userId
     );
+
+    // Mapear al amigo (que NO soy yo)
+    const friends = userFriendships.map((f: any) => {
+      return f.requester.id === userId ? f.receiver : f.requester;
+    });
 
     res.json(friends);
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: 'Error al obtener amigos', error });
   }
 };

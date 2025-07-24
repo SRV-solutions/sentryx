@@ -2,13 +2,14 @@ import {
     Menu,
     Home,
     BookOpen,
-    MessageCircle,
+    Contact,
     User,
     LogOut,
     Bell,
     Search,
     SquareLibrary,
-    Pencil
+    Pencil,
+    Send
 } from 'lucide-react'; // o usá @mui/icons-material/Notifications si preferís
 import Badge from '@mui/material/Badge';
 
@@ -103,8 +104,9 @@ const Sidebar = () => {
                     { to: '/perfil/me', label: 'Perfil', icon: <User /> },
                     { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
-                    { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
                     { to: '/friends/requests', label: 'Solicitudes de Amistad', icon: <User /> },
+                    { to: '/chat', label: 'Chats', icon: <Send /> },
+                    { to: '/friends', label: 'Mis Amigos', icon: <Contact /> },
                     ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }, { to: '/admin/solvix', label: 'Enseñarle a Solvix', icon: <SquareLibrary /> }, { to: '/admin/cursos', label: 'Editar clases y cursos', icon: <Pencil /> }] : [])
                 ].map(({ to, label, icon }) => (
                     <li key={to}>

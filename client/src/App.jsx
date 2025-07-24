@@ -24,6 +24,7 @@ import IAEmbeddingUploader from './pages/adminPages/IAEmbeddingUploader.jsx'
 import AdminCourseList from './pages/adminPages/AdminCourseList.jsx';
 import AdminCourseDetail from './pages/adminPages/AdminCourseDetail.jsx';
 import FriendRequests from './components/FriendRequests.jsx';
+import FriendList from './components/FriendList.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -65,6 +66,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <FriendRequests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/friends"
+            element={
+              <ProtectedRoute>
+                <FriendList />
               </ProtectedRoute>
             }
           />
