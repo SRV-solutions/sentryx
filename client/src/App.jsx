@@ -23,6 +23,7 @@ import UserPublicProfile from './pages/UserPublicProfile.jsx';
 import IAEmbeddingUploader from './pages/adminPages/IAEmbeddingUploader.jsx'
 import AdminCourseList from './pages/adminPages/AdminCourseList.jsx';
 import AdminCourseDetail from './pages/adminPages/AdminCourseDetail.jsx';
+import FriendRequests from './components/FriendRequests.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -56,6 +57,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <UserSearch />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/friends/requests"
+            element={
+              <ProtectedRoute>
+                <FriendRequests />
               </ProtectedRoute>
             }
           />

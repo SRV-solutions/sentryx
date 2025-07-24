@@ -52,6 +52,7 @@ const Sidebar = () => {
                     id: n.Notification.id,
                     title: n.Notification.title,
                     message: n.Notification.message,
+                    link: n.Notification.link,
                     read: n.read,
                     createdAt: n.Notification.createdAt
                 }));
@@ -103,6 +104,7 @@ const Sidebar = () => {
                     { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
                     { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
+                    { to: '/friends/requests', label: 'Solicitudes de Amistad', icon: <User /> },
                     ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }, { to: '/admin/solvix', label: 'Enseñarle a Solvix', icon: <SquareLibrary /> }, { to: '/admin/cursos', label: 'Editar clases y cursos', icon: <Pencil /> }] : [])
                 ].map(({ to, label, icon }) => (
                     <li key={to}>
