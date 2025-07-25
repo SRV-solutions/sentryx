@@ -155,7 +155,7 @@ export const acceptFriendRequest = async (req: any, res: any) => {
       title: 'Solicitud de amistad aceptada',
       message: `${user.firstName} ${user.lastName} aceptó tu solicitud de amistad.`,
       type: 'friend_request_accepted',
-      link: '/friends', // o a la página de amigos
+      link: '/my-friends', // o a la página de amigos
     });
 
     await UserNotification.create({

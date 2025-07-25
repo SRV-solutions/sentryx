@@ -2,7 +2,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ProtectedRoute from './routes/ProtectedRoute';
-import ChatSolvix from './components/ChatSolvix.jsx';
+import ChatSolvix from './components/Chat/ChatSolvix.jsx';
 import Sidebar from './components/SideBar.jsx';
 import './App.css';
 import NotFound from './pages/NotFound.jsx'
@@ -34,6 +34,7 @@ const App = () => {
     // Acá podés abrir un modal, redireccionar a un formulario o abrir un mail
     window.open('https://forms.gle/SnTBRPF3p7CEK6mb8', '_blank'); // ejemplo
   };
+
   return (
     <div className={`app-container ${darkMode ? 'dark' : ''}`}>
       {!hideSidebar && <Sidebar />}
@@ -70,7 +71,7 @@ const App = () => {
             }
           />
           <Route
-            path="/friends"
+            path="/my-friends"
             element={
               <ProtectedRoute>
                 <FriendList />

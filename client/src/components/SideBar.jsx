@@ -16,6 +16,7 @@ import Badge from '@mui/material/Badge';
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
+import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import styles from './Sidebar.module.css';
@@ -35,7 +36,7 @@ const Sidebar = () => {
     const [selected, setSelected] = useState(null);
 
     const socketRef = useRef(null);
-
+    const { chatUnreadCount } = useChat();
     const unreadCount = notifications.filter(n => !n.read).length;
 
     const toggleSidebar = () => setCollapsed(!collapsed);
@@ -82,7 +83,7 @@ const Sidebar = () => {
             socketRef.current?.disconnect();
         };
     }, [user]);
-
+    
     return (
         <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
             <div className={styles.header}>
@@ -105,8 +106,14 @@ const Sidebar = () => {
                     { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
                     { to: '/friends/requests', label: 'Solicitudes de Amistad', icon: <User /> },
-                    { to: '/chat', label: 'Chats', icon: <Send /> },
-                    { to: '/friends', label: 'Mis Amigos', icon: <Contact /> },
+                    { to: '/my-friends', label: 'Mis Amigos', icon: <Contact /> },
+                    {
+                        to: '/chat', label: 'Chats', icon: (
+                            <Badge badgeContent={chatUnreadCount} color="error" invisible={chatUnreadCount === 0}>
+                                <Send />
+                            </Badge>
+                        )
+                    },
                     ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }, { to: '/admin/solvix', label: 'Enseñarle a Solvix', icon: <SquareLibrary /> }, { to: '/admin/cursos', label: 'Editar clases y cursos', icon: <Pencil /> }] : [])
                 ].map(({ to, label, icon }) => (
                     <li key={to}>

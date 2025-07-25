@@ -27,12 +27,15 @@ import LessonComment from './models/LessonComment';
 import Notification from './models/Notification';
 import UserNotification from './models/UserNotification';
 import Friendship from './models/Friendship';
+import ChatUser from './models/ChatUser';
 
 User.associate();
+Chat.associate();
+ChatUser.associate();
+ChatMessage.associate();
+
 Role.associate();
 Permission.associate();
-Chat.associate();
-ChatMessage.associate();
 Course.associate();
 Lesson.associate();
 UserCourse.associate();

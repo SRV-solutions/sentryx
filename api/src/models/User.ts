@@ -7,6 +7,7 @@ import Role from './Role';
 import Friendship from './Friendship';
 import Notification from './Notification';
 import UserVideoProgress from './UserLessonProgress';
+import ChatUser from './ChatUser';
 
 
 class User extends Model {
@@ -26,12 +27,19 @@ class User extends Model {
   // Asociaciones con otros modelos
   public static associate() {
     User.belongsTo(Role, { foreignKey: 'roleId' });
-    User.hasMany(Chat, { foreignKey: 'userId' });
     User.hasMany(UserCourse, { foreignKey: 'userId' });
     User.belongsToMany(Notification, { through: 'UserNotification', foreignKey: 'userId' });
     User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'friendRequestsSent' });
     User.hasMany(Friendship, { foreignKey: 'receiverId', as: 'friendRequestsReceived' });
     User.hasMany(UserVideoProgress, { foreignKey: 'userId' });
+
+    User.belongsToMany(Chat, {
+      through: 'ChatUser',
+      foreignKey: 'userId',
+      otherKey: 'chatId',
+      as: 'Chats',
+    });
+    User.hasMany(ChatUser, { foreignKey: 'userId', as: 'ChatUsers' });
   }
 }
 
