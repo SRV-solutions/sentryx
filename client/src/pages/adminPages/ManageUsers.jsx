@@ -229,8 +229,8 @@ const ManageUsers = () => {
                             <TableCell align='center'>Nombre</TableCell>
                             <TableCell align='center'>Email</TableCell>
                             <TableCell align='center'>Rol</TableCell>
-                            <TableCell align='center'>Cambiar Rol</TableCell>
                             <TableCell align='center'>Ultimo Login</TableCell>
+                            <TableCell align='center'>Cambiar Rol</TableCell>
                             <TableCell align='center'>Acciones</TableCell>
                         </TableRow>
                     </TableHead>
