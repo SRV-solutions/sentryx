@@ -9,6 +9,9 @@ export const ChatProvider = ({ children }) => {
   const socketRef = useRef(null);
   const { user } = useAuth()
   useEffect(() => {
+
+    if (!user) return
+
     socketRef.current = io(import.meta.env.VITE_API_URL, {
       query: { userId: user.userData.id },
       auth: { token: user.token }
@@ -16,7 +19,7 @@ export const ChatProvider = ({ children }) => {
 
     socketRef.current.on('new_message', (data) => {
 
-      if (Number(user.userData.id) === Number(data.message.senderId)) {
+      if (Number(user?.userData?.id) === Number(data.message.senderId)) {
         return ''
       }
 

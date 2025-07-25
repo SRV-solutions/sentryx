@@ -172,6 +172,8 @@ const ManageUsers = () => {
         setRoleUpdatingIds((prev) => prev.filter((id) => id !== userId));
     };
 
+
+
     return (
         <Container maxWidth="lg">
             <Typography variant="h4" gutterBottom sx={{ mt: 4 }}>
@@ -228,51 +230,56 @@ const ManageUsers = () => {
                             <TableCell align='center'>Email</TableCell>
                             <TableCell align='center'>Rol</TableCell>
                             <TableCell align='center'>Cambiar Rol</TableCell>
+                            <TableCell align='center'>Ultimo Login</TableCell>
                             <TableCell align='center'>Acciones</TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
-                        {users.map((u) => (
-                            <TableRow key={u.id}>
-                                <TableCell align="center">
-                                    <input
-                                        type="checkbox"
-                                        checked={selectedUserIds.includes(u.id)}
-                                        onChange={(e) => {
-                                            if (e.target.checked) {
-                                                setSelectedUserIds([...selectedUserIds, u.id]);
-                                            } else {
-                                                setSelectedUserIds(selectedUserIds.filter(id => id !== u.id));
-                                            }
-                                        }}
-                                    />
-                                </TableCell>
-                                <TableCell align='center'>{u.firstName} {u.lastName}</TableCell>
-                                <TableCell align='center'>{u.email}</TableCell>
-                                <TableCell align='center'>{u?.Role?.roleName || u.role || 'N/D'}</TableCell>
-                                <TableCell align='center'>
-                                    <FormControl fullWidth size="small" sx={{ minWidth: 120 }}>
-                                        <Select
-                                            value={u.roleId || (u.Role && u.Role.id) || ''}
-                                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                            disabled={roleUpdatingIds.includes(u.id)}
-                                        >
-                                            {roles.map((role) => (
-                                                <MenuItem key={role.id} value={role.id}>{role.roleName}</MenuItem>
-                                            ))}
-                                        </Select>
-                                    </FormControl>
-                                </TableCell>
-                                <TableCell align='center'>
-                                    <Button variant="contained" color="primary" onClick={() => handleAssignCourses(u.id)} sx={{ mr: 1 }}>
-                                        Asignar Cursos
-                                    </Button>
-                                    <Button variant="contained" color="warning" onClick={() => { setSelectedUserId(u.id); setDialogOpen(true); }} disabled={resetLoading}>
-                                        {resetLoading ? <CircularProgress size={24} color="inherit" /> : 'Resetear Contraseña'}
-                                    </Button>
-                                </TableCell>
-                            </TableRow>
-                        ))}
+                        {users.map((u) => {
+                            const fecha = u?.lastLogin ? new Date(u?.lastLogin) : 'Nunca';
+                            return (
+                                <TableRow key={u.id}>
+                                    <TableCell align="center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedUserIds.includes(u.id)}
+                                            onChange={(e) => {
+                                                if (e.target.checked) {
+                                                    setSelectedUserIds([...selectedUserIds, u.id]);
+                                                } else {
+                                                    setSelectedUserIds(selectedUserIds.filter(id => id !== u.id));
+                                                }
+                                            }}
+                                        />
+                                    </TableCell>
+                                    <TableCell align='center'>{u.firstName} {u.lastName}</TableCell>
+                                    <TableCell align='center'>{u.email}</TableCell>
+                                    <TableCell align='center'>{u?.Role?.roleName || u.role || 'N/D'}</TableCell>
+                                    <TableCell align='center'>{fecha.toLocaleString("es-AR")}</TableCell>
+                                    <TableCell align='center'>
+                                        <FormControl fullWidth size="small" sx={{ minWidth: 120 }}>
+                                            <Select
+                                                value={u.roleId || (u.Role && u.Role.id) || ''}
+                                                onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                disabled={roleUpdatingIds.includes(u.id)}
+                                            >
+                                                {roles.map((role) => (
+                                                    <MenuItem key={role.id} value={role.id}>{role.roleName}</MenuItem>
+                                                ))}
+                                            </Select>
+                                        </FormControl>
+                                    </TableCell>
+                                    <TableCell align='center'>
+                                        <Button variant="contained" color="primary" onClick={() => handleAssignCourses(u.id)} sx={{ mr: 1 }}>
+                                            Asignar Cursos
+                                        </Button>
+                                        <Button variant="contained" color="warning" onClick={() => { setSelectedUserId(u.id); setDialogOpen(true); }} disabled={resetLoading}>
+                                            {resetLoading ? <CircularProgress size={24} color="inherit" /> : 'Resetear Contraseña'}
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            )
+                        })}
                     </TableBody>
                 </Table>
             </TableContainer>

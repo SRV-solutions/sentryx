@@ -30,19 +30,19 @@ export const getAllUsers = async (req: Request, res: any) => {
 
     const whereCondition = search
       ? {
-          [Op.or]: [
-            { firstName: { [Op.iLike]: `%${search}%` } },
-            { lastName: { [Op.iLike]: `%${search}%` } },
-            { email: { [Op.iLike]: `%${search}%` } },
-            { username: { [Op.iLike]: `%${search}%` } },
-          ],
-        }
+        [Op.or]: [
+          { firstName: { [Op.iLike]: `%${search}%` } },
+          { lastName: { [Op.iLike]: `%${search}%` } },
+          { email: { [Op.iLike]: `%${search}%` } },
+          { username: { [Op.iLike]: `%${search}%` } },
+        ],
+      }
       : {};
 
     const { count, rows: users } = await User.findAndCountAll({
       where: whereCondition,
       include: [Role],
-      attributes: ["id", "username", "email", "roleId", "firstName", "lastName"],
+      attributes: ["id", "username", "email", "roleId", "firstName", "lastName", "lastLogin"],
       limit,
       offset,
       order: [["id", "ASC"]],
