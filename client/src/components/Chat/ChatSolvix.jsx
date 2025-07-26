@@ -36,15 +36,28 @@ const ChatSolvix = () => {
     const [chats, setChats] = useState([]); // [{id, name, avatar, isAI}]
     const [activeChat, setActiveChat] = useState(id); // chatId
     const [search, setSearch] = useState('');
+    const [initializing, setInitializing] = useState(true);
+
     const { unreadCounts, setUnreadCounts } = useChat();
 
     useEffect(() => {
-        if (!activeChat) return;
+        if (!activeChat || activeChat === 'ai') return; // 👈 evitamos que se llame con 'ai'
+
         const loadMessages = async () => {
-            const res = await authFetch(`${apiUrl}/chats/${activeChat}/messages`);
-            const data = await res.json();
-            setMessages(data);
+            try {
+                const res = await authFetch(`${apiUrl}/chats/${activeChat}/messages`);
+                const data = await res.json();
+                if (Array.isArray(data)) {
+                    setMessages(data);
+                } else {
+                    setMessages([]);
+                }
+            } catch (err) {
+                console.error('Error cargando mensajes:', err);
+                setMessages([]);
+            }
         };
+
         setUnreadCounts(prev => {
             const newCounts = { ...prev };
             delete newCounts[activeChat];
@@ -53,6 +66,7 @@ const ChatSolvix = () => {
 
         loadMessages();
     }, [activeChat]);
+
 
 
     const markMessagesAsRead = async (chatId) => {
@@ -66,29 +80,50 @@ const ChatSolvix = () => {
     };
 
     useEffect(() => {
-        setActiveChat(id)
-        navigate(`/chat/${id}`)
         const fetchChats = async () => {
-            const userChatsRes = await authFetch(`${apiUrl}/chats`);
-            const userChats = await userChatsRes.json();
-            // Aplanamos y marcamos el tipo de chat
-            const allChats = [
-                ...userChats.private.map(c => ({ ...c, isAI: false, chatType: 'private' })),
-                ...userChats.group.map(c => ({ ...c, isAI: false, chatType: 'group' })),
-                ...userChats.ai.map(c => ({ ...c, isAI: true, chatType: 'ai' })),
-            ];
+            let chatIdToUse = id;
 
-            setChats(allChats);
-            const aiChat = allChats.find(c => c.chatType === 'ai');
-            if (aiChat && !id) {
-                setActiveChat(aiChat.id);
+            if (id === 'ai') {
+                try {
+                    const res = await authFetch(`${apiUrl}/chats/my-ai-chat`);
+                    const data = await res.json();
+                    chatIdToUse = data.chatId;
+                    navigate(`/chat/${chatIdToUse}`, { replace: true });
+                    return; // 👈 importante: salir del efecto, que espere la navegación
+                } catch (err) {
+                    console.error('Error al inicializar el chat con la IA:', err);
+                    setInitializing(false);
+                    return;
+                }
+            }
+
+            try {
+                const userChatsRes = await authFetch(`${apiUrl}/chats`);
+                const userChats = await userChatsRes.json();
+
+                const allChats = [
+                    ...userChats.private.map(c => ({ ...c, isAI: false, chatType: 'private' })),
+                    ...userChats.group.map(c => ({ ...c, isAI: false, chatType: 'group' })),
+                    ...userChats.ai.map(c => ({ ...c, isAI: true, chatType: 'ai' })),
+                ];
+
+                setChats(allChats);
+
+                if (chatIdToUse) {
+                    setActiveChat(chatIdToUse);
+                }
+
+                setInitializing(false); // ✅ ya terminaste de preparar todo
+            } catch (err) {
+                console.error('Error al cargar los chats:', err);
+                setInitializing(false);
             }
         };
 
-
         fetchChats();
         fetchUnreadCounts();
-    }, []);
+    }, [id]);
+
 
     useEffect(() => {
         if (!user) return;
@@ -204,13 +239,14 @@ const ChatSolvix = () => {
         setUnreadCounts(counts);
     };
 
-    if (!chats.length || !activeChat || !chats.find(c => c.id === Number(activeChat))) {
+    if (initializing || !chats.length || !activeChat || !chats.find(c => c.id === Number(activeChat))) {
         return (
             <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
                 <CircularProgress />
             </Box>
         );
     }
+
     return (
         <Box className={styles.chatContainer}>
             <ChatSidebar

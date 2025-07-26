@@ -24,7 +24,6 @@ router.get('/:chatId/messages', isAuth, checkPermission(Entity.CHATS, Action.REA
 // Crear o obtener chat privado entre dos usuarios
 router.post('/private', isAuth, checkPermission(Entity.CHATS, Action.CREATE), createOrGetPrivateChat);
 router.post('/:chatId/messages', isAuth, checkPermission(Entity.CHATS, Action.CREATE), sendMessageToChat);
-router.get('/:chatId/messages', isAuth, checkPermission(Entity.CHATS, Action.READ), getChatMessages);
 router.get('/', isAuth, checkPermission(Entity.CHATS, Action.READ), getUserChats);
 // Marcar todos los mensajes hasta el último como leídos por este usuario
 router.post('/:chatId/read', isAuth, checkPermission(Entity.CHATS, Action.UPDATE), markChatAsRead);

@@ -108,7 +108,7 @@ const Sidebar = () => {
                     { to: '/friends/requests', label: 'Solicitudes de Amistad', icon: <User /> },
                     { to: '/my-friends', label: 'Mis Amigos', icon: <Contact /> },
                     {
-                        to: '/chat', label: 'Chats', icon: (
+                        to: '/chat/ai', label: 'Chats', icon: (
                             <Badge badgeContent={chatUnreadCount} color="error" invisible={chatUnreadCount === 0}>
                                 <Send />
                             </Badge>

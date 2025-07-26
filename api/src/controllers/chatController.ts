@@ -146,6 +146,7 @@ export const getChatMessages = async (req: any, res: any) => {
 
         res.json(messages);
     } catch (error) {
+        
         console.error(error);
         res.status(500).json({ error: 'Error al obtener mensajes.' });
     }
