@@ -2,19 +2,21 @@ import {
     Menu,
     Home,
     BookOpen,
-    MessageCircle,
+    Contact,
     User,
     LogOut,
     Bell,
     Search,
     SquareLibrary,
-    Pencil
+    Pencil,
+    Send
 } from 'lucide-react'; // o usá @mui/icons-material/Notifications si preferís
 import Badge from '@mui/material/Badge';
 
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 
+import { useChat } from '../context/ChatContext';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import styles from './Sidebar.module.css';
@@ -34,7 +36,7 @@ const Sidebar = () => {
     const [selected, setSelected] = useState(null);
 
     const socketRef = useRef(null);
-
+    const { chatUnreadCount } = useChat();
     const unreadCount = notifications.filter(n => !n.read).length;
 
     const toggleSidebar = () => setCollapsed(!collapsed);
@@ -52,6 +54,7 @@ const Sidebar = () => {
                     id: n.Notification.id,
                     title: n.Notification.title,
                     message: n.Notification.message,
+                    link: n.Notification.link,
                     read: n.read,
                     createdAt: n.Notification.createdAt
                 }));
@@ -80,7 +83,7 @@ const Sidebar = () => {
             socketRef.current?.disconnect();
         };
     }, [user]);
-
+    
     return (
         <aside className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''}`}>
             <div className={styles.header}>
@@ -102,7 +105,15 @@ const Sidebar = () => {
                     { to: '/perfil/me', label: 'Perfil', icon: <User /> },
                     { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
-                    { to: '/chat', label: 'Chats', icon: <MessageCircle /> },
+                    { to: '/friends/requests', label: 'Solicitudes de Amistad', icon: <User /> },
+                    { to: '/my-friends', label: 'Mis Amigos', icon: <Contact /> },
+                    {
+                        to: '/chat/ai', label: 'Chats', icon: (
+                            <Badge badgeContent={chatUnreadCount} color="error" invisible={chatUnreadCount === 0}>
+                                <Send />
+                            </Badge>
+                        )
+                    },
                     ...(isAdmin ? [{ to: '/admin/usuarios', label: 'Usuarios', icon: <User /> }, { to: '/admin/solvix', label: 'Enseñarle a Solvix', icon: <SquareLibrary /> }, { to: '/admin/cursos', label: 'Editar clases y cursos', icon: <Pencil /> }] : [])
                 ].map(({ to, label, icon }) => (
                     <li key={to}>

@@ -9,6 +9,7 @@ import courseRoutes from './routes/courseRoutes'
 import lessonRoutes from './routes/lessonRoutes'
 import embeddingRoutes from './routes/embeddingRoutes';
 import notificationRoutes from './routes/notificationRoutes'
+import friendRoutes from './routes/friendRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
@@ -25,12 +26,16 @@ import { seedDatabase, seedUsers } from './utils/seedDataBase';
 import LessonComment from './models/LessonComment';
 import Notification from './models/Notification';
 import UserNotification from './models/UserNotification';
+import Friendship from './models/Friendship';
+import ChatUser from './models/ChatUser';
 
 User.associate();
+Chat.associate();
+ChatUser.associate();
+ChatMessage.associate();
+
 Role.associate();
 Permission.associate();
-Chat.associate();
-ChatMessage.associate();
 Course.associate();
 Lesson.associate();
 UserCourse.associate();
@@ -38,6 +43,7 @@ Module.associate()
 LessonComment.associate()
 Notification.associate()
 UserNotification.associate()
+Friendship.associate()
 
 const app = express();
 
@@ -74,7 +80,7 @@ app.use('/courses', courseRoutes)
 app.use('/lessons', lessonRoutes)
 app.use('/embedding', embeddingRoutes);
 app.use('/notifications', notificationRoutes)
-// app.use('/friends', friendRoutes)
+app.use('/friends', friendRoutes)
 
 const forceSync = process.env.FORCE_SYNC === "true";
 

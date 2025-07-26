@@ -2,7 +2,7 @@ import { Routes, Route, useLocation } from 'react-router-dom';
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import ProtectedRoute from './routes/ProtectedRoute';
-import ChatSolvix from './components/ChatSolvix.jsx';
+import ChatSolvix from './components/Chat/ChatSolvix.jsx';
 import Sidebar from './components/SideBar.jsx';
 import './App.css';
 import NotFound from './pages/NotFound.jsx'
@@ -23,6 +23,8 @@ import UserPublicProfile from './pages/UserPublicProfile.jsx';
 import IAEmbeddingUploader from './pages/adminPages/IAEmbeddingUploader.jsx'
 import AdminCourseList from './pages/adminPages/AdminCourseList.jsx';
 import AdminCourseDetail from './pages/adminPages/AdminCourseDetail.jsx';
+import FriendRequests from './components/FriendRequests.jsx';
+import FriendList from './components/FriendList.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -32,6 +34,7 @@ const App = () => {
     // Acá podés abrir un modal, redireccionar a un formulario o abrir un mail
     window.open('https://forms.gle/SnTBRPF3p7CEK6mb8', '_blank'); // ejemplo
   };
+
   return (
     <div className={`app-container ${darkMode ? 'dark' : ''}`}>
       {!hideSidebar && <Sidebar />}
@@ -56,6 +59,22 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <UserSearch />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/friends/requests"
+            element={
+              <ProtectedRoute>
+                <FriendRequests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-friends"
+            element={
+              <ProtectedRoute>
+                <FriendList />
               </ProtectedRoute>
             }
           />
@@ -125,7 +144,7 @@ const App = () => {
             }
           />
           <Route
-            path="/chat"
+            path="/chat/:id"
             element={
               <ProtectedRoute>
                 <ChatSolvix />

@@ -4,16 +4,22 @@ import {
   acceptFriendRequest,
   rejectFriendRequest,
   getMyFriends,
-  searchUsers,
+  getFriendStatus,
+  getReceivedRequests,
+  getSentRequests,
 } from '../controllers/friendController';
 import { isAuth } from '../middlewares/auth';
 
 const router = Router();
 
-router.post('/friend-request/:userId', isAuth, sendFriendRequest);
-router.post('/friend-request/:requestId/accept', isAuth, acceptFriendRequest);
-router.post('/friend-request/:requestId/reject', isAuth, rejectFriendRequest);
+router.post('/requests/:userId', isAuth, sendFriendRequest);
+router.post('/requests/:requestId/accept', isAuth, acceptFriendRequest);
+router.post('/requests/:requestId/reject', isAuth, rejectFriendRequest);
+
+router.get('/status/:userId', isAuth, getFriendStatus);
 router.get('/', isAuth, getMyFriends);
-router.get('/search-users', isAuth, searchUsers);
+router.get('/requests/received', isAuth, getReceivedRequests);
+router.get('/requests/sent', isAuth, getSentRequests); // Opcional
+
 
 export default router;

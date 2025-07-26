@@ -5,6 +5,7 @@ import App from './App';
 import { VideoPlayerProvider } from './context/VideoPlayerContext';
 import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ChatProvider } from './context/ChatContext';
 import './global.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
@@ -12,7 +13,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <ThemeProvider>
         <VideoPlayerProvider>
-          <App />
+          <ChatProvider>
+            <App />
+          </ChatProvider>
         </VideoPlayerProvider>
       </ThemeProvider>
     </AuthProvider>

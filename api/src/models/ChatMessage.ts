@@ -9,6 +9,7 @@ class ChatMessage extends Model {
   public senderId!: number | null;
   public message!: string;
   public isAssistant!: boolean;
+  public createdAt!: Date;
 
 
   public static associate() {
@@ -16,7 +17,7 @@ class ChatMessage extends Model {
     ChatMessage.belongsTo(User, { foreignKey: 'senderId', as: 'sender' });
   }
 }
-
+      
 ChatMessage.init({
   id: {
     type: DataTypes.INTEGER,

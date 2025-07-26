@@ -22,7 +22,6 @@ const NotificationDialogs = ({
 
     const handleClick = async (note) => {
         setSelected(note);
-
         if (!note.read) {
             try {
                 const res = await authFetch(`${import.meta.env.VITE_API_URL}/notifications/${note.id}`, {
@@ -46,7 +45,6 @@ const NotificationDialogs = ({
         }
         return muiTheme.palette.mode === 'dark' ? '#424242' : '#e3f2fd';
     };
-
     return (
         <>
             {/* Lista de notificaciones */}
@@ -104,8 +102,8 @@ const NotificationDialogs = ({
                     </Typography>
 
                     {selected?.link && (
-                        <Typography variant="body2" color="primary" sx={{ wordBreak: 'break-all' }}>
-                            <a href={selected.link} target="_blank" rel="noopener noreferrer">
+                        <Typography variant="body2" color="primary" >
+                            <a href={selected.link}>
                                 {selected.link}
                             </a>
                         </Typography>

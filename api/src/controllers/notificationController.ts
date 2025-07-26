@@ -184,7 +184,6 @@ export const sendNotificationToAll = async (req: any, res: any) => {
   }
 };
 
-
 export const sendNotificationToSomeUsers = async (req: any, res: any) => {
   try {
     const io = req.app.get('io');
