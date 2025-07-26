@@ -169,7 +169,7 @@ export const getOrCreateAIChat = async (req: any, res: any) => {
         // 2. Si no existe, crearlo
         if (!chat) {
             chat = await Chat.create({
-                title: 'Chat con Solvix',
+                title: 'Solvix',
                 type: ChatType.AI,
             });
 

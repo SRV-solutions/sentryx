@@ -194,12 +194,42 @@ const ChatSolvix = () => {
         setLoading(true);
 
         try {
-            await authFetch(endpoint, {
+            if (chat.type === 'AI') {
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        sender: { username: user.userData.username },
+                        Chat: { type: chat.type },
+                        senderId: user.userData.id,
+                        message: messageToSend,
+                        createdAt: new Date().toISOString(),
+                    },
+                ]);
+                setIsTyping(true)
+            }
+            const res = await authFetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ message: messageToSend }),
             });
+            if (!res.ok) throw new Error('Error en la respuesta');
 
+            // 🔥 En el caso de IA, esperamos la respuesta y la mostramos
+            if (chat.type === 'AI') {
+                const data = await res.json();
+
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        sender: { username: 'Solvix 🤖' }, // o como quieras mostrarlo
+                        Chat: { type: 'AI' },
+                        senderId: null, // o un ID reservado para IA
+                        message: data.reply || 'No entendí tu pregunta 😅',
+                        createdAt: new Date().toISOString(),
+                    },
+                ]);
+                setIsTyping(false)
+            }
             // 🎯 El mensaje lo recibís del socket automáticamente, no hay que hacer nada acá
         } catch (err) {
             console.error('Error al enviar mensaje', err);
@@ -284,25 +314,5 @@ const ChatSolvix = () => {
         </Box>
     );
 };
-
-
-const Dot = ({ delay = '0s' }) => (
-    <Box
-        component="span"
-        sx={{
-            width: 8,
-            height: 8,
-            borderRadius: '50%',
-            backgroundColor: '#999',
-            animation: 'dotPulse 1s infinite',
-            animationDelay: delay,
-            '@keyframes dotPulse': {
-                '0%': { transform: 'scale(1)', opacity: 1 },
-                '50%': { transform: 'scale(1.5)', opacity: 0.6 },
-                '100%': { transform: 'scale(1)', opacity: 1 },
-            },
-        }}
-    />
-);
 
 export default ChatSolvix;
