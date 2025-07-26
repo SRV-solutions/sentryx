@@ -59,11 +59,11 @@ const ChatSidebar = ({
                     .map((chat) => (
                         <ListItem
                             key={chat.id}
-                            selected={activeChat === chat.id}
+                            selected={Number(activeChat) === chat.id}
                             button
                             onClick={() => handleChatClick(chat.id)}
                             sx={{
-                                bgcolor: activeChat === chat.id
+                                bgcolor: Number(activeChat) === chat.id
                                     ? darkMode ? '#333' : '#e3f2fd'
                                     : 'transparent',
                                 '&:hover': {

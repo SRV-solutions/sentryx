@@ -8,6 +8,7 @@ import ChatMessages from './ChatMessages';
 import ChatInput from './ChatInput';
 import {
     Box,
+    CircularProgress,
 
 } from '@mui/material';
 
@@ -17,10 +18,14 @@ import styles from './ChatSolvix.module.css';
 import { useChat } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
+import { useNavigate, useParams } from 'react-router-dom';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
 const ChatSolvix = () => {
+    const { id } = useParams();
+    const navigate = useNavigate();
+
     const [messages, setMessages] = useState([]);
     const [isTyping, setIsTyping] = useState(false);
     const socketRef = useRef(null);
@@ -29,10 +34,9 @@ const ChatSolvix = () => {
     const { authFetch, user } = useAuth();
     const { darkMode } = useTheme();
     const [chats, setChats] = useState([]); // [{id, name, avatar, isAI}]
-    const [activeChat, setActiveChat] = useState(null); // chatId
+    const [activeChat, setActiveChat] = useState(id); // chatId
     const [search, setSearch] = useState('');
     const { unreadCounts, setUnreadCounts } = useChat();
-
 
     useEffect(() => {
         if (!activeChat) return;
@@ -61,44 +65,9 @@ const ChatSolvix = () => {
         }
     };
 
-
     useEffect(() => {
-        if (!user || !activeChat) return;
-
-        socketRef.current = io(import.meta.env.VITE_API_URL, {
-            query: { userId: user.userData.id },
-            auth: { token: user.token }
-        });
-
-        socketRef.current.on('connect', () => {
-        });
-
-        socketRef.current.on('new_message', (data) => {
-            const chat = chats.find(c => c.id === activeChat);
-            const sender = chat.Users.find(u => u.id === data.message.senderId)
-            if (Number(data.chatId) === Number(activeChat)) {
-                setMessages(prev => [...prev, {
-                    sender: { username: sender.username },
-                    Chat: { type: chat.type },
-                    senderId: data.message.senderId,
-                    message: data.message.content,
-                    createdAt: data.message.createdAt,
-                }]);
-            }
-            if (Number(data.chatId) !== Number(activeChat)) {
-                setUnreadCounts(prev => ({
-                    ...prev,
-                    [data.chatId]: (prev[data.chatId] || 0) + 1
-                }));                
-            }
-        });
-        return () => {
-            socketRef.current?.disconnect();
-        };
-    }, [activeChat, user]);
-
-
-    useEffect(() => {
+        setActiveChat(id)
+        navigate(`/chat/${id}`)
         const fetchChats = async () => {
             const userChatsRes = await authFetch(`${apiUrl}/chats`);
             const userChats = await userChatsRes.json();
@@ -110,10 +79,8 @@ const ChatSolvix = () => {
             ];
 
             setChats(allChats);
-
-            // Activar chat con IA por defecto (si existe)
             const aiChat = allChats.find(c => c.chatType === 'ai');
-            if (aiChat) {
+            if (aiChat && !id) {
                 setActiveChat(aiChat.id);
             }
         };
@@ -122,6 +89,53 @@ const ChatSolvix = () => {
         fetchChats();
         fetchUnreadCounts();
     }, []);
+
+    useEffect(() => {
+        if (!user) return;
+
+        socketRef.current = io(import.meta.env.VITE_API_URL, {
+            query: { userId: user.userData.id },
+            auth: { token: user.token },
+        });
+
+        return () => {
+            socketRef.current?.disconnect();
+        };
+    }, [user]);
+
+
+    useEffect(() => {
+        if (!chats || !user || !Number(activeChat)) return;
+
+        const chat = chats.find(c => c.id === Number(activeChat));
+        if (!chat) return;
+
+        const handleNewMessage = (data) => {
+            const sender = chat.Users?.find(u => u.id === data.message.senderId);
+
+            if (Number(data.chatId) === Number(activeChat)) {
+                setMessages(prev => [
+                    ...prev,
+                    {
+                        sender: { username: sender?.username || 'Usuario' },
+                        Chat: { type: chat.type },
+                        senderId: data.message.senderId,
+                        message: data.message.content,
+                        createdAt: data.message.createdAt,
+                    },
+                ]);
+            } else {
+                setUnreadCounts(prev => ({
+                    ...prev,
+                    [data.chatId]: (prev[data.chatId] || 0) + 1,
+                }));
+            }
+        };
+        socketRef.current.on('new_message', handleNewMessage);
+        return () => {
+            socketRef.current?.off('new_message', handleNewMessage);
+        };
+    }, [activeChat, chats]);
 
 
     const messagesEndRef = useRef(null);
@@ -134,8 +148,8 @@ const ChatSolvix = () => {
 
     const sendMessage = async () => {
         if (!input.trim() || !activeChat) return;
+        const chat = chats.find(c => c.id === Number(activeChat));
 
-        const chat = chats.find(c => c.id === activeChat);
         const endpoint = chat.type === 'AI'
             ? `${apiUrl}/chats/${activeChat}/messages/ai`
             : `${apiUrl}/chats/${activeChat}/messages`;
@@ -169,6 +183,8 @@ const ChatSolvix = () => {
     };
     const handleChatClick = async (chatId) => {
         setActiveChat(chatId);
+        navigate(`/chat/${chatId}`)
+
 
         // 🧼 Limpiar contador global
         setUnreadCounts(prev => {
@@ -177,7 +193,7 @@ const ChatSolvix = () => {
             return updated;
         });
 
-        
+
         await markMessagesAsRead(chatId);
     };
 
@@ -188,14 +204,20 @@ const ChatSolvix = () => {
         setUnreadCounts(counts);
     };
 
-
+    if (!chats.length || !activeChat || !chats.find(c => c.id === Number(activeChat))) {
+        return (
+            <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+                <CircularProgress />
+            </Box>
+        );
+    }
     return (
         <Box className={styles.chatContainer}>
             <ChatSidebar
                 chats={chats}
                 activeChat={activeChat}
                 handleChatClick={handleChatClick}
-                notificationMessages={unreadCounts} // 🟢 cambiaste esto
+                notificationMessages={unreadCounts}
                 search={search}
                 setSearch={setSearch}
                 user={user}

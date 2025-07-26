@@ -144,7 +144,7 @@ const App = () => {
             }
           />
           <Route
-            path="/chat"
+            path="/chat/:id"
             element={
               <ProtectedRoute>
                 <ChatSolvix />

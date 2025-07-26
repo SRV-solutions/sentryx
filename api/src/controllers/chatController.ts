@@ -8,6 +8,7 @@ import { pool } from '../embedding/pgClient'
 import { ChatType } from '../models/enums'
 import User from '../models/User';
 import { Op } from 'sequelize';
+import Friendship from '../models/Friendship';
 
 
 export const getUnreadCounts = async (req: any, res: any) => {
@@ -243,11 +244,41 @@ export const sendMessageToChat = async (req: any, res: any) => {
         const { message } = req.body;
 
         // Validar que el usuario pertenece al chat
-        const chatUser = await ChatUser.findOne({ where: { chatId, userId: senderId } });
+        const chatUser = await ChatUser.findOne({ where: { chatId, userId: senderId }, include: [Chat] });
         if (!chatUser) {
             return res.status(400).json({ error: 'No perteneces a este chat.' });
         }
 
+        if (chatUser.Chat.type === ChatType.PRIVATE) {
+            // Obtener el otro usuario del chat
+            const otherUser = await ChatUser.findOne({
+                where: {
+                    chatId,
+                    userId: { [Op.not]: senderId },
+                },
+            });
+
+            if (!otherUser) {
+                return res.status(400).json({ error: 'El otro usuario no existe en el chat.' });
+            }
+
+            const otherUserId = otherUser.userId;
+
+            // Verificar si existe una relación de amistad aceptada en ambas direcciones
+            const friendship = await Friendship.findOne({
+                where: {
+                    [Op.or]: [
+                        { requesterId: senderId, receiverId: otherUserId },
+                        { requesterId: otherUserId, receiverId: senderId },
+                    ],
+                    status: 'accepted',
+                },
+            });
+
+            if (!friendship) {
+                return res.status(403).json({ error: 'No puedes enviar mensajes si no son amigos.' });
+            }
+        }
         // Guardar el mensaje
         const msg = await ChatMessage.create({
             chatId,

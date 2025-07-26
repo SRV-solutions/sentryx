@@ -9,7 +9,7 @@ class ChatUser extends Model {
     public userId!: number;
     public isAdmin!: boolean;
     public lastReadMessageId!: number | null;
-
+    public Chat!: Chat;
     public static associate() {
         ChatUser.belongsTo(User, { foreignKey: 'userId' });
         ChatUser.belongsTo(Chat, { foreignKey: 'chatId' });

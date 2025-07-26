@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useNavigate } from 'react-router-dom';
 
 import {
   Avatar,
@@ -35,6 +36,9 @@ const FriendList = () => {
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
+  const navigate = useNavigate();
+
+
   useEffect(() => {
     const fetchFriends = async () => {
       try {
@@ -56,14 +60,28 @@ const FriendList = () => {
     setSnackbarOpen(false);
   };
 
-  const handleChatClick = (friendId) => {
-    // Esto depende de tu sistema de chat. Aquí solo mostramos un mensaje.
-    setSnackbarMessage('Funcionalidad de chat aún no implementada');
-    setSnackbarSeverity('info');
-    setSnackbarOpen(true);
+  const handleChatClick = async (friendId) => {
+    try {
+      const res = await authFetch(`${apiUrl}/chats/private`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ friendId }),
+      });
 
-    // Ejemplo para redirigir:
-    // navigate(`/chat/${friendId}`);
+      if (!res.ok) throw new Error('No se pudo crear o recuperar el chat');
+
+      const chat = await res.json();
+
+      // Redirigir al chat por ID
+      navigate(`/chat/${chat.id}`);
+    } catch (error) {
+      console.error(error);
+      setSnackbarMessage('Error al abrir el chat');
+      setSnackbarSeverity('error');
+      setSnackbarOpen(true);
+    }
   };
 
   if (loading)
