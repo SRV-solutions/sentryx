@@ -45,6 +45,81 @@ const CourseDetail = () => {
     thumbnailUrl: '',
   });
   const [savingCourse, setSavingCourse] = useState(false);
+  const [openModalModule, setOpenModalModule] = useState(false);
+  const [savingModule, setSavingModule] = useState(false);
+  const [moduleData, setModuleData] = useState({
+    title: '',
+    order: 1,
+  });
+  const [openNewLessonModal, setOpenNewLessonModal] = useState(false);
+  const [newLessonData, setNewLessonData] = useState({
+    title: '',
+    description: '',
+    youtubeUrl: '',
+    order: 1,
+  });
+  const [selectedModuleId, setSelectedModuleId] = useState(null);
+  const [savingNewLesson, setSavingNewLesson] = useState(false);
+  const [editingModule, setEditingModule] = useState(null); // Módulo que se edita
+
+  const handleOpenNewLessonModal = (moduleId) => {
+    setSelectedModuleId(moduleId);
+    setNewLessonData({
+      title: '',
+      description: '',
+      youtubeUrl: '',
+      order: 1,
+    });
+    setOpenNewLessonModal(true);
+  };
+
+  const handleCloseNewLessonModal = () => {
+    setOpenNewLessonModal(false);
+    setSelectedModuleId(null);
+  };
+
+  const handleSaveNewLesson = async () => {
+    if (!selectedModuleId) return;
+
+    setSavingNewLesson(true);
+    try {
+      const res = await authFetch(`${apiUrl}/lessons`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...newLessonData,
+          moduleId: selectedModuleId,
+        }),
+      });
+
+      if (!res.ok) {
+        alert('Error al crear la clase');
+        setSavingNewLesson(false);
+        return;
+      }
+
+      const newLesson = await res.json();
+
+      setCourse((prev) => {
+        const updatedModules = prev.Modules.map((mod) => {
+          if (mod.id === selectedModuleId) {
+            return {
+              ...mod,
+              Lessons: [...(mod.Lessons || []), newLesson],
+            };
+          }
+          return mod;
+        });
+        return { ...prev, Modules: updatedModules };
+      });
+
+      handleCloseNewLessonModal();
+    } catch (error) {
+      alert('Error de red al crear la clase');
+    } finally {
+      setSavingNewLesson(false);
+    }
+  };
 
   const styleModal = {
     position: 'absolute',
@@ -60,6 +135,64 @@ const CourseDetail = () => {
     outline: 'none',
   };
 
+  const handleCloseModalModule = () => {
+    setOpenModalModule(false);
+    setModuleData({ title: '', order: 1 });
+    setEditingModule(null);
+  };
+
+
+  const handleEditModule = (module) => {
+    setEditingModule(module);
+    setModuleData({ title: module.title, order: module.order });
+    setOpenModalModule(true);
+  };
+
+  const handleSaveModule = async () => {
+    if (!moduleData.title || !moduleData.order) return;
+    setSavingModule(true);
+    try {
+      const url = editingModule
+        ? `${apiUrl}/modules/${editingModule.id}`
+        : `${apiUrl}/modules`;
+      const method = editingModule ? 'PUT' : 'POST';
+
+      const res = await authFetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...moduleData,
+          ...(editingModule ? {} : { courseId: Number(courseId) }),
+        }),
+      });
+
+      if (!res.ok) {
+        alert(editingModule ? 'Error al editar el módulo' : 'Error al crear el módulo');
+        setSavingModule(false);
+        return;
+      }
+
+      const updatedModule = await res.json();
+
+      setCourse((prev) => {
+        const updatedModules = editingModule
+          ? prev.Modules.map((mod) =>
+            mod.id === editingModule.id ? { ...mod, ...updatedModule } : mod
+          )
+          : [...(prev.Modules || []), { ...updatedModule, Lessons: [] }];
+
+        return { ...prev, Modules: updatedModules };
+      });
+
+      handleCloseModalModule();
+    } catch (error) {
+      alert(editingModule ? 'Error de red al editar el módulo' : 'Error de red al crear el módulo');
+    } finally {
+      setSavingModule(false);
+    }
+  };
+
+
   useEffect(() => {
     const fetchCurso = async () => {
       setLoading(true);
@@ -67,7 +200,7 @@ const CourseDetail = () => {
         const userData = localStorage.getItem('user');
         const parsedUser = JSON.parse(userData);
 
-        const res = await authFetch(`${apiUrl}/courses/me/${courseId}`, {
+        const res = await authFetch(`${apiUrl}/courses/${courseId}`, {
           headers: {
             Authorization: `Bearer ${parsedUser.token}`,
             'Content-Type': 'application/json',
@@ -233,6 +366,52 @@ const CourseDetail = () => {
         minHeight: '100vh',
       }}
     >
+      <Modal
+        open={openModalModule}
+        onClose={handleCloseModalModule}
+        aria-labelledby="modal-module-title"
+        aria-describedby="modal-module-description"
+      >
+        <Box sx={styleModal}>
+          <Typography id="modal-module-title" variant="h6" component="h2" gutterBottom>
+            Crear Módulo
+          </Typography>
+          <TextField
+            label="Título"
+            value={moduleData.title}
+            onChange={(e) => setModuleData({ ...moduleData, title: e.target.value })}
+            fullWidth
+            margin="normal"
+            InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+            InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+          />
+          <TextField
+            label="Orden"
+            type="number"
+            value={moduleData.order}
+            onChange={(e) => setModuleData({ ...moduleData, order: Number(e.target.value) })}
+            fullWidth
+            margin="normal"
+            InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+            InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+          />
+
+          <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
+            <Button variant="outlined" onClick={handleCloseModalModule} disabled={savingModule}>
+              Cancelar
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleSaveModule}
+              disabled={savingModule}
+              color="success"
+            >
+              {savingModule ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
       {/* Título y descripción del curso con botón para editar */}
       <Box mb={4} textAlign="center" position="relative">
         <Typography
@@ -267,12 +446,87 @@ const CourseDetail = () => {
         >
           Editar Curso
         </Button>
+        <Button
+          variant="contained"
+          color="success"
+          onClick={() => setOpenModalModule(true)}
+        >
+          Crear Módulo
+        </Button>
+
       </Box>
 
       {/* Listado de módulos y clases */}
       {course.Modules && course.Modules.length > 0 ? (
         course.Modules.map((module) => (
           <Box key={module.id} mb={5}>
+            <Modal
+              open={openNewLessonModal}
+              onClose={handleCloseNewLessonModal}
+              aria-labelledby="modal-new-lesson-title"
+              aria-describedby="modal-new-lesson-description"
+            >
+              <Box sx={styleModal}>
+                <Typography id="modal-module-title" variant="h6" component="h2" gutterBottom>
+                  {editingModule ? 'Editar Módulo' : 'Crear Módulo'}
+                </Typography>
+
+                <TextField
+                  label="Título"
+                  value={newLessonData.title}
+                  onChange={(e) => setNewLessonData({ ...newLessonData, title: e.target.value })}
+                  fullWidth
+                  margin="normal"
+                  InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+                  InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+                />
+                <TextField
+                  label="Descripción"
+                  value={newLessonData.description}
+                  onChange={(e) => setNewLessonData({ ...newLessonData, description: e.target.value })}
+                  fullWidth
+                  multiline
+                  rows={4}
+                  margin="normal"
+                  InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+                  InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+                />
+                <TextField
+                  label="YouTube URL"
+                  value={newLessonData.youtubeUrl}
+                  onChange={(e) => setNewLessonData({ ...newLessonData, youtubeUrl: e.target.value })}
+                  fullWidth
+                  margin="normal"
+                  InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+                  InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+                />
+                <TextField
+                  label="Orden"
+                  type="number"
+                  value={newLessonData.order}
+                  onChange={(e) => setNewLessonData({ ...newLessonData, order: Number(e.target.value) })}
+                  fullWidth
+                  margin="normal"
+                  InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+                  InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+                />
+
+                <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
+                  <Button variant="outlined" onClick={handleCloseNewLessonModal} disabled={savingNewLesson}>
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleSaveNewLesson}
+                    disabled={savingNewLesson}
+                    color="primary"
+                  >
+                    {savingNewLesson ? 'Guardando...' : 'Guardar'}
+                  </Button>
+                </Box>
+              </Box>
+            </Modal>
+
             <Typography
               variant="h5"
               mb={2}
@@ -282,9 +536,28 @@ const CourseDetail = () => {
             </Typography>
             <Divider sx={{ mb: 2, borderColor: darkMode ? '#444' : undefined }} />
             <Grid container spacing={2}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleOpenNewLessonModal(module.id)}
+                sx={{ mb: 2 }}
+              >
+                Agregar clase a este módulo
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => handleEditModule(module)}
+                sx={{ mb: 2, ml: 2 }}
+                color="warning"
+              >
+                Editar módulo
+              </Button>
+
               {module.Lessons && module.Lessons.length > 0 ? (
                 module.Lessons.map((lesson) => (
                   <Grid item xs={12} sm={6} md={4} key={lesson.id}>
+
                     <Paper
                       elevation={3}
                       className={`${styles.card} ${darkMode ? styles.darkCard : ''}`}

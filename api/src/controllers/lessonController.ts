@@ -128,3 +128,26 @@ export const updateLesson = async (req: any, res: any) => {
     res.status(500).json({ message: 'Error al actualizar la clase', error });
   }
 };
+
+export const createLesson = async (req: any, res: any) => {
+  try {
+    const { title, description, youtubeUrl, order, moduleId } = req.body;
+
+    if (!title || !description || !youtubeUrl || !moduleId || typeof order !== 'number') {
+      return res.status(400).json({ message: 'Datos incompletos' });
+    }
+
+    const newLesson = await Lesson.create({
+      title,
+      description,
+      youtubeUrl,
+      order,
+      moduleId,
+    });
+
+    res.status(201).json(newLesson);
+  } catch (err) {
+    console.error('Error al crear clase:', err);
+    res.status(500).json({ message: 'Error del servidor' });
+  }
+};

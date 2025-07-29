@@ -10,6 +10,7 @@ import lessonRoutes from './routes/lessonRoutes'
 import embeddingRoutes from './routes/embeddingRoutes';
 import notificationRoutes from './routes/notificationRoutes'
 import friendRoutes from './routes/friendRoutes'
+import moduleRoutes from './routes/moduleRoutes'
 
 import Role from './models/Role';
 import User from './models/User';
@@ -81,7 +82,7 @@ app.use('/lessons', lessonRoutes)
 app.use('/embedding', embeddingRoutes);
 app.use('/notifications', notificationRoutes)
 app.use('/friends', friendRoutes)
-
+app.use('/modules', moduleRoutes)
 const forceSync = process.env.FORCE_SYNC === "true";
 
 sequelize.sync({ force: forceSync }).then(() => {

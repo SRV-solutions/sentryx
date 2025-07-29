@@ -15,6 +15,28 @@ const s3 = new S3Client({
   },
 });
 
+export const createCourse = async (req: any, res: any) => {
+  try {
+    const { title, description, thumbnailUrl } = req.body;
+
+    // Validaciones básicas
+    if (!title || !description) {
+      return res.status(400).json({ message: 'Título y descripción son obligatorios.' });
+    }
+
+    const newCourse = await Course.create({
+      title,
+      description,
+      thumbnailUrl: thumbnailUrl || null,
+    });
+
+    res.status(201).json(newCourse);
+  } catch (error) {
+    console.error('Error al crear el curso:', error);
+    res.status(500).json({ message: 'Error al crear el curso', error });
+  }
+};
+
 export const getAllCourses = async (req: Request, res: any) => {
   try {
     const courses = await Course.findAll({

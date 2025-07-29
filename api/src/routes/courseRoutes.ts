@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getCourseCatalog, getMyCourses, getMyCourseById, getMyCoursesAndLessonsById, getAllCourses, getCourseById, updateCourse } from '../controllers/courseController';
+import { getCourseCatalog, getMyCourses, getMyCourseById, getMyCoursesAndLessonsById, getAllCourses, getCourseById, updateCourse, createCourse } from '../controllers/courseController';
 import { isAuth, checkPermission} from '../middlewares/auth';
 import { Action, Entity } from '../models/enums';
 
@@ -11,6 +11,7 @@ router.get('/me/:courseId/module/:moduleId/lessons/:lessonId', isAuth, checkPerm
 router.get('/me', isAuth, checkPermission(Entity.COURSES, Action.READ), getMyCourses);
 
 router.get('/', isAuth, checkPermission(Entity.COURSES, Action.CREATE), getAllCourses);
+router.post('/', isAuth, checkPermission(Entity.COURSES, Action.CREATE), createCourse);
 router.get('/:id', isAuth, checkPermission(Entity.COURSES, Action.CREATE), getCourseById);
 router.put('/:id', isAuth, checkPermission(Entity.COURSES, Action.UPDATE), updateCourse);
 
