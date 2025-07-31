@@ -30,7 +30,7 @@ Course.init({
     allowNull: false,
   },
   description: {
-    type: DataTypes.TEXT,
+    type: DataTypes.TEXT('medium'),
     allowNull: false,
   },
   price: {
