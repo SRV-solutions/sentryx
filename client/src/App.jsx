@@ -25,6 +25,8 @@ import AdminCourseList from './pages/adminPages/AdminCourseList.jsx';
 import AdminCourseDetail from './pages/adminPages/AdminCourseDetail.jsx';
 import FriendRequests from './components/FriendRequests.jsx';
 import FriendList from './components/FriendList.jsx';
+import Catalogue from './pages/Catalogue.jsx';
+import CourseCatalogueDetail from './pages/CourseCatalogueDetail.jsx';
 
 const App = () => {
   const location = useLocation();
@@ -67,6 +69,22 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <FriendRequests />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/catalogue"
+            element={
+              <ProtectedRoute>
+                <Catalogue />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/catalogue/curso/:courseId"
+            element={
+              <ProtectedRoute>
+                <CourseCatalogueDetail />
               </ProtectedRoute>
             }
           />

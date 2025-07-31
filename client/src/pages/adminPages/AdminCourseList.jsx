@@ -23,7 +23,8 @@ const AdminCourseList = () => {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    thumbnailUrl: ''
+    thumbnailUrl: '',
+    price: 0
   });
   const handleOpen = () => setOpen(true);
   const handleClose = () => setOpen(false);
@@ -137,6 +138,14 @@ const AdminCourseList = () => {
               fullWidth
               margin="normal"
             />
+            <TextField
+              name="price"
+              label="Precio del curso"
+              value={formData.price}
+              onChange={handleChange}
+              fullWidth
+              margin="normal"
+            />
             <Button type="submit" variant="contained" color="success" fullWidth sx={{ mt: 2 }}>
               Crear
             </Button>
@@ -185,6 +194,7 @@ const AdminCourseList = () => {
             )}
             <h3>{course.title}</h3>
             <p><strong>Descripción:</strong> {course.description}</p>
+            <p><strong>Precio del curso: </strong>{course.price ? `U$D ${course.price}` : 'Sin precio'}</p>
           </div>
         ))}
       </div>

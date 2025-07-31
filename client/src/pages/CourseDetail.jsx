@@ -48,6 +48,16 @@ const CourseDetail = () => {
   return (
     <div className={`${styles.container} ${darkMode ? styles.darkContainer : ''}`}>
       <div className={`${styles.courseHeader} ${darkMode ? styles.darkCourseHeader : ''}`}>
+        <img
+          src={course.thumbnailUrl}
+          alt={course.title}
+          style={{
+            maxWidth: '200px',
+            height: 'auto',
+            marginBottom: '1rem',
+            borderRadius: '12px',
+          }}
+        />
         <h1>{course.title}</h1>
         <p>{course.description}</p>
       </div>

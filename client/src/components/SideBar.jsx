@@ -103,6 +103,7 @@ const Sidebar = () => {
                 {[
                     { to: '/dashboard', label: 'Dashboard', icon: <Home /> },
                     { to: '/perfil/me', label: 'Perfil', icon: <User /> },
+                    { to: '/catalogue', label: 'Catalogo de Productos', icon: <Contact /> },
                     { to: '/usuarios', label: 'Buscar Perfiles', icon: <Search /> },
                     { to: '/curso', label: 'Mis Cursos', icon: <BookOpen /> },
                     { to: '/friends/requests', label: 'Solicitudes de Amistad', icon: <User /> },

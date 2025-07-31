@@ -43,6 +43,7 @@ const CourseDetail = () => {
     title: '',
     description: '',
     thumbnailUrl: '',
+    price: 0
   });
   const [savingCourse, setSavingCourse] = useState(false);
   const [openModalModule, setOpenModalModule] = useState(false);
@@ -221,7 +222,7 @@ const CourseDetail = () => {
 
         const data = await res.json();
         setCourse(data);
-        setCourseData({ title: data.title, description: data.description, thumbnailUrl: data.thumbnailUrl });
+        setCourseData({ title: data.title, description: data.description, thumbnailUrl: data.thumbnailUrl, price: data.price });
       } catch (error) {
         setCourse({ error: 'Error al conectar con el servidor.' });
       } finally {
@@ -288,7 +289,7 @@ const CourseDetail = () => {
 
   // Funciones modal curso
   const handleOpenModalCourse = () => {
-    setCourseData({ title: course.title, description: course.description, thumbnailUrl: course.thumbnailUrl });
+    setCourseData({ title: course.title, description: course.description, thumbnailUrl: course.thumbnailUrl, price: course.price });
     setOpenModalCourse(true);
   };
 
@@ -686,6 +687,15 @@ const CourseDetail = () => {
             label="Thumbnail URL"
             value={courseData.thumbnailUrl}
             onChange={(e) => setCourseData({ ...courseData, thumbnailUrl: e.target.value })}
+            fullWidth
+            margin="normal"
+            InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
+            InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
+          />
+          <TextField
+            label="Precio del curso"
+            value={courseData.price}
+            onChange={(e) => setCourseData({ ...courseData, price: e.target.value })}
             fullWidth
             margin="normal"
             InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}

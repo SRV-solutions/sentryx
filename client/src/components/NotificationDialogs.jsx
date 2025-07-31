@@ -97,9 +97,11 @@ const NotificationDialogs = ({
             <Dialog open={!!selected} onClose={() => setSelected(null)} fullWidth maxWidth="sm">
                 <DialogTitle>{selected?.title}</DialogTitle>
                 <DialogContent dividers>
-                    <Typography variant="body1" gutterBottom>
-                        {selected?.message}
-                    </Typography>
+                    <Box
+                        sx={{ color: muiTheme.palette.text.primary, fontSize: '16px', lineHeight: 1.6 }}
+                        dangerouslySetInnerHTML={{ __html: selected?.message }}
+                    />
+
 
                     {selected?.link && (
                         <Typography variant="body2" color="primary" >

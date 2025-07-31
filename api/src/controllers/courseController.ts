@@ -17,7 +17,7 @@ const s3 = new S3Client({
 
 export const createCourse = async (req: any, res: any) => {
   try {
-    const { title, description, thumbnailUrl } = req.body;
+    const { title, description, thumbnailUrl, price } = req.body;
 
     // Validaciones básicas
     if (!title || !description) {
@@ -27,6 +27,7 @@ export const createCourse = async (req: any, res: any) => {
     const newCourse = await Course.create({
       title,
       description,
+      price,
       thumbnailUrl: thumbnailUrl || null,
     });
 
@@ -107,7 +108,7 @@ export const getMyCourseById = async (req: any, res: any) => {
           model: Module,
           include: [{
             model: Lesson,
-             include: [
+            include: [
               {
                 model: UserLessonProgress,
                 where: { userId },
@@ -216,7 +217,6 @@ function extractYoutubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-
 export const getCourseById = async (req: Request, res: any) => {
   try {
     const { id } = req.params
@@ -238,7 +238,7 @@ export const getCourseById = async (req: Request, res: any) => {
 export const updateCourse = async (req: Request, res: any) => {
   try {
     const { id } = req.params;
-    const { title, description, thumbnailUrl } = req.body;
+    const { title, description, thumbnailUrl, price } = req.body;
 
     const course = await Course.findByPk(id);
     if (!course) {
@@ -248,6 +248,7 @@ export const updateCourse = async (req: Request, res: any) => {
     course.title = title ?? course.title;
     course.description = description ?? course.description;
     course.thumbnailUrl = thumbnailUrl ?? course.thumbnailUrl;
+    course.price = price ?? course.price;
 
     await course.save();
 
@@ -257,3 +258,23 @@ export const updateCourse = async (req: Request, res: any) => {
   }
 };
 
+export const getCourseCatalogueById = async (req: Request, res: any) => {
+  try {
+    const { id } = req.params
+    const course = await Course.findByPk(id, {
+      include: [{
+        model: Module,
+        include: [{
+          model: Lesson,
+          attributes: ['title', 'description']
+        }]
+      }]
+    });
+    if (!course) {
+      return res.status(404).json({ message: 'No hay usuarios disponibles' });
+    }
+    res.json(course);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener los usuarios', error });
+  }
+};

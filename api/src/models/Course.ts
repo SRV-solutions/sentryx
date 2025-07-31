@@ -9,6 +9,7 @@ class Course extends Model {
   public title!: string;
   public description!: string;
   public thumbnailUrl?: string;
+  public price!: number;
   public Modules?: Array<Module>;
 
 
@@ -31,6 +32,10 @@ Course.init({
   description: {
     type: DataTypes.TEXT,
     allowNull: false,
+  },
+  price: {
+    type: DataTypes.NUMBER,
+    allowNull: true
   },
   thumbnailUrl: {
     type: DataTypes.STRING,
