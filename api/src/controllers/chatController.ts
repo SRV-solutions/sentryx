@@ -44,7 +44,6 @@ export const getUnreadCounts = async (req: any, res: any) => {
     }
 };
 
-
 export const chatWithGPTInChat = async (req: any, res: any) => {
     try {
         const { id: userId } = req.user;
@@ -118,7 +117,6 @@ export const chatWithGPTInChat = async (req: any, res: any) => {
         res.status(500).json({ error: 'Error al comunicarse con la IA' });
     }
 };
-
 
 export const getChatMessages = async (req: any, res: any) => {
     try {
@@ -311,7 +309,6 @@ export const sendMessageToChat = async (req: any, res: any) => {
         res.status(500).json({ error: 'No se pudo enviar el mensaje.' });
     }
 };
-
 
 export const getMessagesFromChat = async (req: any, res: any) => {
     try {

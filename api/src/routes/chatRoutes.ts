@@ -26,7 +26,7 @@ router.post('/private', isAuth, checkPermission(Entity.CHATS, Action.CREATE), cr
 router.post('/:chatId/messages', isAuth, checkPermission(Entity.CHATS, Action.CREATE), sendMessageToChat);
 router.get('/', isAuth, checkPermission(Entity.CHATS, Action.READ), getUserChats);
 // Marcar todos los mensajes hasta el último como leídos por este usuario
-router.post('/:chatId/read', isAuth, checkPermission(Entity.CHATS, Action.UPDATE), markChatAsRead);
+router.post('/:chatId/read', isAuth, checkPermission(Entity.CHATS, Action.READ), markChatAsRead);
 router.get('/unread-counts', isAuth, checkPermission(Entity.CHATS, Action.READ), getUnreadCounts);
 
 
