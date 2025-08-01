@@ -277,7 +277,7 @@ export const sendMessageToChat = async (req: any, res: any) => {
             });
 
             if (!friendship) {
-                return res.status(403).json({ error: 'No puedes enviar mensajes si no son amigos.' });
+                return res.status(400).json({ error: 'No puedes enviar mensajes si no son amigos.' });
             }
         }
         // Guardar el mensaje

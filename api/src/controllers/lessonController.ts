@@ -46,7 +46,7 @@ export const getCourseLessons = async (req: any, res: any) => {
     });
 
     if (!userCourse) {
-      return res.status(403).json({ message: 'No estás inscripto en este curso' });
+      return res.status(400).json({ message: 'No estás inscripto en este curso' });
     }
 
     // Buscamos las lecciones del curso

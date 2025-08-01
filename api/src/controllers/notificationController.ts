@@ -151,6 +151,8 @@ export const sendNotificationToAll = async (req: any, res: any) => {
 
     // Enviar correo a cada usuario
     for (const user of users) {
+      console.log("Email Enviado a ", user.email);
+
       if (user.email) {
         await transporter.sendMail({
           from: `"weareSRV" <${process.env.SMTP_USER}>`,
@@ -173,8 +175,10 @@ export const sendNotificationToAll = async (req: any, res: any) => {
     };
 
     users.forEach((user) => {
+      console.log("Notificacion Enviado a ", user.id);
       io.to(`user_${user.id}`).emit('notification', payload);
     });
+    console.log("############################   Fin de la ejecucion   #######################");
 
     res.status(201).json({ message: 'Notificación enviada a todos los usuarios', notification: payload });
 

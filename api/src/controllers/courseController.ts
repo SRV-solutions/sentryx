@@ -25,7 +25,7 @@ export const enrollToCourse = async (req: any, res: any) => {
     if (!course) return res.status(404).json({ message: 'Curso no encontrado' });
 
     if (course.price > 0) {
-      return res.status(403).json({ message: 'Este curso requiere pago para ser asignado' });
+      return res.status(400).json({ message: 'Este curso requiere pago para ser asignado' });
     }
 
     // Ya tiene el curso?
@@ -186,7 +186,7 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
     });
 
     if (!userCourse) {
-      return res.status(403).json({ message: 'No estás inscripto a este curso.' });
+      return res.status(400).json({ message: 'No estás inscripto a este curso.' });
     }
 
     // Buscar la lección con progreso del usuario
