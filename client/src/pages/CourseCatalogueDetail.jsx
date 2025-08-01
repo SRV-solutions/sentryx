@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -20,6 +20,35 @@ const CourseCatalogueDetail = () => {
   const { authFetch } = useAuth();
   const { darkMode } = useTheme();
   const isMobile = useMediaQuery('(max-width:600px)');
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState(null);
+  const [enrollSuccess, setEnrollSuccess] = useState(null);
+  const navigate = useNavigate();
+
+  const handleFreeEnrollment = async () => {
+    setIsEnrolling(true);
+    setEnrollError(null);
+    setEnrollSuccess(null);
+    try {
+      const res = await authFetch(`${apiUrl}/courses/${courseId}/enroll`, {
+        method: 'POST',
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setEnrollError(data.message || 'Error al inscribirse');
+      } else {
+        setEnrollSuccess('Te inscribiste correctamente al curso');
+        // Podés redirigir al curso real si querés:
+        navigate(`/curso/${courseId}`);
+      }
+    } catch (err) {
+      setEnrollError('Error al conectar con el servidor');
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
 
   useEffect(() => {
     const fetchCursos = async () => {
@@ -101,7 +130,8 @@ const CourseCatalogueDetail = () => {
         </Typography>
         <Button
           variant="contained"
-          disabled
+          onClick={parseFloat(course.price) === 0 ? handleFreeEnrollment : null}
+          disabled={parseFloat(course.price) !== 0 || isEnrolling}
           startIcon={<ShoppingCartIcon />}
           sx={{
             mt: 3,
@@ -112,8 +142,24 @@ const CourseCatalogueDetail = () => {
             },
           }}
         >
-          {parseFloat(course.price) === 0 ? 'Empezar curso' : `Comprar curso - $${course.price}`}
+          {parseFloat(course.price) === 0
+            ? isEnrolling
+              ? 'Inscribiéndote...'
+              : 'Empezar curso'
+            : `Comprar curso - $${course.price}`}
         </Button>
+        {enrollError && (
+          <Typography color="error" mt={2}>
+            {enrollError}
+          </Typography>
+        )}
+
+        {enrollSuccess && (
+          <Typography color="primary" mt={2}>
+            {enrollSuccess}
+          </Typography>
+        )}
+
       </Box>
 
       {/* CONTENIDO */}

@@ -16,7 +16,8 @@ import {
   requestPasswordReset,
   resetPassword,
   searchUsers,
-  getPublicUser
+  getPublicUser,
+  addUserToCourse
 } from '../controllers/userController';
 import { Entity, Action } from '../models/enums';
 import { isAuth, checkPermission } from '../middlewares/auth';
@@ -39,6 +40,7 @@ router.put('/:id/change-password', isAuth, checkPermission(Entity.USERS, Action.
 router.post('/:id/reset-password', isAuth, checkPermission(Entity.USERS, Action.UPDATE), resetPasswordByAdmin);
 router.get('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE), getUserCourses);
 router.put('/:id/courses', isAuth, checkPermission(Entity.USERS, Action.CREATE), syncUserCourses);
+router.put('/:id/add/:courseId', isAuth, checkPermission(Entity.COURSES, Action.CREATE), addUserToCourse);
 
 
 router.get('/public/:id', isAuth, checkPermission(Entity.USERS, Action.READ), getPublicUser);

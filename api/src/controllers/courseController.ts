@@ -15,6 +15,36 @@ const s3 = new S3Client({
   },
 });
 
+// POST /courses/:id/enroll
+export const enrollToCourse = async (req: any, res: any) => {
+  const userId = req.user.id; // Asegurate de usar un middleware auth
+  const { courseId } = req.params;
+
+  try {
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ message: 'Curso no encontrado' });
+
+    if (course.price > 0) {
+      return res.status(403).json({ message: 'Este curso requiere pago para ser asignado' });
+    }
+
+    // Ya tiene el curso?
+    const already = await UserCourse.findOne({ where: { userId, courseId } });
+    if (already) return res.status(400).json({ message: 'Ya estás inscripto en este curso' });
+
+    const userCourse = await UserCourse.create({
+      userId,
+      courseId,
+      grantedAt: new Date(),
+    });
+
+    return res.status(201).json({ message: 'Inscripción exitosa', userCourse });
+  } catch (error) {
+    return res.status(500).json({ message: 'Error al inscribirse', error });
+  }
+};
+
+
 export const createCourse = async (req: any, res: any) => {
   try {
     const { title, description, thumbnailUrl, price } = req.body;
@@ -144,7 +174,6 @@ export const getMyCourseById = async (req: any, res: any) => {
     res.status(500).json({ message: 'Error al obtener tus cursos', error });
   }
 };
-
 
 export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
   const userId = req.user.id;

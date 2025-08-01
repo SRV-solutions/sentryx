@@ -69,7 +69,6 @@ export const getAllUsers = async (req: Request, res: any) => {
   }
 };
 
-
 export const getPublicUser = async (req: Request, res: any) => {
   const { id } = req.params;
   try {
@@ -592,6 +591,45 @@ export const getUserCourses = async (req: any, res: any) => {
   }
 };
 
+
+export const addUserToCourse = async (req: Request, res: any) => {
+  const { id, courseId } = req.params;
+
+  try {
+    // Validar usuario
+    const user = await User.findByPk(id);
+    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+
+    // Validar curso
+    const course = await Course.findByPk(courseId);
+    if (!course) return res.status(404).json({ message: 'Curso no encontrado' });
+
+    // Validar si ya tiene el curso
+    const alreadyAssigned = await UserCourse.findOne({
+      where: {
+        userId: id,
+        courseId: courseId,
+      },
+    });
+
+    if (alreadyAssigned) {
+      return res.status(400).json({ message: 'El usuario ya tiene este curso asignado' });
+    }
+
+    // Crear asignación
+    const userCourse = await UserCourse.create({
+      userId: id,
+      courseId: courseId,
+      grantedAt: new Date(),
+    });
+
+    return res.status(201).json({ message: 'Curso asignado correctamente', userCourse });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ message: 'Error al asignar curso', error });
+  }
+};
+
 export const syncUserCourses = async (req: any, res: any) => {
   const { id } = req.params;
   const { courseIds = [] } = req.body; // lista completa de cursos que el usuario debe tener
@@ -704,7 +742,6 @@ export const requestPasswordReset = async (req: any, res: any) => {
   }
 };
 
-// Endpoint para resetear la contraseña con token
 export const resetPassword = async (req: any, res: any) => {
   const { token, password } = req.body;
   if (!token || !password) {
@@ -743,7 +780,6 @@ export const resetPassword = async (req: any, res: any) => {
     return res.status(500).json({ error: 'Error interno del servidor' });
   }
 };
-
 
 export const searchUsers = async (req: Request, res: any) => {
   const { q } = req.query;
