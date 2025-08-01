@@ -170,28 +170,52 @@ export const createUser = async (req: Request, res: any) => {
 };
 
 export const register = async (req: Request, res: any) => {
-  const { username, email, password, roleId } = req.body;
+  const { username, email, password, firstName, lastName } = req.body;
+
+  // Validación simple
+  if (!username || !email || !password) {
+    return res.status(400).json({ message: 'Faltan campos requeridos' });
+  }
+
   try {
-    // Validar si el email ya está registrado
-    const existingUser = await User.findOne({ where: { email } });
-    if (existingUser) {
+    // Validar email y username únicos
+    const existingEmail = await User.findOne({ where: { email } });
+    const existingUsername = await User.findOne({ where: { username } });
+
+    if (existingEmail) {
       return res.status(400).json({ message: 'El email ya está registrado' });
+    }
+
+    if (existingUsername) {
+      return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
     }
 
     // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Crear usuario
+    // Crear usuario con rol por defecto (ej: "usuario común")
     const user = await User.create({
       username,
+      firstName,
+      lastName,
       email,
       password: hashedPassword,
-      roleId,
+      roleId: 2, // por ejemplo, el rol de "usuario"
     });
 
-    res.status(201).json({ message: 'Usuario registrado correctamente', user });
+    // Eliminar el campo password del objeto devuelto
+    const userResponse = {
+      id: user.id,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      roleId: user.roleId,
+    };
+
+    return res.status(201).json({ message: 'Usuario registrado correctamente', user: userResponse });
   } catch (error) {
-    res.status(500).json({ message: 'Error al registrar el usuario', error });
+    return res.status(500).json({ message: 'Error al registrar el usuario', error });
   }
 };
 

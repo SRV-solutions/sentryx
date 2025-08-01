@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
     const storedUser = JSON.parse(localStorage.getItem('user'));
     const token = storedUser?.token;
 
-    const publicRoutes = ['/login', '/forgot-password', '/reset-password'];
+    const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/register'];
     const currentPath = location.pathname.replace(/\/+$/, ''); // quita barra final
 
     if (!token || isTokenExpired(token)) {

@@ -27,10 +27,11 @@ import FriendRequests from './components/FriendRequests.jsx';
 import FriendList from './components/FriendList.jsx';
 import Catalogue from './pages/Catalogue.jsx';
 import CourseCatalogueDetail from './pages/CourseCatalogueDetail.jsx';
+import Register from './pages/Register.jsx';
 
 const App = () => {
   const location = useLocation();
-  const hideSidebar = location.pathname === '/login' || location.pathname === '/login/' || location.pathname === '/forgot-password' || location.pathname === '/forgot-password/' || location.pathname === '/reset-password' || location.pathname === '/reset-password/';
+  const hideSidebar = location.pathname === '/register' || location.pathname === '/register/' || location.pathname === '/login' || location.pathname === '/login/' || location.pathname === '/forgot-password' || location.pathname === '/forgot-password/' || location.pathname === '/reset-password' || location.pathname === '/reset-password/';
   const { darkMode } = useTheme(); // Usamos el contexto
   const handleReport = () => {
     // Acá podés abrir un modal, redireccionar a un formulario o abrir un mail
@@ -43,6 +44,7 @@ const App = () => {
       <div className="main-content">
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="*" element={<NotFound />} />

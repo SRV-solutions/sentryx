@@ -25,6 +25,7 @@ const router = Router();
 
 // Rutas para usuarios
 router.post('/login', login);
+router.post('/register', register);
 router.post('/request-password-reset', requestPasswordReset);
 router.post('/reset-password', resetPassword);
 
@@ -33,7 +34,6 @@ router.get('/search', isAuth, checkPermission(Entity.USERS, Action.READ), search
 router.get('/', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getAllUsers);
 router.get('/:id', isAuth, checkPermission(Entity.USERS, Action.READ), checkPermission(Entity.USERS, Action.CREATE), getUser);
 router.post('/', isAuth, checkPermission(Entity.USERS, Action.CREATE), createUser);
-router.post('/register', isAuth, checkPermission(Entity.USERS, Action.CREATE), register);
 router.patch('/update/:id', isAuth, checkPermission(Entity.USERS, Action.UPDATE), updateUser)
 router.put('/:id/change-password', isAuth, checkPermission(Entity.USERS, Action.UPDATE), changePassword);
 router.post('/:id/reset-password', isAuth, checkPermission(Entity.USERS, Action.UPDATE), resetPasswordByAdmin);

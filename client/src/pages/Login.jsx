@@ -124,6 +124,12 @@ const Login = () => {
               Recuperarla acá
             </Link>
           </p>
+          <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+            ¿Aun no tenes cuenta?{' '}
+            <Link to="/register" style={{ color: '#00FFF7' }}>
+              Registrate aca
+            </Link>
+          </p>
         </form>
       </div>
 
