@@ -118,13 +118,13 @@ const Login = () => {
           <button type="submit" className={styles.button}>
             Ingresar
           </button>
-          <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <p style={{ marginTop: '1rem', textAlign: 'center', color: 'white' }}>
             ¿Olvidaste tu contraseña?{' '}
             <Link to="/forgot-password" style={{ color: '#00FFF7' }}>
               Recuperarla acá
             </Link>
           </p>
-          <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+          <p style={{ marginTop: '1rem', textAlign: 'center', color: 'white' }}>
             ¿Aun no tenes cuenta?{' '}
             <Link to="/register" style={{ color: '#00FFF7' }}>
               Registrate aca
