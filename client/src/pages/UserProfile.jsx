@@ -20,6 +20,8 @@ import {
   Grid,
   Card,
   CardContent,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { Edit } from '@mui/icons-material';
 import styles from './UserProfile.module.css';
@@ -33,7 +35,6 @@ const UserProfile = () => {
     'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/LOGOPYTHON.png',
     'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/NODE.png',
     'https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/python_ico.png',
-
   ];
 
   const { user, updateUserData } = useAuth();
@@ -43,6 +44,10 @@ const UserProfile = () => {
 
   const [showEdit, setShowEdit] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState('');
+  const [snackbarSeverity, setSnackbarSeverity] = useState('success');
+  const [loading, setLoading] = useState(false);
 
   const [formData, setFormData] = useState({
     firstName: user?.userData?.firstName || '',
@@ -61,15 +66,33 @@ const UserProfile = () => {
   }
 
 
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
+  };
 
-  const handleChange = (e) =>
+  const handleChange = (e) =>{
+    setLoading(false)
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  }
 
   const handleSave = async () => {
     try {
-      await updateUserData?.(formData);
+      setLoading(true)
+      const response = await updateUserData(formData);
+      if (response && !response.response.ok) {
+        setSnackbarMessage(response.message);
+        setSnackbarSeverity('error');
+        setSnackbarOpen(true);
+        setLoading(false)
+        return
+      }
+      setSnackbarMessage('Usuario actualizado con exito');
+      setSnackbarSeverity('success');
+      setSnackbarOpen(true);
       setShowEdit(false);
+      setLoading(false)
     } catch (err) {
+
       console.error('Error al guardar perfil:', err);
     }
   };
@@ -250,7 +273,7 @@ const UserProfile = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowEdit(false)}>Cancelar</Button>
-          <Button onClick={handleSave} variant="contained" color="primary">Guardar</Button>
+          <Button disabled={loading} onClick={handleSave} variant="contained" color="primary">Guardar</Button>
         </DialogActions>
       </Dialog>
 
@@ -269,6 +292,16 @@ const UserProfile = () => {
           </div>
         </div>
       )}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={3000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

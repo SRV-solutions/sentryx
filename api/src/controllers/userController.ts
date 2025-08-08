@@ -73,7 +73,7 @@ export const getPublicUser = async (req: Request, res: any) => {
   const { id } = req.params;
   try {
     const user = await User.findByPk(id, {
-      attributes: ['id', 'firstName', 'lastName', 'username', 'biography', 'avatar', 'email', 'phone'],
+      attributes: ['id', 'firstName', 'lastName', 'username', 'biography', 'avatar', 'email'],
     });
     if (!user) {
       return res.status(404).json({ message: 'Usuario no encontrado' });

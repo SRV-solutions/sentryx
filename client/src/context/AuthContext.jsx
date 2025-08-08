@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify(newData),
       });
 
-      if (!res.ok) throw new Error('Error al actualizar usuario');
+      if (!res.ok) return {message:"Error al actualizar el usuario", response: res, type: 'error'}
 
       const updatedUser = await res.json();
       const updatedData = {

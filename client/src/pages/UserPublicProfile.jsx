@@ -108,7 +108,7 @@ const UserPublicProfile = () => {
     );
   }
 
-  const { firstName, lastName, username, biography, avatar, phone, email } = profile;
+  const { firstName, lastName, username, biography, avatar, email } = profile;
 
   return (
     <Box
@@ -154,9 +154,6 @@ const UserPublicProfile = () => {
           <Divider sx={{ mb: 2 }} />
           <Typography variant="body2">
             <strong>Email:</strong> {email}
-          </Typography>
-          <Typography variant="body2">
-            <strong>Teléfono:</strong> {phone || 'No especificado'}
           </Typography>
 
           {user?.id !== profile.id && (
