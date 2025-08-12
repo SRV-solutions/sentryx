@@ -145,35 +145,25 @@ export const getMyCourseById = async (req: any, res: any) => {
                 required: false,
               },
             ],
-          }]
-        }]
+          }],
+        }],
       }],
+      order: [
+        [Course, Module, 'order', 'ASC'],  // Ordenar módulos por el campo "order"
+        [Course, Module, Lesson, 'order', 'ASC'] // Si también querés ordenar las lecciones por un campo "order"
+      ]
     });
 
     if (!assignedCourse) {
       return res.status(404).json({ message: 'No tenés cursos asignados' });
     }
 
-    const course = assignedCourse.Course;
-
-    // Ordenar las lecciones dentro de cada módulo
-    course.Modules = course.Modules?.map((module) => {
-      if (module.Lessons && module.Lessons.length > 0) {
-        module.Lessons = module.Lessons.sort((a, b) => {
-          // Extraer número inicial del título
-          const numA = parseInt(a.title.split(' ')[0], 10);
-          const numB = parseInt(b.title.split(' ')[0], 10);
-          return numA - numB;
-        });
-      }
-      return module;
-    });
-
-    res.json(course);
+    res.json(assignedCourse.Course);
   } catch (error) {
     res.status(500).json({ message: 'Error al obtener tus cursos', error });
   }
 };
+
 
 export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
   const userId = req.user.id;
