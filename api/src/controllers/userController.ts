@@ -154,7 +154,7 @@ export const createUser = async (req: Request, res: any) => {
 `;
 
     await transporter.sendMail({
-      from: `"weareSRV" <${process.env.SMTP_USER}>`,
+      from: `"SRV" <${process.env.SMTP_USER}>`,
       to: email,
       subject: 'Tu acceso a Sentryx',
       html: cuerpo,
@@ -554,7 +554,7 @@ export const resetPasswordByAdmin = async (req: any, res: any) => {
     `;
 
     await transporter.sendMail({
-      from: `"weareSRV" <${process.env.SMTP_USER}>`,
+      from: `"SRV" <${process.env.SMTP_USER}>`,
       to: user.email,
       subject: 'Tu nueva contraseña - Plataforma Sentryx',
       html: cuerpo,

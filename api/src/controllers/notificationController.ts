@@ -155,7 +155,7 @@ export const sendNotificationToAll = async (req: any, res: any) => {
 
       if (user.email) {
         await transporter.sendMail({
-          from: `"weareSRV" <${process.env.SMTP_USER}>`,
+          from: `"SRV" <${process.env.SMTP_USER}>`,
           to: user.email,
           subject: `📢 Nueva notificación: ${title}`,
           html: htmlEmail,
@@ -254,7 +254,7 @@ export const sendNotificationToSomeUsers = async (req: any, res: any) => {
     for (const user of users) {
       if (user.email) {
         await transporter.sendMail({
-          from: `"weareSRV" <${process.env.SMTP_USER}>`,
+          from: `"SRV" <${process.env.SMTP_USER}>`,
           to: user.email,
           subject: `📢 Nueva notificación: ${title}`,
           html: htmlEmail,
