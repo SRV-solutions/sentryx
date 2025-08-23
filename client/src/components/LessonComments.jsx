@@ -12,6 +12,7 @@ import {
 import { AiFillStar, AiOutlineStar } from 'react-icons/ai';
 
 import { MdAccountCircle } from 'react-icons/md';
+import Comment from './Comment';
 
 const apiUrl = import.meta.env.VITE_API_URL;
 
@@ -171,6 +172,8 @@ const LessonComments = ({ lessonId }) => {
                             boxShadow: darkMode
                                 ? '0 0 8px rgba(255,255,255,0.05)'
                                 : '0 0 5px rgba(0,0,0,0.05)',
+                            maxWidth: "100%", // evita que se salga horizontalmente
+                            overflowWrap: "break-word", // evita desbordes por palabras largas
                         }}
                     >
                         <Box display="flex" alignItems="center" gap={1} mb={0.5}>
@@ -183,25 +186,11 @@ const LessonComments = ({ lessonId }) => {
                             </Typography>
                         </Box>
 
-                        <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            sx={{ mb: 1 }}
-                        >
+                        <Typography variant="caption" color="text.secondary" sx={{ mb: 1 }}>
                             {new Date(c.createdAt).toLocaleString()}
                         </Typography>
 
-                        <Typography
-                            variant="body1"
-                            sx={{
-                                fontSize: '1.1rem',
-                                lineHeight: 1.6,
-                                color: darkMode ? '#fff' : '#111',
-                                mt: 1,
-                            }}
-                        >
-                            {c.comment}
-                        </Typography>
+                        <Comment comment={c.comment} darkMode={darkMode} />
                     </Box>
                 ))}
                 {comments.length > 2 && (
