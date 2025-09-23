@@ -124,9 +124,14 @@ const Register = () => {
                         variant="outlined"
                         InputLabelProps={{ style: { color: 'white' } }}
                         InputProps={{
+                            className: darkMode ? styles.inputDark : styles.inputLight,
                             endAdornment: (
                                 <InputAdornment position="end">
-                                    <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small">
+                                    <IconButton
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        edge="end"
+                                        size="small"
+                                        color="info">
                                         {showPassword ? <VisibilityOff /> : <Visibility />}
                                     </IconButton>
                                 </InputAdornment>
