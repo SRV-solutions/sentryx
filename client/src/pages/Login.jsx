@@ -43,14 +43,6 @@ const Login = () => {
     setOpenSnackbar(false);
   };
 
-  const handleContactSupport = () => {
-    const asunto = encodeURIComponent('Problema de acceso al portal Sentryx');
-    const cuerpo = encodeURIComponent(
-      `Hola equipo de weareSRV,%0D%0A%0D%0AEstoy intentando ingresar al portal pero no puedo acceder con mi correo electrónico y contraseña.%0D%0ACorreo: ${email}%0D%0A¿Podrían ayudarme a restablecerla?%0D%0A%0D%0AGracias.`
-    );
-    window.location.href = `mailto:info@wearesrv.com?subject=${asunto}&body=${cuerpo}`;
-  };
-
   useEffect(() => {
     if (darkMode) {
       document.body.classList.add(styles.dark);

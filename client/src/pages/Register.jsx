@@ -18,7 +18,7 @@ const Register = () => {
     const [snackbarMsg, setSnackbarMsg] = useState('');
     const { login } = useAuth(); // usar login automático después
     const navigate = useNavigate();
-    const { darkMode } = useTheme();
+    const { darkMode, toggleTheme } = useTheme();
 
     const handleChange = (e) => {
         setForm({ ...form, [e.target.name]: e.target.value });
@@ -58,6 +58,13 @@ const Register = () => {
 
     return (
         <div className={`${styles.container} ${darkMode ? styles.dark : ''}`}>
+            <div className={styles.toggleWrapper}>
+                <label className={styles.switch}>
+                    <input type="checkbox" checked={darkMode} onChange={toggleTheme} />
+                    <span className={styles.slider}></span>
+                </label>
+                <>{darkMode ? 'Dark Mode' : 'Light Mode'}</>
+            </div>
             <div className={styles.card}>
                 <h2 className={styles.title}>Crear cuenta</h2>
                 <form className={styles.form} onSubmit={handleSubmit}>
@@ -70,6 +77,7 @@ const Register = () => {
                         margin="normal"
                         required
                         variant="outlined"
+                        InputLabelProps={{ style: { color: 'white' } }}
                     />
                     <TextField
                         label="Nombre"
@@ -80,6 +88,7 @@ const Register = () => {
                         margin="normal"
                         required
                         variant="outlined"
+                        InputLabelProps={{ style: { color: 'white' } }}
                     />
                     <TextField
                         label="Apellido"
@@ -90,6 +99,7 @@ const Register = () => {
                         margin="normal"
                         required
                         variant="outlined"
+                        InputLabelProps={{ style: { color: 'white' } }}
                     />
                     <TextField
                         label="Correo electrónico"
@@ -100,6 +110,7 @@ const Register = () => {
                         margin="normal"
                         required
                         variant="outlined"
+                        InputLabelProps={{ style: { color: 'white' } }}
                     />
                     <TextField
                         label="Contraseña"
@@ -111,6 +122,7 @@ const Register = () => {
                         margin="normal"
                         required
                         variant="outlined"
+                        InputLabelProps={{ style: { color: 'white' } }}
                         InputProps={{
                             endAdornment: (
                                 <InputAdornment position="end">
@@ -125,7 +137,7 @@ const Register = () => {
                     <button type="submit" className={styles.button}>
                         Registrarse
                     </button>
-                    <p style={{ marginTop: '1rem', textAlign: 'center' }}>
+                    <p style={{ marginTop: '1rem', textAlign: 'center', color: 'white' }}>
                         ¿Ya tenés cuenta?{' '}
                         <Link to="/login" style={{ color: '#00FFF7' }}>
                             Iniciá sesión
