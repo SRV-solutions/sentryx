@@ -214,7 +214,8 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
     const youtubeEmbedUrl = lesson.youtubeUrl
       ? `https://www.youtube.com/embed/${extractYoutubeId(lesson.youtubeUrl)}`
       : null;
-
+    console.log(signedVideoUrl);
+    
     return res.json({
       ...lesson.toJSON(),
       progress: progress ? {

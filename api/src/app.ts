@@ -48,8 +48,11 @@ Friendship.associate()
 
 const app = express();
 
-app.use(express.json());
-// app.use(limiter)
+// app.ts
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+
+
 app.use((req: Request, res: any, next: NextFunction) => {
   const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173', 'https://sentryx.wearesrv.com'];
   const origin = req.headers.origin;

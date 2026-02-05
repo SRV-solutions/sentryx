@@ -4,6 +4,10 @@ import LessonComment from '../models/LessonComment';
 import User from '../models/User';
 import { sequelize } from '../config/database';
 import UserLessonProgress from '../models/UserLessonProgress';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import path from "path";
+
+
 
 export const saveLessonProgress = async (req: any, res: any) => {
   const userId = req.user.id;
@@ -12,13 +16,13 @@ export const saveLessonProgress = async (req: any, res: any) => {
 
   try {
     const [progress, created] = await UserLessonProgress.findOrCreate({
-      where: { userId, lessonId },  
+      where: { userId, lessonId },
       defaults: {
         watchedDuration,
         completed: !!completed,
       },
     });
-    
+
     if (!created) {
       if (watchedDuration !== undefined) progress.watchedDuration = watchedDuration;
       if (completed !== undefined) progress.completed = progress.completed ? true : completed;
@@ -151,3 +155,52 @@ export const createLesson = async (req: any, res: any) => {
     res.status(500).json({ message: 'Error del servidor' });
   }
 };
+
+
+export const uploadLessonVideo = async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No se envió ningún archivo' });
+    }
+    const lessonId = req.params.lessonId;
+    const lesson = await Lesson.findByPk(lessonId);
+    if (!lesson) {
+      return res.status(404).json({ error: 'Lección no encontrada' });
+    }
+    // Sacar extensión del archivo original
+    const ext = path.extname(req.file.originalname);
+
+    // Sanear título: quitar espacios y caracteres especiales
+    const sanitizedTitle = lesson.title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
+
+    // Crear nombre de archivo: id-title.ext
+    const key = `${lesson.id}-${sanitizedTitle}${ext}`;
+
+    const s3Client = new S3Client({
+      region: process.env.AWS_REGION,
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+      },
+    });
+
+    const command = new PutObjectCommand({
+      Bucket: process.env.S3_VIDEO_BUCKET_NAME!,
+      Key: key,
+      Body: req.file.buffer, // <-- PASAR EL BUFFER, no el stream
+      ContentType: "video/mp4", // Ajusta si no es mp4
+    });
+
+    await s3Client.send(command);
+    lesson.youtubeUrl = `${key}`;
+    await lesson.save();
+    res.json({
+      message: 'Video subido con éxito',
+      key,
+    });
+  } catch (error) {
+    console.error('Error subiendo video a S3:', error);
+    res.status(500).json({ error: 'Error subiendo video a S3' });
+  }
+}
+
