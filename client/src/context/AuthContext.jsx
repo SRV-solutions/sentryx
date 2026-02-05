@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify(newData),
       });
 
-      if (!res.ok) return {message:"Error al actualizar el usuario", response: res, type: 'error'}
+      if (!res.ok) return { message: "Error al actualizar el usuario", response: res, type: 'error' }
 
       const updatedUser = await res.json();
       const updatedData = {
@@ -90,12 +90,14 @@ export const AuthProvider = ({ children }) => {
       return null;
     }
 
+    const isFormData = options.body instanceof FormData;
+
     const res = await fetch(url, {
       ...options,
       headers: {
         ...(options.headers || {}),
         Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
+        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       },
     });
 
@@ -106,6 +108,7 @@ export const AuthProvider = ({ children }) => {
 
     return res;
   };
+
 
   return (
     <AuthContext.Provider value={{ user, login, logout, authFetch, isAdmin, updateUserData }}>

@@ -9,15 +9,15 @@ import { ChatProvider } from './context/ChatContext';
 import './global.css'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
-  <BrowserRouter>
-    <AuthProvider>
-      <ThemeProvider>
-        <VideoPlayerProvider>
-          <ChatProvider>
             <App />
-          </ChatProvider>
-        </VideoPlayerProvider>
-      </ThemeProvider>
-    </AuthProvider>
-  </BrowserRouter>
+  // <BrowserRouter>
+  //   <AuthProvider>
+  //     <ThemeProvider>
+  //       <VideoPlayerProvider>
+  //         <ChatProvider>
+  //         </ChatProvider>
+  //       </VideoPlayerProvider>
+  //     </ThemeProvider>
+  //   </AuthProvider>
+  // </BrowserRouter>
 );

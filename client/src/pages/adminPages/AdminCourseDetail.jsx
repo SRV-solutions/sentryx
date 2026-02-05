@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useTheme } from '../../context/ThemeContext';
 import { useAuth } from '../../context/AuthContext';
 import styles from '../CourseDetail.module.css'
+import ModalEditLesson from './ModalEditLesson';
 import {
   Box,
   Modal,
@@ -13,7 +14,6 @@ import {
   Paper,
   Grid,
   Divider,
-  Stack,
 } from '@mui/material';
 import DescriptionPreview from '../../components/DescriptionPreview';
 
@@ -595,61 +595,14 @@ const CourseDetail = () => {
       )}
 
       {/* Modal para editar clase */}
-      <Modal
-        open={openModalLesson}
-        onClose={handleCloseModalLesson}
-        aria-labelledby="modal-lesson-title"
-        aria-describedby="modal-lesson-description"
-      >
-        <Box sx={styleModal}>
-          <Typography id="modal-lesson-title" variant="h6" component="h2" gutterBottom>
-            Editar Clase
-          </Typography>
-          <TextField
-            label="Título"
-            value={lessonData.title}
-            onChange={(e) => setLessonData({ ...lessonData, title: e.target.value })}
-            fullWidth
-            margin="normal"
-            InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
-            InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
-          />
-          <TextField
-            label="Descripción"
-            value={lessonData.description}
-            onChange={(e) => setLessonData({ ...lessonData, description: e.target.value })}
-            fullWidth
-            multiline
-            rows={4}
-            margin="normal"
-            InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
-            InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
-          />
-          <TextField
-            label="YouTube URL"
-            value={lessonData.youtubeUrl}
-            onChange={(e) => setLessonData({ ...lessonData, youtubeUrl: e.target.value })}
-            fullWidth
-            margin="normal"
-            InputProps={{ style: { color: darkMode ? '#fff' : '#000' } }}
-            InputLabelProps={{ style: { color: darkMode ? '#aaa' : '#000' } }}
-          />
-
-          <Box mt={2} display="flex" justifyContent="flex-end" gap={2}>
-            <Button variant="outlined" onClick={handleCloseModalLesson} disabled={savingLesson}>
-              Cancelar
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSaveLesson}
-              disabled={savingLesson}
-              color="primary"
-            >
-              {savingLesson ? 'Guardando...' : 'Guardar'}
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
+      <ModalEditLesson
+        openModalLesson={openModalLesson}
+        handleCloseModalLesson={handleCloseModalLesson}
+        lessonData={lessonData}
+        setLessonData={setLessonData}
+        handleSaveLesson={handleSaveLesson}
+        savingLesson={savingLesson}
+      />
 
       {/* Modal para editar curso */}
       <Modal

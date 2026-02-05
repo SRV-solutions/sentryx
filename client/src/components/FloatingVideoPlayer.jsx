@@ -61,6 +61,8 @@ const FloatingVideoPlayer = () => {
     lastPosition.current = { x, y };
   };
   useEffect(() => {
+    console.log(videoData);
+    
     if (!videoData?.classPath) return;
 
     const stored = localStorage.getItem('resumeTime');

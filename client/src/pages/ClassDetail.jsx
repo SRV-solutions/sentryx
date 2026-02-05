@@ -69,7 +69,9 @@ const ClassDetail = () => {
         }
 
         setLesson(lessonData);
-        setVideoUrl(getEmbedUrl(lessonData.youtubeUrl || lessonData.videoUrl));
+        setVideoUrl(getEmbedUrl(lessonData.videoUrl || lessonData.youtubeUrl));
+        console.log(lessonData);
+        
         setVideoData({
           url: lessonData.videoUrl,
           title: lessonData.title,
@@ -163,7 +165,7 @@ const ClassDetail = () => {
     return () => clearInterval(interval);
   }, [isPlaying, currentTime]);
 
-  const handleDuration = (duration) => {    
+  const handleDuration = (duration) => {
     setLessonDuration(duration);
   };
 
@@ -247,17 +249,6 @@ const ClassDetail = () => {
                   },
                 }}
               />
-              <Box
-                sx={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  zIndex: 2,
-                }}
-                onClick={(e) => e.stopPropagation()}
-              />
             </Box>
           ) : (
             <Typography color="warning.main">
@@ -265,47 +256,6 @@ const ClassDetail = () => {
             </Typography>
           )}
 
-          {/* 🎛 Controles personalizados */}
-          <Stack spacing={2} direction="row" alignItems="center" sx={{ mb: 3 }}>
-            <Button
-              variant="contained"
-              onClick={() => playerRef.current?.seekTo(currentTime - 10)}
-            >
-              ⏪ -10s
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => playerRef.current?.seekTo(currentTime + 10)}
-            >
-              ⏩ +10s
-            </Button>
-            <Button
-              variant="contained"
-              onClick={() => setIsPlaying((prev) => !prev)}
-            >
-              {isPlaying ? '⏸ Pausar' : '▶️ Reproducir'}
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleFullscreen}
-            >
-              ⛶ Pantalla completa
-            </Button>
-            <Typography>Volumen</Typography>
-            <Slider
-              min={0}
-              max={1}
-              step={0.01}
-              value={volume}
-              onChange={(e, newVal) => {
-                setVolume(newVal);
-              }}
-              sx={{ width: 100 }}
-            />
-            <Typography variant="body2">
-              {`⏱ ${Math.floor(currentTime)}s`}
-            </Typography>
-          </Stack>
           {lesson.description && (
             <>
               <Typography
