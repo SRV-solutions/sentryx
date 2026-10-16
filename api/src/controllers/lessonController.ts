@@ -169,8 +169,8 @@ export const presignLessonVideo = async (req: any, res: any) => {
   if (typeof fileName !== 'string' || typeof contentType !== 'string' || !contentType.startsWith('video/')) {
     return res.status(400).json({ error: 'Solo se permiten archivos de video' });
   }
-  if (!env.S3_VIDEO_BUCKET_NAME) return res.status(500).json({ error: 'Bucket de videos no configurado' });
-  const { key, url } = await presignUpload({ bucket: env.S3_VIDEO_BUCKET_NAME, prefix: `lessons/${lesson.id}`, fileName, contentType });
+  if (!env.videoBucket) return res.status(500).json({ error: 'Bucket de videos no configurado' });
+  const { key, url } = await presignUpload({ bucket: env.videoBucket, prefix: `lessons/${lesson.id}`, fileName, contentType });
   res.json({ key, uploadUrl: url });
 };
 

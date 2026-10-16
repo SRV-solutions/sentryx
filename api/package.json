@@ -10,7 +10,11 @@
     "db:migrate": "node dist/scripts/migrate.js",
     "db:migrate:dev": "ts-node --transpile-only src/scripts/migrate.ts",
     "seed:demo": "ts-node --transpile-only src/scripts/seedDemo.ts",
-    "push:keys": "web-push generate-vapid-keys --json"
+    "push:keys": "web-push generate-vapid-keys --json",
+    "bootstrap": "node dist/scripts/bootstrap.js",
+    "start:realtime": "node dist/realtime-server.js",
+    "dev:realtime": "ts-node-dev --respawn --transpile-only src/realtime-server.ts",
+    "db:backup": "node dist/scripts/backup.js"
   },
   "keywords": [],
   "author": "",

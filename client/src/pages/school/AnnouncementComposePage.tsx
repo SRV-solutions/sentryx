@@ -1,8 +1,8 @@
 import { FormEvent, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, X, Send } from 'lucide-react';
-import { apiGet, apiSend, uploadAttachment } from '../../lib/api';
+import { apiGet, apiSend, uploadFile, formatBytes, type UploadedFile } from '../../lib/api';
 import { Field, PageHeader, Skeleton, useToast, Chips } from '../../ui';
 import type { AudienceType } from '../../school/types';
 
@@ -12,7 +12,6 @@ interface Audiences {
   divisions: Array<{ id: number; name: string; levelId: number }>;
 }
 
-type Uploaded = { name: string; key: string; size: number; type: string };
 
 export default function AnnouncementComposePage() {
   const navigate = useNavigate();
@@ -20,14 +19,16 @@ export default function AnnouncementComposePage() {
   const toast = useToast();
   const opts = useQuery({ queryKey: ['audiences'], queryFn: () => apiGet<Audiences>('/school/announcements/audiences') });
 
+  const [params] = useSearchParams();
+  const presetDivision = Number(params.get('division')) || null;
   const [type, setType] = useState<AudienceType>('DIVISION');
-  const [ids, setIds] = useState<number[]>([]);
+  const [ids, setIds] = useState<number[]>(presetDivision ? [presetDivision] : []);
   const [includeStaff, setIncludeStaff] = useState(false);
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [requiresAck, setRequiresAck] = useState(false);
   const [urgent, setUrgent] = useState(false);
-  const [files, setFiles] = useState<Uploaded[]>([]);
+  const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
 
   const audienceTypes = useMemo(() => {
@@ -47,7 +48,7 @@ export default function AnnouncementComposePage() {
         audience: { type, ids: type === 'SCHOOL' || type === 'STAFF' ? [] : ids, includeStaff },
         requiresAck,
         priority: urgent ? 'URGENT' : 'NORMAL',
-        attachments: files,
+        attachments: files.map((f) => ({ fileId: f.fileId })),
       }),
     onSuccess: (a) => {
       toast(`Comunicado enviado a ${a.recipientCount} destinatarios`);
@@ -62,11 +63,7 @@ export default function AnnouncementComposePage() {
     setUploading(true);
     try {
       for (const f of Array.from(list).slice(0, 10 - files.length)) {
-        if (f.size > 25 * 1024 * 1024) {
-          toast(`${f.name}: máximo 25 MB`, true);
-          continue;
-        }
-        const up = await uploadAttachment(f);
+        const up = await uploadFile(f, { purpose: 'ANNOUNCEMENT' });
         setFiles((prev) => [...prev, up]);
       }
     } catch (e) {
@@ -128,9 +125,10 @@ export default function AnnouncementComposePage() {
 
         <div className="stack" style={{ gap: 8 }}>
           {files.map((f) => (
-            <div key={f.key} className="row card" style={{ padding: '8px 12px' }}>
+            <div key={f.fileId} className="row card" style={{ padding: '8px 12px' }}>
               <Paperclip size={16} /> <span className="grow truncate small">{f.name}</span>
-              <button type="button" className="icon-btn" onClick={() => setFiles((p) => p.filter((x) => x.key !== f.key))} aria-label="Quitar">
+              <span className="xs muted">{formatBytes(f.size)}</span>
+              <button type="button" className="icon-btn" onClick={() => setFiles((p) => p.filter((x) => x.fileId !== f.fileId))} aria-label="Quitar">
                 <X size={16} />
               </button>
             </div>

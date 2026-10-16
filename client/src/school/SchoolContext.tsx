@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, getSchoolId, setSchoolId } from '../lib/api';
+import { apiGet, getSchoolId, setSchoolId, getLevelId, setLevelId } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import type { Permission, SchoolSession, SchoolSummary } from './types';
 
@@ -12,9 +12,12 @@ interface Ctx {
   noSchool: boolean;
   can: (p: Permission) => boolean;
   switchSchool: (id: number) => void;
+  /** Nivel activo (null = todos). */
+  levelId: number | null;
+  switchLevel: (id: number | null) => void;
 }
 
-const SchoolCtx = createContext<Ctx>({ schools: [], session: null, loading: true, noSchool: false, can: () => false, switchSchool: () => {} });
+const SchoolCtx = createContext<Ctx>({ schools: [], session: null, loading: true, noSchool: false, can: () => false, switchSchool: () => {}, levelId: null, switchLevel: () => {} });
 
 export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useAuth() as { user: { token: string; userData: { id: number } } | null };
@@ -37,8 +40,9 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
 
   const activeId = schoolsQ.data?.length ? (getSchoolId() ?? schoolsQ.data[0].id) : null;
 
+  const [levelId, setLevelState] = useState<number | null>(getLevelId);
   const sessionQ = useQuery({
-    queryKey: ['school-session', user?.userData.id, activeId],
+    queryKey: ['school-session', user?.userData.id, activeId, levelId],
     queryFn: () => apiGet<SchoolSession>('/school/session'),
     enabled: !!user && !!activeId,
     staleTime: 5 * 60_000,
@@ -53,14 +57,24 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       loading: schoolsQ.isLoading || (!!activeId && sessionQ.isLoading),
       noSchool: schoolsQ.isSuccess && schoolsQ.data.length === 0,
       can: (p) => perms.has(p),
+      // El servidor confirma el nivel (si no tiene acceso a ese nivel, vuelve a "todos").
+      levelId: session?.activeLevelId ?? null,
+      switchLevel: (id) => {
+        setLevelId(id);
+        setLevelState(id);
+        // Todo lo visible depende del nivel: se refresca (el caché de otras escuelas no aplica acá).
+        qc.invalidateQueries({ predicate: (q) => q.queryKey[0] !== 'schools' });
+      },
       switchSchool: (id) => {
         setSchoolId(id);
+        setLevelId(null);
+        setLevelState(null);
         // Todo lo cacheado pertenece a la escuela anterior.
         qc.removeQueries({ predicate: (q) => q.queryKey[0] !== 'schools' });
         qc.invalidateQueries();
       },
     };
-  }, [schoolsQ.data, schoolsQ.isLoading, schoolsQ.isSuccess, sessionQ.data, sessionQ.isLoading, activeId, qc]);
+  }, [schoolsQ.data, schoolsQ.isLoading, schoolsQ.isSuccess, sessionQ.data, sessionQ.isLoading, activeId, levelId, qc]);
 
   return <SchoolCtx.Provider value={value}>{children}</SchoolCtx.Provider>;
 };

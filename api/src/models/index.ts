@@ -28,6 +28,7 @@ import { GradingPeriod, Grade, ReportCardPublication } from './school/academics'
 import { Attendance, AttendanceRule, Alert } from './school/attendance';
 import { Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage } from './school/communication';
 import { AuditLog, DeviceToken } from './school/system';
+import { FileAsset, ClassroomPost } from './school/classroom';
 
 let associated = false;
 
@@ -58,7 +59,7 @@ export const associateModels = () => {
 
   // --- Estructura ---
   for (const M of [Level, AcademicYear, Division, Subject, TeachingAssignment, Membership, Student, GradingPeriod, Grade,
-    ReportCardPublication, Attendance, AttendanceRule, Alert, Announcement, Thread]) {
+    ReportCardPublication, Attendance, AttendanceRule, Alert, Announcement, Thread, FileAsset, ClassroomPost]) {
     (M as any).belongsTo(School, req('schoolId'));
   }
   School.hasMany(Level, req('schoolId'));
@@ -126,6 +127,15 @@ export const associateModels = () => {
   ThreadMessage.belongsTo(User, { ...req('senderId'), as: 'Sender' });
 
   DeviceToken.belongsTo(User, req('userId'));
+
+  // --- Aulas y archivos ---
+  FileAsset.belongsTo(User, { ...req('uploaderId'), as: 'Uploader' });
+  FileAsset.belongsTo(Division, opt('divisionId'));
+  FileAsset.belongsTo(Subject, opt('subjectId'));
+  ClassroomPost.belongsTo(Division, req('divisionId'));
+  ClassroomPost.belongsTo(Subject, opt('subjectId'));
+  ClassroomPost.belongsTo(User, { ...req('authorId'), as: 'Author' });
+  Division.hasMany(ClassroomPost, req('divisionId'));
 };
 
 associateModels();
@@ -137,5 +147,5 @@ export {
   School, Level, AcademicYear, Division, Subject, TeachingAssignment, Membership,
   Student, Enrollment, StudentGuardian, GradingPeriod, Grade, ReportCardPublication,
   Attendance, AttendanceRule, Alert, Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage,
-  AuditLog, DeviceToken,
+  AuditLog, DeviceToken, FileAsset, ClassroomPost,
 };

@@ -1,0 +1,11 @@
+# HTTPS automático con Let's Encrypt. setup-server.sh reemplaza {API_DOMAIN} y {RT_DOMAIN}.
+
+{API_DOMAIN} {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:3000
+}
+
+# Tiempo real (chat): conexiones WebSocket de larga duración.
+{RT_DOMAIN} {
+	reverse_proxy 127.0.0.1:3001
+}

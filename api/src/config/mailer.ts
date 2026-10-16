@@ -2,11 +2,13 @@ import nodemailer from 'nodemailer';
 import { env } from './env';
 
 export const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  ...(env.SMTP_HOST ? { host: env.SMTP_HOST, port: env.SMTP_PORT, secure: env.SMTP_PORT === 465 } : { service: 'gmail' }),
   pool: true,
   maxConnections: 3,
   auth: { user: env.SMTP_USER, pass: env.SMTP_PASS },
 });
+
+const FROM = () => `"${env.MAIL_FROM_NAME}" <${env.MAIL_FROM ?? env.SMTP_USER}>`;
 
 interface Mail {
   to: string;
@@ -23,7 +25,7 @@ const pump = () => {
     const mail = queue.shift()!;
     running++;
     transporter
-      .sendMail({ from: `"${env.MAIL_FROM_NAME}" <${env.SMTP_USER}>`, ...mail })
+      .sendMail({ from: FROM(), ...mail })
       .catch((err) => console.error('[mail] error enviando a', mail.to, err.message))
       .finally(() => {
         running--;
@@ -44,4 +46,4 @@ export const sendMail = (mails: Mail | Mail[]) => {
 
 /** Envío inmediato (para flujos donde el usuario espera el mail, ej: reseteo de contraseña). */
 export const sendMailNow = (mail: Mail) =>
-  transporter.sendMail({ from: `"${env.MAIL_FROM_NAME}" <${env.SMTP_USER}>`, ...mail });
+  transporter.sendMail({ from: FROM(), ...mail });

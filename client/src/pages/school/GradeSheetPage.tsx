@@ -32,6 +32,7 @@ export default function GradeSheetPage() {
   const [periodId, setPeriodId] = useState<number | null>(null);
   const [drafts, setDrafts] = useState<Record<number, Draft>>({});
   const [obsFor, setObsFor] = useState<PersonLite | null>(null);
+  const [bulk, setBulk] = useState('');
 
   const d = q.data;
   useEffect(() => {
@@ -104,6 +105,25 @@ export default function GradeSheetPage() {
     onError: (e: Error) => toast(e.message, true),
   });
 
+  /**
+   * Carga rápida: la misma nota a todo el curso (o solo a quienes no tienen nota) y después
+   * se corrigen las excepciones una por una. Nada se guarda hasta tocar "Guardar".
+   */
+  const applyToAll = (onlyEmpty: boolean) => {
+    if (!d || !period || !bulk) return;
+    const field: keyof Draft = period.kind === 'NUMERIC' ? 'numericValue' : 'conceptualValue';
+    setDrafts((prev) => {
+      const next = { ...prev };
+      d.students.forEach((st) => {
+        const cur = next[st.id] ?? empty;
+        if (onlyEmpty && cur[field]) return;
+        next[st.id] = { ...cur, [field]: bulk };
+      });
+      return next;
+    });
+    toast(onlyEmpty ? 'Nota aplicada a quienes no tenían. Ajustá las excepciones y guardá.' : 'Nota aplicada a todo el curso. Ajustá las excepciones y guardá.');
+  };
+
   const set = (studentId: number, patch: Partial<Draft>) => setDrafts((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] ?? empty), ...patch } }));
 
   if (q.error) return <ErrorBox error={q.error} />;
@@ -140,6 +160,25 @@ export default function GradeSheetPage() {
 
       {!d.canEdit && <div className="alert alert-info small">Vista de solo lectura: no dictás esta materia.</div>}
       {d.canEdit && period.closed && !d.canEditClosed && <div className="alert alert-warn small">El período está cerrado. Si necesitás corregir una nota, pedile a la dirección que lo reabra.</div>}
+
+      {editable && period.kind !== 'NARRATIVE' && (
+        <div className="card card-pad stack" style={{ gap: 8 }}>
+          <div className="h3">Carga rápida</div>
+          <div className="row wrap">
+            {period.kind === 'NUMERIC' ? (
+              <input className="input" style={{ width: 96, textAlign: 'center', fontWeight: 800 }} inputMode="decimal" placeholder="Nota" value={bulk} onChange={(e) => setBulk(e.target.value.replace(/[^\d.,]/g, '').slice(0, 5))} aria-label="Nota para todos" />
+            ) : (
+              <select className="select" style={{ width: 170 }} value={bulk} onChange={(e) => setBulk(e.target.value)} aria-label="Valoración para todos">
+                <option value="">Elegí…</option>
+                {s.conceptualScale.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            )}
+            <button className="btn btn-sm" disabled={!bulk} onClick={() => applyToAll(false)}>Poner a todos</button>
+            <button className="btn btn-sm btn-ghost" disabled={!bulk} onClick={() => applyToAll(true)}>Solo a los vacíos</button>
+          </div>
+          <span className="xs muted">Después corregí individualmente a quien corresponda y guardá.</span>
+        </div>
+      )}
 
       <div className="card list" style={{ overflow: 'hidden' }}>
         {d.students.map((st) => {

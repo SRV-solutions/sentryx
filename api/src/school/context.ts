@@ -29,6 +29,12 @@ export interface SchoolContext {
   teaching: Array<{ divisionId: number; subjectId: number }>;
   /** Hijos/as del usuario en esta escuela. */
   childIds: number[];
+  /** Niveles a los que el personal tiene acceso (para el selector de nivel). */
+  levelIds: number[];
+  /** Nivel elegido en el selector (header X-Level-Id). null = todos. */
+  activeLevelId: number | null;
+  /** divisionId → levelId del ciclo vigente (para filtrar por nivel sin consultar la base). */
+  divisionLevel: Record<number, number>;
 }
 
 // Caché corto: el contexto se arma con ~5 consultas livianas; con 60 s de TTL casi todas las requests lo leen de memoria.
@@ -93,6 +99,13 @@ const buildContext = async (userId: number, schoolId: number, superAdmin: boolea
     divisionIds = [...new Set([...fromLevels, ...explicit, ...teaching.map((t) => t.divisionId)])];
   }
 
+  // Mapa división → nivel del ciclo vigente (una consulta liviana, queda en caché con el contexto).
+  const allDivisions = yearId ? await Division.findAll({ where: { schoolId, academicYearId: yearId }, attributes: ['id', 'levelId'], raw: true }) : [];
+  const divisionLevel = Object.fromEntries(allDivisions.map((d) => [d.id, d.levelId as number]));
+  const staffLevelIds = all
+    ? [...new Set(allDivisions.map((d) => d.levelId as number))]
+    : [...new Set([...levelIds, ...divisionIds.map((id) => divisionLevel[id]).filter(Boolean)])];
+
   const permissions = permissionsFor(roles);
   // La estructura institucional (niveles, divisiones, materias) solo la edita quien tiene alcance sobre toda la escuela:
   // una Rectora de Secundario no debe poder modificar Primario.
@@ -111,6 +124,9 @@ const buildContext = async (userId: number, schoolId: number, superAdmin: boolea
     scope: { all, levelIds, divisionIds },
     teaching,
     childIds,
+    levelIds: roles.some((r) => r !== 'TUTOR') ? staffLevelIds : [],
+    activeLevelId: null,
+    divisionLevel,
   };
 };
 
@@ -147,11 +163,29 @@ export const schoolContext = async (req: Request, _res: Response, next: NextFunc
       cache.set(key, { ctx, at: Date.now() });
     }
     if (!ctx.roles.length) throw forbidden('No pertenecés a esta institución.');
-    req.school = ctx;
+    req.school = narrowToLevel(ctx, Number(req.headers['x-level-id']) || null);
     next();
   } catch (err) {
     next(err);
   }
+};
+
+/**
+ * Selector de nivel: quien tiene acceso a varios niveles (ej: Representante Legal) elige uno y toda la app
+ * (inicio, aulas, alumnos, asistencia, alertas, comunicados) se filtra a ese nivel. Los permisos no cambian.
+ */
+const narrowToLevel = (ctx: SchoolContext, levelId: number | null): SchoolContext => {
+  if (!levelId || !ctx.levelIds.includes(levelId)) return ctx;
+  const inLevel = (divisionId: number) => ctx.divisionLevel[divisionId] === levelId;
+  const divisionIds = ctx.scope.all
+    ? Object.keys(ctx.divisionLevel).map(Number).filter(inLevel)
+    : ctx.scope.divisionIds.filter(inLevel);
+  return {
+    ...ctx,
+    activeLevelId: levelId,
+    scope: { all: false, levelIds: [levelId], divisionIds },
+    teaching: ctx.teaching.filter((t) => inLevel(t.divisionId)),
+  };
 };
 
 export const requirePerm =

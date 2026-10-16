@@ -17,6 +17,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import friendRoutes from './routes/friendRoutes';
 import moduleRoutes from './routes/moduleRoutes';
 import schoolRoutes from './school/routes';
+import publicRoutes from './school/routes/public';
 import { errorHandler } from './lib/http';
 
 const app = express();
@@ -30,7 +31,7 @@ app.use(
   cors({
     origin: (origin, cb) => cb(null, !origin || env.corsOrigins.includes(origin)),
     credentials: true,
-    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-School-Id'],
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-School-Id', 'X-Level-Id'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     maxAge: 86400,
   })
@@ -47,6 +48,7 @@ app.use(rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: 'draft-7', le
 app.get('/', (_req, res) => res.send('Sentryx API'));
 app.get('/health', (_req, res) => res.json({ ok: true }));
 
+app.use('/public', publicRoutes);
 app.use('/school', schoolRoutes);
 app.use('/chats', chatRoutes);
 app.use('/users', userRoutes);

@@ -6,6 +6,7 @@ import { sequelize } from './models';
 import { isSocketAuth } from './middlewares/auth';
 import { setIO } from './lib/realtime';
 import { ensureBaseData } from './utils/seedDataBase';
+import { cleanupPendingUploads } from './school/services/files';
 
 const start = async () => {
   await sequelize.authenticate();
@@ -18,24 +19,29 @@ const start = async () => {
   await ensureBaseData();
 
   const server = http.createServer(app);
-  const io = new SocketIOServer(server, {
-    cors: { origin: env.corsOrigins, credentials: true },
-    // Reconexión rápida en celulares que cambian de red (wifi ↔ datos).
-    pingInterval: 20_000,
-    pingTimeout: 20_000,
-  });
-  io.use(isSocketAuth);
-  io.on('connection', (socket) => {
-    const user = (socket as typeof socket & { user: { id: number } }).user;
-    socket.join(`user_${user.id}`);
-  });
-  setIO(io);
-  app.set('io', io);
+  // En producción los sockets viven en su propio proceso (realtime-server.ts); en desarrollo, acá mismo.
+  let io: SocketIOServer | null = null;
+  if (env.REALTIME_MODE === 'embedded') {
+    io = new SocketIOServer(server, {
+      cors: { origin: env.corsOrigins, credentials: true },
+      pingInterval: 20_000,
+      pingTimeout: 20_000,
+    });
+    io.use(isSocketAuth);
+    io.on('connection', (socket) => {
+      const user = (socket as typeof socket & { user: { id: number } }).user;
+      socket.join(`user_${user.id}`);
+    });
+    setIO(io);
+  }
+
+  // Mantenimiento liviano: borra subidas que nunca se confirmaron (archivos huérfanos en el bucket).
+  setInterval(() => cleanupPendingUploads().catch((err) => console.error('[files] cleanup', err)), 3600_000).unref();
 
   server.listen(env.PORT, () => console.log(`🚀 Sentryx API en puerto ${env.PORT}`));
 
   const shutdown = () => {
-    io.close();
+    io?.close();
     server.close(() => sequelize.close().finally(() => process.exit(0)));
     setTimeout(() => process.exit(1), 10_000).unref();
   };

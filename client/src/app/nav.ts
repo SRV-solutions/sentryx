@@ -1,6 +1,6 @@
 import {
   Home, Megaphone, MessageCircle, Users, ClipboardCheck, BookOpenCheck, BellRing, GraduationCap,
-  Settings, BookOpen, Library, Bot, UserCog, LayoutGrid, Baby,
+  Settings, BookOpen, Library, Bot, UserCog, LayoutGrid, Baby, School, FolderOpen,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { SchoolSession, Permission } from '../school/types';
@@ -26,11 +26,13 @@ export const buildNav = (opts: {
     items.push({ to: '/inicio', label: 'Inicio', icon: Home, section: 'school' });
     if (can('attendance.write')) items.push({ to: '/asistencia', label: 'Asistencia', icon: ClipboardCheck, section: 'school' });
     if (session.isGuardian) items.push({ to: '/familia', label: session.childIds.length > 1 ? 'Mis hijos' : 'Mi hijo/a', icon: Baby, section: 'school' });
+    items.push({ to: '/aulas', label: 'Aulas', icon: School, section: 'school' });
     if (session.teaching.length || can('grades.read')) items.push({ to: '/materias', label: 'Materias', icon: BookOpenCheck, section: 'school' });
     items.push({ to: '/comunicados', label: 'Comunicados', icon: Megaphone, badge: 'announcements', section: 'school' });
     items.push({ to: '/mensajes', label: 'Mensajes', icon: MessageCircle, badge: 'threads', section: 'school' });
     if (can('alerts.read')) items.push({ to: '/alertas', label: 'Alertas', icon: BellRing, section: 'school' });
     if (can('people.read')) items.push({ to: '/alumnos', label: 'Alumnos', icon: GraduationCap, section: 'school' });
+    if (session.isStaff && (session.teaching.length || can('announcements.publish'))) items.push({ to: '/archivos', label: 'Archivos', icon: FolderOpen, section: 'school' });
     if (can('school.manage') || can('people.manage')) items.push({ to: '/admin', label: 'Administración', icon: Settings, section: 'school' });
   }
   if (lms) {

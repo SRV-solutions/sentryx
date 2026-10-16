@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } 
 import { Link, useParams } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import { ArrowLeft, Send, UserPlus, Paperclip, Lock } from 'lucide-react';
-import { apiGet, apiSend, uploadAttachment } from '../../lib/api';
+import { apiGet, apiSend, uploadFile } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useSocketEvent } from '../../context/SocketContext';
 import { useSchool } from '../../school/SchoolContext';
@@ -85,8 +85,8 @@ export default function ThreadPage() {
   const attach = async (f?: File) => {
     if (!f) return;
     try {
-      const up = await uploadAttachment(f);
-      send.mutate({ body: `📎 ${f.name}`, attachments: [up] });
+      const up = await uploadFile(f, { purpose: 'MESSAGE' });
+      send.mutate({ body: `📎 ${up.name}`, attachments: [{ fileId: up.fileId }] });
     } catch (e) {
       toast(e instanceof Error ? e.message : 'Error al subir', true);
     }

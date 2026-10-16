@@ -1,3 +1,4 @@
+import { emitToUsers } from '../lib/realtime';
 import { Op } from 'sequelize';
 import Friendship from '../models/Friendship';
 import User from '../models/User';
@@ -113,18 +114,15 @@ export const sendFriendRequest = async (req: any, res: any) => {
     });
 
     // Emitir notificación por websocket si usas sockets (opcional)
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`user_${userId}`).emit('notification', {
-        id: notification.id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        link: notification.link,
-        createdAt: notification.createdAt,
-        read: false,
-      });
-    }
+    emitToUsers([userId], 'notification', {
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      link: notification.link,
+      createdAt: notification.createdAt,
+      read: false,
+    });
 
     res.status(201).json(friendship);
   } catch (error) {
@@ -166,18 +164,15 @@ export const acceptFriendRequest = async (req: any, res: any) => {
     });
 
     // Emitir por socket si usas
-    const io = req.app.get('io');
-    if (io) {
-      io.to(`user_${friendship.requesterId}`).emit('notification', {
-        id: notification.id,
-        title: notification.title,
-        message: notification.message,
-        type: notification.type,
-        link: notification.link,
-        createdAt: notification.createdAt,
-        read: false,
-      });
-    }
+    emitToUsers([friendship.requesterId], 'notification', {
+      id: notification.id,
+      title: notification.title,
+      message: notification.message,
+      type: notification.type,
+      link: notification.link,
+      createdAt: notification.createdAt,
+      read: false,
+    });
 
     res.json(friendship);
   } catch (error) {

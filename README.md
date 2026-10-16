@@ -13,7 +13,7 @@ cd api
 cp .env.example .env          # completar DB_* y JWT_SECRET; DB_SYNC=true en desarrollo
 npm install
 npm run seed:demo             # escuela demo con los 3 niveles (contraseña de todos: demo1234)
-npm run dev                   # http://localhost:3000
+npm run dev                   # http://localhost:3000 (en desarrollo el chat corre dentro de la API)
 
 # Web
 cd client
@@ -59,35 +59,27 @@ Las reglas se configuran desde *Alertas → Reglas*, sin tocar código:
 
 Se evalúan solas al tomar o justificar asistencia y avisan a preceptoría y conducción, y a la familia si se configura.
 
+## Colegios y niveles
+
+- **Multi-colegio:** cada colegio tiene su nombre, escudo y datos (*Administración → Institución*) y su link de ingreso `/c/<slug>`. La marca Sentryx · SRV se mantiene.
+- **Selector de nivel:** quien tiene acceso a más de un nivel (Representante Legal, Dirección general, Secretaría) elige Todos, Inicial, Primario o Secundario desde el encabezado. Toda la app se filtra a ese nivel.
+- **Alta de un colegio nuevo:** `npm run bootstrap` (ver DEPLOY.md).
+
+## Aulas
+
+Cada curso o división es un **aula**, donde están sus docentes y alumnos:
+- **Muro:** materiales y tareas por materia (archivos, fotos, videos y links de YouTube embebidos).
+- **Comunicados:** los que recibió el curso, su nivel o toda la escuela.
+- **Integrantes:** docentes y alumnos. Por privacidad, las familias solo ven a sus hijos.
+- **Accesos directos del docente:** notas, asistencia y estado académico.
+
+Las familias entran al aula de sus hijos para leer materiales y comunicados.
+
 ## Producción
+
+Ver **[DEPLOY.md](DEPLOY.md)**: Netlify (frontend) + VPS Ubuntu sin Docker (API, tiempo real y PostgreSQL con systemd) + Cloudflare R2 (archivos), con costos mensuales y por usuario.
 
 ```bash
 cd api && npm run build && npm run db:migrate && npm start
-cd client && npm run build    # servir client/dist como sitio estático (con fallback a index.html)
+node dist/scripts/bootstrap.js --school "Colegio X" --slug colegio-x --admin-email ... --admin-first ... --admin-last ...
 ```
-
-- `npm run db:migrate` es idempotente: crea tablas, columnas e índices faltantes. **Nunca borra datos.** `DB_SYNC` está prohibido en producción.
-- Notificaciones push: `npm run push:keys` y cargar `VAPID_PUBLIC_KEY` y `VAPID_PRIVATE_KEY`.
-- S3: los navegadores suben archivos directo al bucket. El bucket necesita CORS que permita `PUT` desde el dominio del frontend.
-- Email: Gmail permite unos 500 envíos por día. Para comunicados masivos usar Amazon SES (las credenciales SMTP se configuran en `.env`).
-
-## Infraestructura recomendada (≈400 alumnos, 40 docentes, ~700 familias)
-
-| Opción | Componentes | USD/mes aprox. |
-|---|---|---|
-| **VPS (recomendada)** | Hetzner CPX21 / DigitalOcean 4 GB: API + Postgres + Caddy (HTTPS) en Docker · web en Cloudflare Pages (gratis) · archivos en S3 · backup diario cifrado de Postgres a S3 | **15–25** |
-| Administrada | Railway o Render (API + Postgres administrados) | 40–60 |
-| AWS | Lightsail 2 GB + base administrada de Lightsail + S3 | 35–50 |
-
-Extras en todas las opciones:
-- SES: menos de USD 1 cada 10.000 emails.
-- Web Push: gratis.
-- OpenAI (Solvix): según uso, con `gpt-4o-mini` normalmente USD 5–20.
-
-Carga esperada: el pico más fuerte es un comunicado a todas las familias (unos 700 destinatarios). El API lo resuelve con 1 INSERT masivo, y el envío de push y emails corre en segundo plano. Con 2 vCPU y 4 GB queda margen holgado.
-
-Para la futura app React Native, la API ya está lista:
-- autenticación JWT,
-- header `X-School-Id`,
-- tokens `EXPO` en `/school/push/subscribe`,
-- tipos compartibles en `client/src/school/types.ts`.

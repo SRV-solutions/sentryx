@@ -10,6 +10,7 @@ import User from '../models/User';
 import { Op, QueryTypes } from 'sequelize';
 import { sequelize } from '../config/database';
 import { env } from '../config/env';
+import { emitToUsers } from '../lib/realtime';
 import Friendship from '../models/Friendship';
 
 
@@ -287,17 +288,14 @@ export const sendMessageToChat = async (req: any, res: any) => {
         const participants = await ChatUser.findAll({ where: { chatId } });
 
         // Emitir mensaje por socket a todos los usuarios del chat
-        const io = req.app.get('io');
-        participants.forEach(participant => {
-            io.to(`user_${participant.userId}`).emit('new_message', {
-                chatId,
-                message: {
-                    id: msg.id,
-                    senderId: msg.senderId,
-                    content: msg.message,
-                    createdAt: msg.createdAt,
-                }
-            });
+        emitToUsers(participants.map((p) => p.userId), 'new_message', {
+            chatId,
+            message: {
+                id: msg.id,
+                senderId: msg.senderId,
+                content: msg.message,
+                createdAt: msg.createdAt,
+            },
         });
 
         res.json(msg);

@@ -191,8 +191,8 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
       ? `https://www.youtube.com/embed/${youtubeId}`
       : isExternal
         ? lesson.youtubeUrl
-        : env.S3_VIDEO_BUCKET_NAME
-          ? await presignDownload(env.S3_VIDEO_BUCKET_NAME, lesson.youtubeUrl, 4 * 3600)
+        : env.videoBucket
+          ? await presignDownload(env.videoBucket, lesson.youtubeUrl, 4 * 3600)
           : null;
 
     return res.json({

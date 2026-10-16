@@ -124,6 +124,17 @@ const run = async () => {
           });
         }
       }
+      // Publicaciones de ejemplo en el aula.
+      await M.ClassroomPost.create({
+        schoolId: school.id, divisionId: division.id, subjectId: subjects[0].id, authorId: teachers[gradeYear % teachers.length].id,
+        kind: 'MATERIAL', title: `Bienvenidos a ${name}`, body: 'Acá vamos a compartir materiales, videos y tareas de la materia.',
+        links: [{ url: 'https://www.educ.ar', title: 'Recursos de educ.ar' }], fileIds: [], dueDate: null, pinned: true,
+      });
+      await M.ClassroomPost.create({
+        schoolId: school.id, divisionId: division.id, subjectId: subjects[subjects.length - 1].id, authorId: teachers[(gradeYear + 1) % teachers.length].id,
+        kind: 'TAREA', title: 'Trabajo práctico Nº 1', body: 'Leer el capítulo 1 y responder las preguntas de la página 12.',
+        links: [], fileIds: [], dueDate: new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10), pinned: false,
+      });
       // Boletín del primer período publicado.
       await M.ReportCardPublication.create({ schoolId: school.id, divisionId: division.id, periodId: periods[0].id, publishedById: teachers[0].id });
     }

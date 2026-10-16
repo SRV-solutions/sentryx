@@ -11,6 +11,8 @@ import { sequelize } from '../../config/database';
 import { AudienceType } from '../../school/constants';
 
 export interface Attachment {
+  /** FileAsset (formato actual). */
+  fileId?: number;
   name: string;
   url: string;
   size?: number;

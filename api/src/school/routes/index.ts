@@ -11,6 +11,8 @@ import grades from './grades';
 import attendance from './attendance';
 import communication from './communication';
 import dashboard from './dashboard';
+import files from './files';
+import classrooms from './classrooms';
 
 const router = Router();
 router.use(isAuth);
@@ -60,5 +62,7 @@ router.use('/grades', grades);
 router.use(attendance);
 router.use(communication);
 router.use(dashboard);
+router.use(files);
+router.use(classrooms);
 
 export default router;

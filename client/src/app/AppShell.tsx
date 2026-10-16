@@ -1,14 +1,14 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Moon, Sun, MoreHorizontal, LogOut, User, ChevronDown } from 'lucide-react';
+import { Bell, Moon, Sun, MoreHorizontal, LogOut, User, ChevronDown, Check, Layers } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../school/SchoolContext';
 import { useSocketEvent } from '../context/SocketContext';
 import { apiGet, apiSend } from '../lib/api';
 import { buildNav, NavItem } from './nav';
-import { Sheet, timeAgo, Empty, useToast } from '../ui';
+import { Sheet, timeAgo, Empty, useToast, Avatar } from '../ui';
 
 const SRV_LOGO = 'https://wearesrv.com/srv-logo-96.webp';
 
@@ -41,7 +41,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
     hasPermission: (e: string, a: string) => boolean;
   };
   const { darkMode, toggleTheme } = useTheme() as { darkMode: boolean; toggleTheme: () => void };
-  const { session, can, schools, switchSchool } = useSchool();
+  const { session, can, schools, switchSchool, levelId, switchLevel } = useSchool();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const toast = useToast();
@@ -98,6 +98,19 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
     navigate('/login', { replace: true });
   };
 
+  const levels = session?.levels ?? [];
+  const levelName = levels.find((l) => l.id === levelId)?.name;
+  const canSwitch = schools.length > 1 || levels.length > 1;
+  const contextLabel = levelName ? `Nivel ${levelName}` : levels.length > 1 ? 'Todos los niveles' : session?.roleLabels.join(' · ');
+
+  /** Escudo del colegio (o iniciales). La marca de la plataforma (SRV) queda siempre visible aparte. */
+  const Crest = ({ size = 32 }: { size?: number }) =>
+    session?.school.logoUrl ? (
+      <img src={session.school.logoUrl} alt="" width={size} height={size} style={{ borderRadius: 8, objectFit: 'contain', background: '#fff', flexShrink: 0 }} />
+    ) : (
+      <span style={{ width: size, height: size, flexShrink: 0, display: 'inline-flex' }}><Avatar name={session?.school.name ?? '?'} size="sm" /></span>
+    );
+
   const sections: Array<[NavItem['section'], string]> = [
     ['school', session?.school.name ?? 'Escuela'],
     ['courses', 'Cursos SRV'],
@@ -113,6 +126,20 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
             Sentryx<span className="accent">.</span>
           </span>
         </Link>
+        {session && (
+          <button
+            className="card row"
+            style={{ padding: 10, margin: '0 0 6px', textAlign: 'left', cursor: canSwitch ? 'pointer' : 'default', width: '100%' }}
+            onClick={() => canSwitch && setSchoolOpen(true)}
+          >
+            <Crest size={36} />
+            <span className="grow" style={{ minWidth: 0 }}>
+              <span className="h3" style={{ display: 'block', lineHeight: 1.2 }}>{session.school.name}</span>
+              <span className="xs muted truncate" style={{ display: 'block' }}>{contextLabel}</span>
+            </span>
+            {canSwitch && <ChevronDown size={16} className="muted" />}
+          </button>
+        )}
         {sections.map(([key, label]) => {
           const items = nav.filter((i) => i.section === key);
           if (!items.length) return null;
@@ -141,15 +168,23 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
 
       <div className="shell-main">
         <header className="topbar">
-          <img src={SRV_LOGO} alt="" width={26} height={26} className="hide-desktop" />
-          {schools.length > 1 ? (
-            <button className="topbar-title row" style={{ background: 'none', border: 0, cursor: 'pointer', gap: 4 }} onClick={() => setSchoolOpen(true)}>
-              <span className="truncate">{title ?? session?.school.name}</span>
-              <ChevronDown size={16} />
+          {session ? (
+            <button
+              className="row grow hide-desktop"
+              style={{ background: 'none', border: 0, cursor: canSwitch ? 'pointer' : 'default', gap: 8, minWidth: 0, textAlign: 'left', padding: 0 }}
+              onClick={() => canSwitch && setSchoolOpen(true)}
+              aria-label="Cambiar colegio o nivel"
+            >
+              <Crest size={30} />
+              <span style={{ minWidth: 0 }}>
+                <span className="truncate" style={{ display: 'block', fontWeight: 900, fontSize: 15, lineHeight: 1.15 }}>{title ?? session.school.name}</span>
+                <span className="xs muted truncate row" style={{ gap: 2 }}>{contextLabel}{canSwitch && <ChevronDown size={12} />}</span>
+              </span>
             </button>
           ) : (
-            <div className="topbar-title">{title ?? session?.school.name ?? 'Sentryx'}</div>
+            <img src={SRV_LOGO} alt="" width={26} height={26} className="hide-desktop" />
           )}
+          <div className="topbar-title hide-mobile">{title ?? (levelName ? `${session?.school.name} · ${levelName}` : session?.school.name) ?? 'Sentryx'}</div>
           <button className="icon-btn" onClick={toggleTheme} aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}>
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>
@@ -232,23 +267,53 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
         )}
       </Sheet>
 
-      <Sheet open={schoolOpen} onClose={() => setSchoolOpen(false)} title="Cambiar de institución">
-        <div className="list card" style={{ overflow: 'hidden' }}>
-          {schools.map((s) => (
-            <button
-              key={s.id}
-              className="list-item"
-              style={{ background: 'transparent', border: 0, borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
-              onClick={() => {
-                switchSchool(s.id);
-                setSchoolOpen(false);
-                navigate('/inicio');
-              }}
-            >
-              <span className="grow h3">{s.name}</span>
-              {s.id === session?.school.id && <span className="badge badge-info">Actual</span>}
-            </button>
-          ))}
+      <Sheet open={schoolOpen} onClose={() => setSchoolOpen(false)} title="Colegio y nivel">
+        <div className="stack">
+          {levels.length > 1 && (
+            <section className="stack" style={{ gap: 8 }}>
+              <h3 className="h3 row"><Layers size={16} /> Nivel</h3>
+              <div className="card list" style={{ overflow: 'hidden' }}>
+                {[{ id: null as number | null, name: 'Todos los niveles' }, ...levels].map((l) => (
+                  <button
+                    key={l.id ?? 'all'}
+                    className="list-item"
+                    style={{ background: 'transparent', border: 0, borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
+                    onClick={() => {
+                      switchLevel(l.id);
+                      setSchoolOpen(false);
+                      toast(l.id ? `Viendo ${l.name}` : 'Viendo todos los niveles');
+                    }}
+                  >
+                    <span className="grow h3">{l.name}</span>
+                    {levelId === l.id && <Check size={18} color="var(--primary)" />}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          {schools.length > 1 && (
+            <section className="stack" style={{ gap: 8 }}>
+              <h3 className="h3">Colegio</h3>
+              <div className="card list" style={{ overflow: 'hidden' }}>
+                {schools.map((sc) => (
+                  <button
+                    key={sc.id}
+                    className="list-item"
+                    style={{ background: 'transparent', border: 0, borderBottom: '1px solid var(--border)', textAlign: 'left', cursor: 'pointer', width: '100%' }}
+                    onClick={() => {
+                      switchSchool(sc.id);
+                      setSchoolOpen(false);
+                      navigate('/inicio');
+                    }}
+                  >
+                    {sc.logoUrl ? <img src={sc.logoUrl} alt="" width={28} height={28} style={{ borderRadius: 6, objectFit: 'contain', background: '#fff' }} /> : <Avatar name={sc.name} size="sm" />}
+                    <span className="grow h3">{sc.name}</span>
+                    {sc.id === session?.school.id && <Check size={18} color="var(--primary)" />}
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </Sheet>
     </div>

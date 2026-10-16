@@ -26,6 +26,9 @@ const AttendancePage = lazy(() => import('./pages/school/AttendancePage'));
 const AlertsPage = lazy(() => import('./pages/school/AlertsPage'));
 const AdminPage = lazy(() => import('./pages/school/AdminPage'));
 const ReportCardPrintPage = lazy(() => import('./pages/school/ReportCardPrintPage'));
+const ClassroomsPage = lazy(() => import('./pages/school/ClassroomsPage'));
+const ClassroomPage = lazy(() => import('./pages/school/ClassroomPage'));
+const FilesPage = lazy(() => import('./pages/school/FilesPage'));
 
 // --- Pantallas existentes (cursos SRV, comunidad, Solvix, admin) ---
 const LegacyFrame = lazy(() => import('./app/LegacyFrame.jsx'));
@@ -95,6 +98,7 @@ export default function App() {
     <Suspense fallback={<Spinner center />}>
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+        <Route path="/c/:slug" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
@@ -110,6 +114,9 @@ export default function App() {
             <Route path="/mensajes" element={<ThreadsPage />} />
             <Route path="/mensajes/nuevo" element={<NewThreadPage />} />
             <Route path="/mensajes/:id" element={<ThreadPage />} />
+            <Route path="/aulas" element={<ClassroomsPage />} />
+            <Route path="/aulas/:id" element={<ClassroomPage />} />
+            <Route path="/archivos" element={<FilesPage />} />
             <Route path="/familia" element={<FamilyPage />} />
             <Route path="/familia/:id" element={<StudentPage />} />
             <Route path="/boletin/:id" element={<ReportCardPrintPage />} />

@@ -1,0 +1,39 @@
+# Frontend en Netlify (plan gratuito alcanza: sitio estático + CDN global).
+# Variable a configurar en Netlify → Site settings → Environment: VITE_API_URL=https://api.tudominio.com
+[build]
+  base = "client"
+  command = "npm ci && npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# SPA: todas las rutas las resuelve React Router.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Assets con hash: caché de 1 año (el celular no vuelve a descargarlos).
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# El service worker y el HTML siempre frescos para que las actualizaciones lleguen al instante.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"

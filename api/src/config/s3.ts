@@ -1,15 +1,23 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { env } from './env';
 
-/** Cliente único (AWS SDK v3). Reutilizar conexiones ahorra latencia y memoria. */
+/**
+ * Cliente único de almacenamiento. Cloudflare R2 es compatible con la API de S3, por eso se usa el
+ * SDK de AWS apuntando al endpoint de R2 (región "auto"). Reutilizar el cliente ahorra latencia y memoria.
+ */
 export const s3 = new S3Client({
-  region: env.AWS_REGION,
+  region: env.storage.endpoint ? 'auto' : env.AWS_REGION,
+  endpoint: env.storage.endpoint,
   credentials:
-    env.AWS_ACCESS_KEY_ID && env.AWS_SECRET_ACCESS_KEY
-      ? { accessKeyId: env.AWS_ACCESS_KEY_ID, secretAccessKey: env.AWS_SECRET_ACCESS_KEY }
+    env.storage.accessKeyId && env.storage.secretAccessKey
+      ? { accessKeyId: env.storage.accessKeyId, secretAccessKey: env.storage.secretAccessKey }
       : undefined,
+  // R2 no acepta las sumas de verificación automáticas que agregan las versiones nuevas del SDK
+  // (recomendación oficial de Cloudflare): solo se calculan cuando la operación las exige.
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
 const safeName = (name: string) => name.normalize('NFKD').replace(/[^\w.-]+/g, '_').slice(-120);
@@ -30,3 +38,6 @@ export const presignUpload = async (opts: { bucket: string; prefix: string; file
 
 export const presignDownload = (bucket: string, key: string, expiresIn = 3600) =>
   getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
+
+export const headObject = (bucket: string, key: string) => s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+export const deleteObject = (bucket: string, key: string) => s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));

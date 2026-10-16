@@ -12,6 +12,7 @@ import {
   Level,
   Division,
   Membership,
+  FileAsset,
   sequelize,
 } from '../../models';
 import type { Attachment } from '../../models/school/communication';
@@ -21,52 +22,40 @@ import { AUDIENCE_TYPES, ROLE_LABELS } from '../constants';
 import { assertAudience, resolveRecipients, audienceLabel, contactsForGuardian, guardiansOf } from '../services/audience';
 import { notify } from '../../lib/notify';
 import { emitToUsers } from '../../lib/realtime';
-import { presignUpload, presignDownload } from '../../config/s3';
+import { presignDownload } from '../../config/s3';
+import { signFiles } from '../services/files';
 import { env } from '../../config/env';
 
 const router = Router();
 
-const attachmentSchema = z.object({
-  name: z.string().max(200),
-  key: z.string().max(500),
-  size: z.number().int().max(25 * 1024 * 1024).optional(),
-  type: z.string().max(100).optional(),
-});
+/** Adjuntos: referencia a un FileAsset ya subido y confirmado (ver routes/files.ts). */
+const attachmentSchema = z.object({ fileId: z.number().int() });
 
-/** Los adjuntos se guardan como clave S3 privada y se entregan con URL firmada de corta duración. */
-const signAttachments = async (atts: Attachment[]) =>
-  Promise.all(
-    (atts ?? []).map(async (a) => ({
-      ...a,
-      url: env.S3_BUCKET_NAME && !a.url.startsWith('http') ? await presignDownload(env.S3_BUCKET_NAME, a.url, 3600) : a.url,
-    }))
+/**
+ * Entrega URLs firmadas de corta duración. Soporta el formato nuevo (fileId) y el anterior (clave S3 en url).
+ * El acceso ya fue validado por quien llama (destinatario del comunicado o participante del hilo).
+ */
+const signAttachments = async (atts: Attachment[]) => {
+  const list = atts ?? [];
+  const signed = await signFiles(list.map((a) => a.fileId).filter((id): id is number => !!id));
+  return Promise.all(
+    list.map(async (a) => {
+      if (a.fileId) {
+        const f = signed.get(a.fileId);
+        return f ? { ...a, url: f.url } : { ...a, url: '', deleted: true };
+      }
+      return { ...a, url: env.filesBucket && !a.url.startsWith('http') ? await presignDownload(env.filesBucket, a.url, 3600) : a.url };
+    })
   );
+};
 
-const toAttachments = (list: z.infer<typeof attachmentSchema>[] = []): Attachment[] =>
-  list.map((a) => ({ name: a.name, url: a.key, size: a.size, type: a.type }));
-
-/** URL firmada para subir adjuntos directo a S3 (máx. 25 MB; imágenes, PDF y documentos). */
-router.post(
-  '/uploads/presign',
-  validate({
-    body: z.object({
-      fileName: z.string().min(1).max(200),
-      contentType: z.string().regex(/^(image\/|application\/pdf|application\/vnd\.|application\/msword|text\/plain)/, 'Tipo de archivo no permitido.'),
-      size: z.number().int().positive().max(25 * 1024 * 1024, 'Máximo 25 MB.'),
-    }),
-  }),
-  asyncHandler(async (req, res) => {
-    if (!env.S3_BUCKET_NAME) throw badRequest('Almacenamiento de archivos no configurado.');
-    res.json(
-      await presignUpload({
-        bucket: env.S3_BUCKET_NAME,
-        prefix: `schools/${req.school!.schoolId}/attachments`,
-        fileName: req.body.fileName,
-        contentType: req.body.contentType,
-      })
-    );
-  })
-);
+/** Valida que los adjuntos sean del autor y los convierte al formato guardado. */
+const toAttachments = async (ctx: SchoolContext, list: z.infer<typeof attachmentSchema>[] = []): Promise<Attachment[]> => {
+  if (!list.length) return [];
+  const assets = await FileAsset.findAll({ where: { id: list.map((a) => a.fileId), schoolId: ctx.schoolId, uploaderId: ctx.userId, status: 'READY' } });
+  if (assets.length !== new Set(list.map((a) => a.fileId)).size) throw badRequest('Algún adjunto no es válido o no terminó de subirse.');
+  return assets.map((f) => ({ fileId: f.id, name: f.name, url: '', size: f.size, type: f.mimeType }));
+};
 
 // ============================ COMUNICADOS ============================
 
@@ -117,7 +106,7 @@ router.post(
           audienceLabel: (await audienceLabel(ctx, input.audience)) ?? '',
           requiresAck: input.requiresAck,
           priority: input.priority,
-          attachments: toAttachments(input.attachments),
+          attachments: await toAttachments(ctx, input.attachments),
           recipientCount: recipients.size,
         },
         { transaction }
@@ -366,6 +355,7 @@ router.post(
     const recipient = allowed.find((c) => c.userId === input.recipientId);
     if (!recipient) throw forbidden('No podés escribirle a esa persona sobre este alumno.');
 
+    const threadAttachments = await toAttachments(ctx, input.attachments);
     const thread = await sequelize.transaction(async (transaction) => {
       const t = await Thread.create(
         { schoolId: ctx.schoolId, studentId: input.studentId, subject: input.subject, createdById: ctx.userId, closedAt: null, lastMessagePreview: input.body.slice(0, 160) },
@@ -378,7 +368,7 @@ router.post(
         ],
         { transaction }
       );
-      await ThreadMessage.create({ threadId: t.id, senderId: ctx.userId, body: input.body, attachments: toAttachments(input.attachments) }, { transaction });
+      await ThreadMessage.create({ threadId: t.id, senderId: ctx.userId, body: input.body, attachments: threadAttachments }, { transaction });
       return t;
     });
 
@@ -475,8 +465,9 @@ router.post(
     const p = await participantOf(ctx, Number(req.params.id));
     const thread = p.Thread!;
     if (thread.closedAt) throw badRequest('La conversación está cerrada.');
+    const attachments = await toAttachments(ctx, req.body.attachments);
     const message = await sequelize.transaction(async (transaction) => {
-      const m = await ThreadMessage.create({ threadId: thread.id, senderId: ctx.userId, body: req.body.body, attachments: toAttachments(req.body.attachments) }, { transaction });
+      const m = await ThreadMessage.create({ threadId: thread.id, senderId: ctx.userId, body: req.body.body, attachments }, { transaction });
       await thread.update({ lastMessageAt: new Date(), lastMessagePreview: req.body.body.slice(0, 160) }, { transaction });
       await p.update({ lastReadAt: new Date() }, { transaction });
       return m;

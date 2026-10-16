@@ -17,6 +17,14 @@ const index = (sql: string) => sequelize.query(sql);
 
 const migrations: Array<{ name: string; up: (qi: QueryInterface) => Promise<void> }> = [
   {
+    // Base vacía (despliegue nuevo): crea todas las tablas desde los modelos.
+    // En una base existente no toca nada: sync() sin alter/force solo crea las que faltan.
+    name: '0000-baseline',
+    up: async () => {
+      await sequelize.sync();
+    },
+  },
+  {
     name: '2026-10-16-school-platform',
     up: async (qi) => {
       await addColumnIfMissing(qi, 'User', 'dni', { type: DataTypes.STRING(15), allowNull: true });
@@ -39,6 +47,14 @@ const migrations: Array<{ name: string; up: (qi: QueryInterface) => Promise<void
       await index(`CREATE INDEX IF NOT EXISTS "user_notification_user" ON "UserNotification" ("userId", "createdAt" DESC)`);
       await index(`CREATE INDEX IF NOT EXISTS "user_course_user" ON "UserCourse" ("userId")`);
       await index(`CREATE INDEX IF NOT EXISTS "lesson_module" ON "Lesson" ("moduleId", "order")`);
+    },
+  },
+  {
+    name: '2026-10-17-classrooms-and-files',
+    up: async (qi) => {
+      await addColumnIfMissing(qi, 'School', 'storageQuotaMb', { type: DataTypes.INTEGER, allowNull: true });
+      await (M.FileAsset as unknown as { sync: () => Promise<unknown> }).sync();
+      await (M.ClassroomPost as unknown as { sync: () => Promise<unknown> }).sync();
     },
   },
 ];

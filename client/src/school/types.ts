@@ -23,7 +23,10 @@ export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = { PRESENTE: '
 export interface SchoolSummary { id: number; name: string; slug: string; logoUrl: string | null }
 
 export interface SchoolSession {
-  school: { id: number; name: string; logoUrl: string | null };
+  school: { id: number; name: string; slug: string; logoUrl: string | null };
+  /** Niveles a los que tiene acceso el personal (selector de nivel). */
+  levels: Array<{ id: number; name: string; type: LevelType }>;
+  activeLevelId: number | null;
   academicYearId: number | null;
   roles: SchoolRole[];
   roleLabels: string[];

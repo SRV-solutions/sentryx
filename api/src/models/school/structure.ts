@@ -19,6 +19,8 @@ export class School extends Model<InferAttributes<School>, InferCreationAttribut
   declare phone: string | null;
   declare email: string | null;
   declare logoUrl: string | null;
+  /** Cuota de almacenamiento en MB (null = la global STORAGE_QUOTA_MB). */
+  declare storageQuotaMb: CreationOptional<number | null>;
   declare active: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -34,6 +36,7 @@ School.init(
     phone: { type: DataTypes.STRING(40), allowNull: true },
     email: { type: DataTypes.STRING(120), allowNull: true },
     logoUrl: { type: DataTypes.STRING(500), allowNull: true },
+    storageQuotaMb: { type: DataTypes.INTEGER, allowNull: true },
     active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,

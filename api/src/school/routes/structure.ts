@@ -23,6 +23,7 @@ import {
 import { LEVEL_TYPES, PERIOD_KINDS, ROLE_LABELS, DEFAULT_LEVEL_SETTINGS, LevelType } from '../constants';
 import { createSchool, ensurePeriods } from '../services/setup';
 import { audit } from '../services/audit';
+import { publicSchool, resolveLogo, isImageAsset } from '../services/branding';
 import { isSuperAdmin } from '../../middlewares/auth';
 
 const router = Router();
@@ -34,7 +35,7 @@ schoolsRouter.get(
   '/schools',
   asyncHandler(async (req, res) => {
     const schools = await userSchools(req.user!.id, await isSuperAdmin(req));
-    res.json(schools.map((s) => ({ id: s.id, name: s.name, slug: s.slug, logoUrl: s.logoUrl })));
+    res.json(await Promise.all(schools.map(publicSchool)));
   })
 );
 
@@ -62,8 +63,11 @@ router.get(
   asyncHandler(async (req, res) => {
     const ctx = req.school!;
     const school = await School.findByPk(ctx.schoolId);
+    const levels = await Level.findAll({ where: { schoolId: ctx.schoolId, id: ctx.levelIds }, attributes: ['id', 'name', 'type'], order: [['id', 'ASC']] });
     res.json({
-      school: { id: school!.id, name: school!.name, logoUrl: school!.logoUrl },
+      school: { id: school!.id, name: school!.name, slug: school!.slug, logoUrl: await resolveLogo(school!) },
+      levels,
+      activeLevelId: ctx.activeLevelId,
       academicYearId: ctx.academicYearId,
       roles: ctx.roles,
       roleLabels: ctx.roles.map((r) => ROLE_LABELS[r]),
@@ -114,6 +118,45 @@ router.get(
         : [],
     ]);
     res.json({ levels, years, divisions, subjects, periods });
+  })
+);
+
+// ----- Datos institucionales -----
+router.get(
+  '/settings',
+  requirePerm('school.manage'),
+  asyncHandler(async (req, res) => {
+    const school = await School.findByPk(req.school!.schoolId);
+    res.json({ ...school!.toJSON(), logoUrl: await resolveLogo(school!), logoRef: school!.logoUrl });
+  })
+);
+
+router.patch(
+  '/settings',
+  requirePerm('school.manage'),
+  validate({
+    body: z.object({
+      name: z.string().trim().min(3).max(160).optional(),
+      cue: z.string().max(20).nullish(),
+      address: z.string().max(200).nullish(),
+      phone: z.string().max(40).nullish(),
+      email: z.string().email().max(120).nullish(),
+      /** Escudo subido a la plataforma (FileAsset de imagen) o null para quitarlo. */
+      logoFileId: z.number().int().nullish(),
+    }),
+  }),
+  asyncHandler(async (req, res) => {
+    const ctx = req.school!;
+    const school = await School.findByPk(ctx.schoolId);
+    const { logoFileId, ...data } = req.body;
+    const patch: Record<string, unknown> = { ...data };
+    if (logoFileId !== undefined) {
+      if (logoFileId && !(await isImageAsset(logoFileId, ctx.schoolId))) throw badRequest('El escudo debe ser una imagen subida a la plataforma.');
+      patch.logoUrl = logoFileId ? `file:${logoFileId}` : null;
+    }
+    await school!.update(patch);
+    await audit({ schoolId: ctx.schoolId, userId: ctx.userId, entity: 'School', entityId: school!.id, action: 'update', after: patch });
+    res.json(await publicSchool(school!));
   })
 );
 
