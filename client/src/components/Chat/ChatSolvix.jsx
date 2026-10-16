@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useRef } from 'react';
-import io from 'socket.io-client';
+import { useSocket } from '../../context/SocketContext';
 
 
 import ChatSidebar from './ChatSidebar';
@@ -125,18 +125,9 @@ const ChatSolvix = () => {
     }, [id]);
 
 
-    useEffect(() => {
-        if (!user) return;
-
-        socketRef.current = io(import.meta.env.VITE_API_URL, {
-            query: { userId: user.userData.id },
-            auth: { token: user.token },
-        });
-
-        return () => {
-            socketRef.current?.disconnect();
-        };
-    }, [user]);
+    // Usa el socket compartido de la sesión (antes abría una conexión propia).
+    const sharedSocket = useSocket();
+    socketRef.current = sharedSocket;
 
 
     useEffect(() => {
@@ -166,11 +157,12 @@ const ChatSolvix = () => {
                 }));
             }
         };
-        socketRef.current.on('new_message', handleNewMessage);
+        if (!sharedSocket) return;
+        sharedSocket.on('new_message', handleNewMessage);
         return () => {
-            socketRef.current?.off('new_message', handleNewMessage);
+            sharedSocket.off('new_message', handleNewMessage);
         };
-    }, [activeChat, chats]);
+    }, [activeChat, chats, sharedSocket]);
 
 
     const messagesEndRef = useRef(null);

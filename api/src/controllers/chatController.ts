@@ -126,6 +126,9 @@ export const getChatMessages = async (req: any, res: any) => {
                 model: User,
                 as: 'sender',
                 attributes: ['id', 'firstName', 'lastName', 'avatar', 'username'],
+            }, {
+                model: Chat,
+                attributes: ['type'],
             }],
             order: [['createdAt', 'ASC']],
         });

@@ -1,0 +1,69 @@
+/** Tipos del dominio escolar (espejo de api/src/school). Reutilizables por la futura app React Native. */
+
+export type LevelType = 'INICIAL' | 'PRIMARIO' | 'SECUNDARIO';
+export type SchoolRole =
+  | 'REPRESENTANTE_LEGAL' | 'DIRECTOR' | 'VICEDIRECTOR' | 'RECTOR' | 'SECRETARIO'
+  | 'PRECEPTOR' | 'ADMINISTRACION' | 'DOCENTE' | 'TUTOR';
+export type Permission =
+  | 'school.manage' | 'people.manage' | 'people.read' | 'announcements.publish' | 'announcements.publish.school'
+  | 'announcements.stats' | 'messages.staff' | 'grades.write' | 'grades.write.any' | 'grades.read' | 'periods.close'
+  | 'reportcards.publish' | 'attendance.write' | 'attendance.read' | 'alerts.read' | 'alerts.manage' | 'alerts.rules' | 'audit.read';
+export type PeriodKind = 'CONCEPTUAL' | 'NUMERIC' | 'NARRATIVE';
+export type AttendanceStatus = 'PRESENTE' | 'AUSENTE' | 'TARDE' | 'RETIRO';
+export type Severity = 'INFO' | 'WARNING' | 'CRITICAL';
+export type AudienceType = 'SCHOOL' | 'LEVEL' | 'DIVISION' | 'STUDENTS' | 'STAFF';
+
+export const ROLE_LABELS: Record<SchoolRole, string> = {
+  REPRESENTANTE_LEGAL: 'Representante Legal', DIRECTOR: 'Dirección', VICEDIRECTOR: 'Vicedirección', RECTOR: 'Rectoría',
+  SECRETARIO: 'Secretaría', PRECEPTOR: 'Preceptoría', ADMINISTRACION: 'Administración', DOCENTE: 'Docente', TUTOR: 'Familia',
+};
+
+export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = { PRESENTE: 'Presente', AUSENTE: 'Ausente', TARDE: 'Tarde', RETIRO: 'Retiro ant.' };
+
+export interface SchoolSummary { id: number; name: string; slug: string; logoUrl: string | null }
+
+export interface SchoolSession {
+  school: { id: number; name: string; logoUrl: string | null };
+  academicYearId: number | null;
+  roles: SchoolRole[];
+  roleLabels: string[];
+  permissions: Permission[];
+  isStaff: boolean;
+  isGuardian: boolean;
+  scope: { all: boolean; levelIds: number[]; divisionIds: number[] };
+  teaching: Array<{ divisionId: number; subjectId: number }>;
+  childIds: number[];
+}
+
+export interface LevelSettings {
+  conceptualScale: string[];
+  numericMin: number;
+  numericMax: number;
+  passingGrade: number;
+  attendanceWeights: Record<Exclude<AttendanceStatus, 'PRESENTE'>, number>;
+}
+
+export interface Level { id: number; type: LevelType; name: string; settings: LevelSettings }
+export interface Division { id: number; name: string; levelId: number; gradeYear?: number; shift?: string | null; studentCount?: string | number; TeachingAssignments?: Assignment[] }
+export interface Subject { id: number; name: string; levelId: number; code?: string | null; gradeYear?: number | null }
+export interface Assignment { id: number; divisionId: number; subjectId: number; teacherId: number; Teacher?: PersonLite }
+export interface Period { id: number; name: string; groupName: string | null; kind: PeriodKind; order?: number; levelId?: number; closed?: boolean; closedAt?: string | null; published?: boolean; startDate?: string | null; endDate?: string | null }
+export interface PersonLite { id: number; firstName: string; lastName: string; avatar?: string | null; photoUrl?: string | null }
+
+export interface Structure { levels: Level[]; years: Array<{ id: number; year: number; isCurrent: boolean }>; divisions: Division[]; subjects: Subject[]; periods: Period[] }
+
+export interface GradeValue { numericValue: number | null; conceptualValue: string | null; narrative: string | null; observation: string | null; atRisk?: boolean }
+
+export interface ReportCard {
+  student: { id: number; firstName: string; lastName: string; dni: string | null };
+  division: { id: number; name: string };
+  level: { id: number; name: string; type: LevelType; settings: LevelSettings };
+  periods: Period[];
+  rows: Array<{ subjectId: number; subject: string; grades: Record<number, GradeValue>; final: number | null; finalApproved: boolean | null }>;
+}
+
+export interface Paginated<T> { data: T[]; pagination: { totalItems: number; currentPage: number; totalPages: number } }
+
+export interface Contact { userId: number; name: string; role: string; detail: string | null; avatar: string | null }
+
+export interface AttachmentRef { name: string; url: string; size?: number; type?: string }

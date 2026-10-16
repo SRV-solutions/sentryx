@@ -53,8 +53,8 @@ router.get(
           level: a.Division!.Level,
           subject: a.Subject,
           periods: levelPeriods.map((p) => {
-            const c = completion.find((x) => x.divisionId === a.divisionId && x.subjectId === a.subjectId && x.periodId === p.id);
-            return { id: p.id, name: p.name, kind: p.kind, closed: !!p.closedAt, loaded: c?.n ?? 0, students: c?.students ?? 0 };
+            const c = completion.loaded.find((x) => x.divisionId === a.divisionId && x.subjectId === a.subjectId && x.periodId === p.id);
+            return { id: p.id, name: p.name, kind: p.kind, closed: !!p.closedAt, loaded: c?.n ?? 0, students: completion.students.get(a.divisionId as number) ?? 0 };
           }),
         };
       })

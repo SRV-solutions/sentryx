@@ -36,25 +36,40 @@ function ModalEditLesson({
       return;
     }
 
-    const formData = new FormData();
-    formData.append('video', lessonData.videoFile);
+    if (!lessonData.id) {
+      alert('Guardá la clase antes de subir el video');
+      return;
+    }
 
     try {
       setUploading(true);
-      const res = await authFetch(`${apiUrl}/upload`, {
+      // 1) Pedimos una URL firmada; 2) el navegador sube directo a S3; 3) confirmamos.
+      // El video nunca pasa por el servidor (antes lo cargaba entero en memoria).
+      const presign = await authFetch(`${apiUrl}/lessons/${lessonData.id}/video/presign`, {
         method: 'POST',
-        body: formData,
+        body: JSON.stringify({ fileName: lessonData.videoFile.name, contentType: lessonData.videoFile.type }),
       });
-
-      if (!res.ok) {
-        const errorData = await res.json();
-        alert(errorData.error || 'Error subiendo el video');
+      if (!presign?.ok) {
+        const errorData = await presign?.json().catch(() => ({}));
+        alert(errorData?.error || 'Error preparando la subida');
+        return;
+      }
+      const { key, uploadUrl } = await presign.json();
+      const put = await fetch(uploadUrl, { method: 'PUT', body: lessonData.videoFile, headers: { 'Content-Type': lessonData.videoFile.type } });
+      if (!put.ok) {
+        alert('Error subiendo el video a S3');
+        return;
+      }
+      const confirm = await authFetch(`${apiUrl}/lessons/${lessonData.id}/video/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({ key }),
+      });
+      if (!confirm?.ok) {
+        alert('Error confirmando el video');
         return;
       }
 
-      const data = await res.json();
-
-      setLessonData({ ...lessonData, videoUrl: data.url });
+      setLessonData({ ...lessonData, youtubeUrl: key, videoUrl: key });
       alert('Video subido con éxito 🚀');
     } catch (err) {
       console.error(err);

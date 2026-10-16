@@ -1,0 +1,16 @@
+{
+  "name": "Sentryx · Escuela",
+  "short_name": "Sentryx",
+  "description": "Comunicados, mensajes, notas y asistencia de tu escuela. Por SRV.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "lang": "es-AR",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

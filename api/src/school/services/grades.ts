@@ -115,7 +115,7 @@ export const buildReportCard = async (opts: {
 
 /** Avance de carga por asignación y período: cuántos alumnos tienen nota. */
 export const completionFor = async (divisionIds: number[], academicYearId: number) => {
-  if (!divisionIds.length) return [];
+  if (!divisionIds.length) return { loaded: [], students: new Map<number, number>() };
   const [counts, enrolled] = await Promise.all([
     Grade.findAll({
       where: { divisionId: { [Op.in]: divisionIds } },
@@ -130,6 +130,8 @@ export const completionFor = async (divisionIds: number[], academicYearId: numbe
       raw: true,
     }) as unknown as Promise<Array<{ divisionId: number; n: string }>>,
   ]);
-  const students = new Map(enrolled.map((e) => [e.divisionId, Number(e.n)]));
-  return counts.map((c) => ({ ...c, n: Number(c.n), students: students.get(c.divisionId) ?? 0 }));
+  return {
+    loaded: counts.map((c) => ({ ...c, n: Number(c.n) })),
+    students: new Map(enrolled.map((e) => [e.divisionId, Number(e.n)])),
+  };
 };
