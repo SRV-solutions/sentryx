@@ -4,8 +4,9 @@ import LessonComment from '../models/LessonComment';
 import User from '../models/User';
 import { sequelize } from '../config/database';
 import UserLessonProgress from '../models/UserLessonProgress';
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
-import path from "path";
+import Module from '../models/Module';
+import { presignUpload } from '../config/s3';
+import { env } from '../config/env';
 
 
 
@@ -32,7 +33,7 @@ export const saveLessonProgress = async (req: any, res: any) => {
     res.status(200).json(progress);
   } catch (error) {
     console.error('Error al guardar progreso:', error);
-    res.status(500).json({ message: 'Error del servidor', error });
+    res.status(500).json({ message: 'Error del servidor' });
   }
 };
 
@@ -53,16 +54,16 @@ export const getCourseLessons = async (req: any, res: any) => {
       return res.status(400).json({ message: 'No estás inscripto en este curso' });
     }
 
-    // Buscamos las lecciones del curso
+    // Lesson no tiene courseId: se filtra a través del módulo (antes esta consulta fallaba siempre).
     const lessons = await Lesson.findAll({
-      where: { courseId },
+      include: [{ model: Module, where: { courseId }, attributes: [] }],
       order: [['order', 'ASC']],
     });
 
     res.json(lessons);
   } catch (error) {
     console.error('Error al obtener las lecciones', error);
-    res.status(500).json({ message: 'Error del servidor', error });
+    res.status(500).json({ message: 'Error del servidor' });
   }
 };
 
@@ -129,7 +130,7 @@ export const updateLesson = async (req: any, res: any) => {
 
     res.json({ message: 'Clase actualizada', lesson });
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar la clase', error });
+    res.status(500).json({ message: 'Error al actualizar la clase' });
   }
 };
 
@@ -157,50 +158,29 @@ export const createLesson = async (req: any, res: any) => {
 };
 
 
-export const uploadLessonVideo = async (req: any, res: any) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: 'No se envió ningún archivo' });
-    }
-    const lessonId = req.params.lessonId;
-    const lesson = await Lesson.findByPk(lessonId);
-    if (!lesson) {
-      return res.status(404).json({ error: 'Lección no encontrada' });
-    }
-    // Sacar extensión del archivo original
-    const ext = path.extname(req.file.originalname);
-
-    // Sanear título: quitar espacios y caracteres especiales
-    const sanitizedTitle = lesson.title.replace(/\s+/g, "_").replace(/[^a-zA-Z0-9_-]/g, "");
-
-    // Crear nombre de archivo: id-title.ext
-    const key = `${lesson.id}-${sanitizedTitle}${ext}`;
-
-    const s3Client = new S3Client({
-      region: process.env.AWS_REGION,
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    });
-
-    const command = new PutObjectCommand({
-      Bucket: process.env.S3_VIDEO_BUCKET_NAME!,
-      Key: key,
-      Body: req.file.buffer, // <-- PASAR EL BUFFER, no el stream
-      ContentType: "video/mp4", // Ajusta si no es mp4
-    });
-
-    await s3Client.send(command);
-    lesson.youtubeUrl = `${key}`;
-    await lesson.save();
-    res.json({
-      message: 'Video subido con éxito',
-      key,
-    });
-  } catch (error) {
-    console.error('Error subiendo video a S3:', error);
-    res.status(500).json({ error: 'Error subiendo video a S3' });
+/**
+ * Devuelve una URL firmada para que el admin suba el video DIRECTO a S3 y guarda la clave en la lección.
+ * Antes el video completo (hasta 1 GB) pasaba por la memoria del servidor: dos subidas simultáneas lo tiraban.
+ */
+export const presignLessonVideo = async (req: any, res: any) => {
+  const lesson = await Lesson.findByPk(req.params.lessonId);
+  if (!lesson) return res.status(404).json({ error: 'Lección no encontrada' });
+  const { fileName, contentType } = req.body ?? {};
+  if (typeof fileName !== 'string' || typeof contentType !== 'string' || !contentType.startsWith('video/')) {
+    return res.status(400).json({ error: 'Solo se permiten archivos de video' });
   }
-}
+  if (!env.S3_VIDEO_BUCKET_NAME) return res.status(500).json({ error: 'Bucket de videos no configurado' });
+  const { key, url } = await presignUpload({ bucket: env.S3_VIDEO_BUCKET_NAME, prefix: `lessons/${lesson.id}`, fileName, contentType });
+  res.json({ key, uploadUrl: url });
+};
 
+/** Confirma la subida: asocia la clave S3 a la lección. */
+export const confirmLessonVideo = async (req: any, res: any) => {
+  const lesson = await Lesson.findByPk(req.params.lessonId);
+  if (!lesson) return res.status(404).json({ error: 'Lección no encontrada' });
+  const { key } = req.body ?? {};
+  if (typeof key !== 'string' || !key.startsWith(`lessons/${lesson.id}/`)) return res.status(400).json({ error: 'Clave inválida' });
+  lesson.youtubeUrl = key;
+  await lesson.save();
+  res.json({ message: 'Video subido con éxito', key });
+};

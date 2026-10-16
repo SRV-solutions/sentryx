@@ -7,37 +7,27 @@ import pgvector from 'pgvector/pg';
 import { pool } from '../embedding/pgClient'
 import { ChatType } from '../models/enums'
 import User from '../models/User';
-import { Op } from 'sequelize';
+import { Op, QueryTypes } from 'sequelize';
+import { sequelize } from '../config/database';
+import { env } from '../config/env';
 import Friendship from '../models/Friendship';
 
 
 export const getUnreadCounts = async (req: any, res: any) => {
     try {
         const userId = req.user.id;
-
-        // Obtener todos los chats del usuario
-        const chatUsers = await ChatUser.findAll({ where: { userId } });
-
-        // Armar array con chatId y lastReadMessageId
-        const unreadCounts: { [chatId: number]: number } = {};
-
-        for (const cu of chatUsers) {
-            const { chatId, lastReadMessageId } = cu;
-
-            const whereClause: any = {
-                chatId,
-                senderId: { [Op.ne]: userId }, // mensajes que no son del usuario
-            };
-
-            if (lastReadMessageId) {
-                whereClause.id = { [Op.gt]: lastReadMessageId };
-            }
-
-            const count = await ChatMessage.count({ where: whereClause });
-            unreadCounts[chatId] = count;
-        }
-
-        return res.json(unreadCounts);
+        // Una sola consulta agregada (antes: una consulta COUNT por cada chat del usuario).
+        const rows = (await sequelize.query(
+            `SELECT cu."chatId", COUNT(m.id)::int AS unread
+               FROM "ChatUser" cu
+               LEFT JOIN "ChatMessage" m ON m."chatId" = cu."chatId"
+                    AND m."senderId" IS DISTINCT FROM :userId
+                    AND (cu."lastReadMessageId" IS NULL OR m.id > cu."lastReadMessageId")
+              WHERE cu."userId" = :userId
+              GROUP BY cu."chatId"`,
+            { replacements: { userId }, type: QueryTypes.SELECT }
+        )) as Array<{ chatId: number; unread: number }>;
+        return res.json(Object.fromEntries(rows.map((r) => [r.chatId, r.unread])));
     } catch (error) {
         console.error('Error en getUnreadCounts:', error);
         res.status(500).json({ error: 'No se pudieron obtener los mensajes no leídos.' });
@@ -92,7 +82,7 @@ export const chatWithGPTInChat = async (req: any, res: any) => {
 
         // Generar respuesta IA
         const completion = await openai.chat.completions.create({
-            model: 'gpt-4',
+            model: env.OPENAI_MODEL,
             messages: [
                 { role: 'system', content: 'Respondé como un experto de SRV, usando solo información relevante del contexto.' },
                 { role: 'user', content: `Contexto:\n${context}\n\nPregunta:\n${message}` },
@@ -135,9 +125,7 @@ export const getChatMessages = async (req: any, res: any) => {
             include: [{
                 model: User,
                 as: 'sender',
-                attributes: ['id', 'firstName', 'lastName', 'avatar', 'email', 'username'],
-            }, {
-                model: Chat
+                attributes: ['id', 'firstName', 'lastName', 'avatar', 'username'],
             }],
             order: [['createdAt', 'ASC']],
         });
@@ -188,8 +176,11 @@ export const getOrCreateAIChat = async (req: any, res: any) => {
 export const createOrGetPrivateChat = async (req: any, res: any) => {
     try {
         const userId = req.user.id;
-        const { friendId } = req.body;
+        const friendId = Number(req.body.friendId);
 
+        if (!friendId) {
+            return res.status(400).json({ error: 'friendId inválido.' });
+        }
         if (userId === friendId) {
             return res.status(400).json({ error: 'No te podés crear un chat contigo mismo.' });
         }
@@ -241,6 +232,9 @@ export const sendMessageToChat = async (req: any, res: any) => {
         const senderId = req.user.id;
         const { chatId } = req.params;
         const { message } = req.body;
+        if (typeof message !== 'string' || !message.trim() || message.length > 5000) {
+            return res.status(400).json({ error: 'Mensaje inválido.' });
+        }
 
         // Validar que el usuario pertenece al chat
         const chatUser = await ChatUser.findOne({ where: { chatId, userId: senderId }, include: [Chat] });
@@ -345,7 +339,7 @@ export const getUserChats = async (req: any, res: any) => {
                     include: [
                         {
                             model: User,
-                            attributes: ['id', 'firstName', 'lastName', 'avatar', 'email', 'username'],
+                            attributes: ['id', 'firstName', 'lastName', 'avatar', 'username'],
                         },
                     ],
                 },
@@ -357,7 +351,7 @@ export const getUserChats = async (req: any, res: any) => {
                 {
                     model: User,
                     through: { attributes: [] }, // Evita que aparezca ChatUser
-                    attributes: ['id', 'firstName', 'lastName', 'avatar', 'email', 'username'],
+                    attributes: ['id', 'firstName', 'lastName', 'avatar', 'username'],
                 },
             ],
             order: [['updatedAt', 'DESC']],

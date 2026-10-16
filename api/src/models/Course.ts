@@ -34,8 +34,13 @@ Course.init({
     allowNull: false,
   },
   price: {
-    type: DataTypes.NUMBER,
-    allowNull: true
+    // DECIMAL igual que la migración real (NUMBER no existe en Postgres y rompía sync()).
+    type: DataTypes.DECIMAL,
+    allowNull: true,
+    get() {
+      const v = this.getDataValue('price');
+      return v === null || v === undefined ? null : Number(v);
+    },
   },
   thumbnailUrl: {
     type: DataTypes.STRING,

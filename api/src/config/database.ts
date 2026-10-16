@@ -1,12 +1,20 @@
-import { Sequelize } from 'sequelize-typescript';
-import dotenv from 'dotenv';
-dotenv.config();
+import { Sequelize, Options } from 'sequelize';
+import { env } from './env';
 
-export const sequelize = new Sequelize({
-    dialect: 'postgres',
-    username: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || '1234',
-    host: process.env.DB_HOST || 'localhost',
-    database: process.env.DB_NAME || 'sentryx',
-    logging: false,
-});
+const common: Options = {
+  dialect: 'postgres',
+  logging: false,
+  pool: { max: env.DB_POOL_MAX, min: 0, idle: 10_000, acquire: 30_000 },
+  dialectOptions: env.DB_SSL === 'true' ? { ssl: { require: true, rejectUnauthorized: false } } : {},
+};
+
+export const sequelize = env.DATABASE_URL
+  ? new Sequelize(env.DATABASE_URL, common)
+  : new Sequelize({
+      ...common,
+      username: env.DB_USER,
+      password: env.DB_PASSWORD,
+      host: env.DB_HOST,
+      port: env.DB_PORT,
+      database: env.DB_NAME,
+    });

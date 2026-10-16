@@ -1,101 +1,65 @@
-import express, { Request, NextFunction } from 'express';
-import { sequelize } from './config/database';
+import express from 'express';
+import helmet from 'helmet';
+import compression from 'compression';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import { env } from './config/env';
+import './models';
 
 import userRoutes from './routes/userRoutes';
 import roleRoutes from './routes/roleRoutes';
-import reportRoutes from './routes/reportRoutes'
-import chatRoutes from './routes/chatRoutes'
-import courseRoutes from './routes/courseRoutes'
-import lessonRoutes from './routes/lessonRoutes'
+import reportRoutes from './routes/reportRoutes';
+import chatRoutes from './routes/chatRoutes';
+import courseRoutes from './routes/courseRoutes';
+import lessonRoutes from './routes/lessonRoutes';
 import embeddingRoutes from './routes/embeddingRoutes';
-import notificationRoutes from './routes/notificationRoutes'
-import friendRoutes from './routes/friendRoutes'
-import moduleRoutes from './routes/moduleRoutes'
-
-import Role from './models/Role';
-import User from './models/User';
-import Permission from './models/Permission';
-import Chat from './models/Chat';
-import ChatMessage from './models/ChatMessage';
-import Course from './models/Course';
-import Lesson from './models/Lesson';
-import UserCourse from './models/UserCourse';
-import Module from './models/Module';
-
-// import limiter from './middlewares/rateLimit';
-import { seedDatabase, seedUsers } from './utils/seedDataBase';
-import LessonComment from './models/LessonComment';
-import Notification from './models/Notification';
-import UserNotification from './models/UserNotification';
-import Friendship from './models/Friendship';
-import ChatUser from './models/ChatUser';
-
-User.associate();
-Chat.associate();
-ChatUser.associate();
-ChatMessage.associate();
-
-Role.associate();
-Permission.associate();
-Course.associate();
-Lesson.associate();
-UserCourse.associate();
-Module.associate()
-LessonComment.associate()
-Notification.associate()
-UserNotification.associate()
-Friendship.associate()
+import notificationRoutes from './routes/notificationRoutes';
+import friendRoutes from './routes/friendRoutes';
+import moduleRoutes from './routes/moduleRoutes';
+import schoolRoutes from './school/routes';
+import { errorHandler } from './lib/http';
 
 const app = express();
 
-// app.ts
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.set('trust proxy', 1);
+app.disable('x-powered-by');
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+// gzip/brotli de respuestas JSON: en celulares con datos móviles reduce ~70% el tamaño.
+app.use(compression());
+app.use(
+  cors({
+    origin: (origin, cb) => cb(null, !origin || env.corsOrigins.includes(origin)),
+    credentials: true,
+    allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'X-School-Id'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    maxAge: 86400,
+  })
+);
+// Los archivos van directo a S3 con URL firmada: el API solo recibe JSON chico.
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
+// Protección contra fuerza bruta en login y recupero de contraseña.
+const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: 'draft-7', legacyHeaders: false, message: { message: 'Demasiados intentos. Probá de nuevo en unos minutos.' } });
+app.use(['/users/login', '/users/request-password-reset', '/users/reset-password'], authLimiter);
+app.use(rateLimit({ windowMs: 60_000, limit: 600, standardHeaders: 'draft-7', legacyHeaders: false }));
 
-app.use((req: Request, res: any, next: NextFunction) => {
-  const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173', 'https://sentryx.wearesrv.com'];
-  const origin = req.headers.origin;
+app.get('/', (_req, res) => res.send('Sentryx API'));
+app.get('/health', (_req, res) => res.json({ ok: true }));
 
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
-
-app.get('/', (_req, res) => {
-  res.send('Iam in')
-});
-
+app.use('/school', schoolRoutes);
 app.use('/chats', chatRoutes);
 app.use('/users', userRoutes);
 app.use('/roles', roleRoutes);
-app.use('/reports', reportRoutes)
-app.use('/courses', courseRoutes)
-app.use('/lessons', lessonRoutes)
+app.use('/reports', reportRoutes);
+app.use('/courses', courseRoutes);
+app.use('/lessons', lessonRoutes);
 app.use('/embedding', embeddingRoutes);
-app.use('/notifications', notificationRoutes)
-app.use('/friends', friendRoutes)
-app.use('/modules', moduleRoutes)
-const forceSync = process.env.FORCE_SYNC === "true";
+app.use('/notifications', notificationRoutes);
+app.use('/friends', friendRoutes);
+app.use('/modules', moduleRoutes);
 
-sequelize.sync({ force: forceSync }).then(() => {
-  // if (forceSync) {
-  //   seedDatabase()
-  //   console.log("Seeder ejecutado con exito");
-  // }
-  console.log('Database connected and synchronized');
-}).catch(err => {
-  console.error('Unable to connect to the database:', err);
-});
+app.use((_req, res) => res.status(404).json({ message: 'Ruta inexistente.' }));
+app.use(errorHandler);
 
 export default app;

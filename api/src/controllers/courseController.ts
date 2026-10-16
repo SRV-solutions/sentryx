@@ -3,17 +3,9 @@ import Course from '../models/Course';
 import UserCourse from '../models/UserCourse';
 import Lesson from '../models/Lesson';
 import Module from '../models/Module';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import UserLessonProgress from '../models/UserLessonProgress';
-
-const s3 = new S3Client({
-  region: process.env.AWS_REGION,
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-  },
-});
+import { presignDownload } from '../config/s3';
+import { env } from '../config/env';
 
 // POST /courses/:id/enroll
 export const enrollToCourse = async (req: any, res: any) => {
@@ -40,7 +32,7 @@ export const enrollToCourse = async (req: any, res: any) => {
 
     return res.status(201).json({ message: 'Inscripción exitosa', userCourse });
   } catch (error) {
-    return res.status(500).json({ message: 'Error al inscribirse', error });
+    return res.status(500).json({ message: 'Error al inscribirse' });
   }
 };
 
@@ -64,7 +56,7 @@ export const createCourse = async (req: any, res: any) => {
     res.status(201).json(newCourse);
   } catch (error) {
     console.error('Error al crear el curso:', error);
-    res.status(500).json({ message: 'Error al crear el curso', error });
+    res.status(500).json({ message: 'Error al crear el curso' });
   }
 };
 
@@ -73,24 +65,18 @@ export const getAllCourses = async (req: Request, res: any) => {
     const courses = await Course.findAll({
       include: [Module]
     });
-    if (!courses.length) {
-      return res.status(404).json({ message: 'No hay usuarios disponibles' });
-    }
     res.json(courses);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener los usuarios', error });
+    res.status(500).json({ message: 'Error al obtener los cursos' });
   }
 };
 
 export const getCourseCatalog = async (req: Request, res: any) => {
   try {
     const courses = await Course.findAll();
-    if (!courses.length) {
-      return res.status(404).json({ message: 'No hay cursos disponibles' });
-    }
     res.json(courses);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener los cursos', error });
+    res.status(500).json({ message: 'Error al obtener los cursos' });
   }
 };
 
@@ -121,7 +107,7 @@ export const getMyCourses = async (req: any, res: any) => {
     });
     res.json(courses);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener tus cursos', error });
+    res.status(500).json({ message: 'Error al obtener tus cursos' });
   }
 };
 
@@ -160,7 +146,7 @@ export const getMyCourseById = async (req: any, res: any) => {
 
     res.json(assignedCourse.Course);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener tus cursos', error });
+    res.status(500).json({ message: 'Error al obtener tus cursos' });
   }
 };
 
@@ -198,24 +184,17 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
     // Extraer progreso (viene como array o objeto)
     const progress = lesson.UserLessonProgress?.[0] || null;
 
-    // Generar URL firmada si existe videoPath (por ejemplo para S3)
-    let signedVideoUrl = null;
-    if (lesson.youtubeUrl) {
-      // asumiendo que videoPath es la ruta para S3
-      const command = new GetObjectCommand({
-        Bucket: process.env.S3_VIDEO_BUCKET_NAME!,
-        Key: lesson.youtubeUrl,
-      });
+    // youtubeUrl guarda un link de YouTube o la clave del video en S3 (subido desde el admin).
+    const isExternal = /^https?:\/\//.test(lesson.youtubeUrl);
+    const youtubeId = isExternal ? extractYoutubeId(lesson.youtubeUrl) : null;
+    const videoUrl = youtubeId
+      ? `https://www.youtube.com/embed/${youtubeId}`
+      : isExternal
+        ? lesson.youtubeUrl
+        : env.S3_VIDEO_BUCKET_NAME
+          ? await presignDownload(env.S3_VIDEO_BUCKET_NAME, lesson.youtubeUrl, 4 * 3600)
+          : null;
 
-      signedVideoUrl = await getSignedUrl(s3, command, { expiresIn: 3600 });
-    }
-
-    // Si es video de YouTube podés también devolver la URL embebida
-    const youtubeEmbedUrl = lesson.youtubeUrl
-      ? `https://www.youtube.com/embed/${extractYoutubeId(lesson.youtubeUrl)}`
-      : null;
-    console.log(signedVideoUrl);
-    
     return res.json({
       ...lesson.toJSON(),
       progress: progress ? {
@@ -223,7 +202,7 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
         completed: progress.completed,
         updatedAt: progress.updatedAt,
       } : null,
-      videoUrl: signedVideoUrl || youtubeEmbedUrl,
+      videoUrl,
     });
   } catch (error) {
     console.error('Error al obtener lección:', error);
@@ -233,7 +212,7 @@ export const getMyCoursesAndLessonsById = async (req: any, res: any) => {
 
 // Función para extraer el ID de un link Youtube
 function extractYoutubeId(url: string): string | null {
-  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]+)/);
+  const match = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([\w-]+)/);
   return match ? match[1] : null;
 }
 
@@ -247,11 +226,11 @@ export const getCourseById = async (req: Request, res: any) => {
       }]
     });
     if (!course) {
-      return res.status(404).json({ message: 'No hay usuarios disponibles' });
+      return res.status(404).json({ message: 'Curso no encontrado' });
     }
     res.json(course);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener los usuarios', error });
+    res.status(500).json({ message: 'Error al obtener los cursos' });
   }
 };
 
@@ -274,7 +253,7 @@ export const updateCourse = async (req: Request, res: any) => {
 
     res.json({ message: 'Curso actualizado correctamente', course });
   } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar el curso', error });
+    res.status(500).json({ message: 'Error al actualizar el curso' });
   }
 };
 
@@ -291,10 +270,10 @@ export const getCourseCatalogueById = async (req: Request, res: any) => {
       }]
     });
     if (!course) {
-      return res.status(404).json({ message: 'No hay usuarios disponibles' });
+      return res.status(404).json({ message: 'Curso no encontrado' });
     }
     res.json(course);
   } catch (error) {
-    res.status(500).json({ message: 'Error al obtener los usuarios', error });
+    res.status(500).json({ message: 'Error al obtener los cursos' });
   }
 };

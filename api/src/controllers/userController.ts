@@ -1,809 +1,335 @@
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto'
-import jwt from 'jsonwebtoken';
-import Role from '../models/Role';
-import User from '../models/User';
-import Permission from '../models/Permission';
-import UserCourse from '../models/UserCourse';
-import Course from '../models/Course';
-import { generateRandomPassword } from '../utils/users'
-import { transporter } from '../config/mailer'
-import PasswordResetToken from '../models/PasswordResetToken';
-import { Op } from 'sequelize'; // Importante para búsquedas flexibles
+import crypto from 'crypto';
+import { Op } from 'sequelize';
+import { z } from 'zod';
+import { User, Role, Permission, UserCourse, Course, PasswordResetToken } from '../models';
+import { signToken, invalidateRoleCache } from '../middlewares/auth';
+import { sendMail, sendMailNow } from '../config/mailer';
+import { brandEmail } from '../lib/emailTemplate';
+import { env } from '../config/env';
+import { HttpError, notFound, badRequest, unauthorized } from '../lib/http';
+import { tempPassword } from '../school/services/users';
 
-import UserNotification from '../models/UserNotification';
-import Notification from '../models/Notification';
-// Clave secreta para JWT (colócala en un archivo .env)
-const JWT_SECRET = process.env.JWT_SECRET || 'your_jwt_secret';
-interface ValidationErrors {
-  newEmail?: string;
-  newUsername?: string;
-}
+const PASSWORD = z.string().min(8, 'La contraseña debe tener al menos 8 caracteres.').max(100);
+const USERNAME = z.string().regex(/^[a-zA-Z0-9_-]{3,30}$/, 'Usuario: 3 a 30 letras, números, guiones o guiones bajos.');
 
-export const getAllUsers = async (req: Request, res: any) => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
-    const offset = (page - 1) * limit;
-    const search = (req.query.search as string)?.toLowerCase() || "";
+const userPayload = async (userId: number) => {
+  const user = await User.findByPk(userId, {
+    include: [{ model: Role, include: [Permission] }, { model: UserCourse, include: [Course] }],
+  });
+  if (!user) throw notFound('Usuario no encontrado.');
+  return {
+    id: user.id,
+    username: user.username,
+    phone: user.phone,
+    biography: user.biography,
+    avatar: user.avatar,
+    email: user.email,
+    dni: user.dni,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    roleId: user.roleId,
+    roleName: user.Role?.roleName,
+    mustChangePassword: user.mustChangePassword,
+    courses: user.UserCourses,
+    permissions: user.Role?.Permissions?.map((p) => ({ entity: p.entity, action: p.action })),
+  };
+};
 
-    const whereCondition = search
-      ? {
-        [Op.or]: [
-          { firstName: { [Op.iLike]: `%${search}%` } },
-          { lastName: { [Op.iLike]: `%${search}%` } },
-          { email: { [Op.iLike]: `%${search}%` } },
-          { username: { [Op.iLike]: `%${search}%` } },
-        ],
+export const getAllUsers = async (req: Request, res: Response) => {
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(100, parseInt(req.query.limit as string) || 10);
+  const search = ((req.query.search as string) || '').trim();
+  const where = search
+    ? {
+        [Op.or]: ['firstName', 'lastName', 'email', 'username', 'dni'].map((f) => ({ [f]: { [Op.iLike]: `%${search}%` } })),
       }
-      : {};
-
-    const { count, rows: users } = await User.findAndCountAll({
-      where: whereCondition,
-      include: [Role],
-      attributes: ["id", "username", "email", "roleId", "firstName", "lastName", "lastLogin"],
-      limit,
-      offset,
-      order: [["id", "ASC"]],
-    });
-
-    // if (!users.length) {
-    //   return res.status(404).json({ message: "No hay usuarios disponibles", users });
-    // }
-
-    const totalPages = Math.ceil(count / limit);
-
-    return res.json({
-      data: users,
-      pagination: {
-        totalItems: count,
-        totalPages,
-        currentPage: page,
-        itemsPerPage: limit,
-      },
-    });
-  } catch (error) {
-    console.error("Error al obtener usuarios:", error);
-    res.status(500).json({ message: "Error al obtener los usuarios", error });
-  }
+    : {};
+  const { count, rows } = await User.findAndCountAll({
+    where,
+    include: [Role],
+    attributes: ['id', 'username', 'email', 'dni', 'roleId', 'firstName', 'lastName', 'lastLogin', 'isActive'],
+    limit,
+    offset: (page - 1) * limit,
+    order: [['id', 'ASC']],
+  });
+  res.json({ data: rows, pagination: { totalItems: count, totalPages: Math.ceil(count / limit), currentPage: page, itemsPerPage: limit } });
 };
 
-export const getPublicUser = async (req: Request, res: any) => {
-  const { id } = req.params;
-  try {
-    const user = await User.findByPk(id, {
-      attributes: ['id', 'firstName', 'lastName', 'username', 'biography', 'avatar', 'email'],
-    });
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al obtener el usuario', error });
-  }
+export const getPublicUser = async (req: Request, res: Response) => {
+  const user = await User.findByPk(req.params.id, { attributes: ['id', 'firstName', 'lastName', 'username', 'biography', 'avatar'] });
+  if (!user) throw notFound('Usuario no encontrado');
+  res.json(user);
 };
 
-export const getUser = async (req: Request, res: any) => {
-  const { id } = req.params;
-  try {
-    const user = await User.findByPk(id, {
-      include: [{
-        model: Role,
-        include: [Permission]
-      }]
-    });
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al obtener el usuario', error });
-  }
+export const getUser = async (req: Request, res: Response) => {
+  const user = await User.findByPk(req.params.id, { include: [{ model: Role, include: [Permission] }] });
+  if (!user) throw notFound('Usuario no encontrado');
+  res.json(user);
 };
 
-export const createUser = async (req: Request, res: any) => {
-  const { username, firstName, lastName, email, password, roleId } = req.body;
+export const createUserSchema = z.object({
+  username: USERNAME,
+  firstName: z.string().min(1).max(80),
+  lastName: z.string().min(1).max(80),
+  email: z.string().email(),
+  password: PASSWORD.optional(),
+  roleId: z.number().int(),
+});
 
-  try {
-    const role = await Role.findByPk(roleId);
-    if (!role) {
-      return res.status(404).json({ message: 'Rol no encontrado' });
-    }
-
-    const userPassword = password || generateRandomPassword();
-
-    const hashedPassword = await bcrypt.hash(userPassword, 10);
-
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      roleId,
-      firstName,
-      lastName,
-    });
-
-    const cuerpo = `
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; font-family: Arial, sans-serif;">
-    <tr>
-      <td align="center" style="padding: 30px 0;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 247, 0.1); color: #FFFFFF;">
-          <tr>
-            <td style="padding: 40px; text-align: center;">
-              <h2 style="color: #00FFF7; margin-bottom: 10px;">¡Hola ${firstName}!</h2>
-              <p style="color: #CCCCCC; font-size: 16px; margin-top: 0;">Tu usuario ha sido creado exitosamente.</p>
-              
-              <p style="font-size: 16px; color: #CCCCCC; margin-top: 30px;">
-                Podés acceder a la plataforma en:<br>
-                <a href="https://sentryx.wearesrv.com" style="color: #00FFF7; text-decoration: none;">https://sentryx.wearesrv.com</a>
-              </p>
-              <div style="margin: 30px 0; padding: 20px; border: 1px solid #333333; border-radius: 8px;">
-                <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Usuario: <b>${email}</b></p>
-                <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Contraseña temporal: <b>${userPassword}</b></p>
-              </div>
-              <p style="color: #FF6B6B; font-size: 14px; margin-top: 0;"><i>Por favor, cambiala apenas ingreses.</i></p>
-              <p style="color: #CCCCCC; margin-top: 40px;">Saludos,<br><b style="color: #00FFF7;">Equipo weareSRV</b></p>
-            </td>
-          </tr>
-        </table>
-        <img src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" alt="weareSRV Logo" width="150" style="margin-bottom: 20px;" />
-      </td>
-    </tr>
-  </table>
-`;
-
-    await transporter.sendMail({
-      from: `"SRV" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: 'Tu acceso a Sentryx',
-      html: cuerpo,
-    });
-
-
-    res.status(201).json({ message: 'Usuario creado y correo enviado.', user: { id: user.id, email: user.email, firstName, lastName, roleId } });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al crear el usuario', error });
-  }
+export const createUser = async (req: Request, res: Response) => {
+  const { username, firstName, lastName, email, password, roleId } = req.body as z.infer<typeof createUserSchema>;
+  if (!(await Role.findByPk(roleId))) throw notFound('Rol no encontrado');
+  const plain = password || tempPassword();
+  const user = await User.create({
+    username,
+    email: email.toLowerCase(),
+    password: await bcrypt.hash(plain, 10),
+    roleId,
+    firstName,
+    lastName,
+    dni: null,
+    phone: null,
+    biography: null,
+    avatar: null,
+    lastLogin: null,
+    mustChangePassword: !password,
+  });
+  sendMail({
+    to: user.email,
+    subject: 'Tu acceso a Sentryx',
+    html: brandEmail({
+      title: `¡Hola ${firstName}!`,
+      paragraphs: ['Tu usuario fue creado. Al ingresar te vamos a pedir que cambies la contraseña.'],
+      box: [`Usuario: ${user.email}`, `Contraseña temporal: ${plain}`],
+      cta: { label: 'Ingresar', url: `${env.FRONTEND_URL}/login` },
+    }),
+  });
+  res.status(201).json({ message: 'Usuario creado y correo enviado.', user: { id: user.id, email: user.email, firstName, lastName, roleId } });
 };
 
-export const register = async (req: Request, res: any) => {
-  const { username, email, password, firstName, lastName } = req.body;
+export const registerSchema = z.object({
+  username: USERNAME,
+  email: z.string().email(),
+  password: PASSWORD,
+  firstName: z.string().min(1).max(80),
+  lastName: z.string().min(1).max(80),
+});
 
-  // Validación simple
-  if (!username || !email || !password) {
-    return res.status(400).json({ message: 'Faltan campos requeridos' });
-  }
-
-  try {
-    // Validar email y username únicos
-    const existingEmail = await User.findOne({ where: { email } });
-    const existingUsername = await User.findOne({ where: { username } });
-
-    if (existingEmail) {
-      return res.status(400).json({ message: 'El email ya está registrado' });
-    }
-
-    if (existingUsername) {
-      return res.status(400).json({ message: 'El nombre de usuario ya está en uso' });
-    }
-
-    // Encriptar contraseña
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Crear usuario con rol por defecto (ej: "usuario común")
-    const user = await User.create({
-      username,
-      firstName,
-      lastName,
-      email,
-      password: hashedPassword,
-      roleId: 2, // por ejemplo, el rol de "usuario"
-    });
-
-    // Eliminar el campo password del objeto devuelto
-    const userResponse = {
-      id: user.id,
-      username: user.username,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      email: user.email,
-      roleId: user.roleId,
-    };
-
-    return res.status(201).json({ message: 'Usuario registrado correctamente', user: userResponse });
-  } catch (error) {
-    return res.status(500).json({ message: 'Error al registrar el usuario', error });
-  }
+/** Registro abierto solo para alumnos de cursos SRV. Personal y familias de escuelas los da de alta la institución. */
+export const register = async (req: Request, res: Response) => {
+  const { username, email, password, firstName, lastName } = req.body as z.infer<typeof registerSchema>;
+  if (await User.count({ where: { email: email.toLowerCase() } })) throw badRequest('El email ya está registrado');
+  if (await User.count({ where: { username } })) throw badRequest('El nombre de usuario ya está en uso');
+  const role = await Role.findOne({ where: { roleName: 'user' } });
+  const user = await User.create({
+    username,
+    firstName,
+    lastName,
+    email: email.toLowerCase(),
+    password: await bcrypt.hash(password, 10),
+    roleId: role!.id,
+    dni: null,
+    phone: null,
+    biography: null,
+    avatar: null,
+    lastLogin: null,
+  });
+  res.status(201).json({
+    message: 'Usuario registrado correctamente',
+    user: { id: user.id, username: user.username, firstName: user.firstName, lastName: user.lastName, email: user.email, roleId: user.roleId },
+  });
 };
 
-export const login = async (req: Request, res: any) => {
-  const { email, password } = req.body;
+export const loginSchema = z.object({
+  // Acepta email o DNI (muchas familias no usan email).
+  email: z.string().trim().min(3).max(120),
+  password: z.string().min(1).max(100),
+});
 
-  try {
-    const user = await User.findOne({
-      where: { email },
-      include: [{
-        model: Role,
-        include: [Permission]
-      }, {
-        model: UserCourse,
-        include: [Course]
-      }]
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Contraseña incorrecta' });
-    }
-
-    user.lastLogin = new Date();
-    await user.save();
-
-    const token = jwt.sign(
-      {
-        id: user.id,
-        email: user.email,
-        roleId: user.roleId,
-      },
-      JWT_SECRET,
-      { expiresIn: '8h' }
-    );
-
-    res.status(200).json({
-      message: 'Login exitoso',
-      token,
-      userData: {
-        id: user.id,
-        username: user.username,
-        phone: user.phone,
-        biography: user.biography,
-        avatar: user.avatar,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        roleId: user.roleId,
-        roleName: user.Role?.roleName,
-        courses: user?.UserCourses,
-        permissions: user.Role?.Permissions?.map(p => ({
-          entity: p.entity,
-          action: p.action
-        }))
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: 'Error al iniciar sesión', error });
+export const login = async (req: Request, res: Response) => {
+  const { email: identifier, password } = req.body as z.infer<typeof loginSchema>;
+  const dni = identifier.replace(/\D/g, '');
+  const where = identifier.includes('@') ? { email: identifier.toLowerCase() } : { dni: dni || identifier };
+  const user = await User.scope('withPassword').findOne({ where });
+  // Mismo mensaje para usuario inexistente o contraseña incorrecta: no revela qué cuentas existen.
+  if (!user || !user.isActive || !(await bcrypt.compare(password, user.password))) {
+    throw unauthorized('Usuario o contraseña incorrectos.');
   }
+  await User.update({ lastLogin: new Date() }, { where: { id: user.id } });
+  res.json({ message: 'Login exitoso', token: signToken(user), userData: await userPayload(user.id) });
 };
 
-export const getMyOwnUser = async (req: any, res: any) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ message: 'No autorizado. Usuario no autenticado.' });
-    }
-
-    const user = await User.findByPk(req.user.id, {
-      include: [
-        { model: Role, include: [Permission] }
-      ]
-    });
-
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado.' });
-    }
-
-    res.status(200).json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      role: user.Role
-    });
-  } catch (error) {
-    res.status(500).json({
-      message: 'Error al obtener la información del perfil.',
-      error: error instanceof Error ? error.message : error
-    });
-  }
+export const getMyOwnUser = async (req: Request, res: Response) => {
+  res.json(await userPayload(req.user!.id));
 };
 
-export const updateUser = async (req: any, res: any) => {
-  const errors: ValidationErrors = {};  // Tipo explícito para los errores
+export const updateUserSchema = z.object({
+  email: z.string().email().optional(),
+  username: USERNAME.optional(),
+  roleId: z.number().int().optional(),
+  password: PASSWORD.optional(),
+  firstName: z.string().min(1).max(80).optional(),
+  lastName: z.string().min(1).max(80).optional(),
+  dni: z.string().regex(/^\d{6,10}$/).nullish(),
+  isActive: z.boolean().optional(),
+});
 
-  try {
-    const { id } = req.params;
-    const { email, username, roleId, password, firstName, lastName } = req.body;
-
-    if (!id) {
-      return res.status(404).json({ message: 'Id invalido' });
-    }
-
-    const user = await User.findByPk(id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User invalido' });
-    }
-
-    // Validación para el email
-    if (email && !/\S+@\S+\.\S+/.test(email)) {
-      errors.newEmail = 'Email inválido';  // Guarda el error para el email
-    }
-
-    // Validación para el nombre de usuario
-    if (username && !/^[a-zA-Z0-9_-]+$/.test(username)) {
-      errors.newUsername = 'El nombre de usuario solo puede contener letras, números, guiones y guiones bajos';  // Guarda el error para el nombre de usuario
-    }
-
-    // Si hay errores, devuelve el objeto con los errores
-    if (Object.keys(errors).length > 0) {
-      return res.status(400).json({ errors });
-    }
-
-    // Si no hay errores, actualiza el usuario
-    user.username = username ? username : user.username;
-    user.firstName = firstName ? firstName : user.firstName;
-    user.lastName = lastName ? lastName : user.lastName;
-    user.email = email ? email : user.email;
-    user.password = password ? await bcrypt.hash(password, 10) : user.password;
-    user.roleId = roleId ? roleId : user.roleId;
-
-    // Buscar el usuario actualizado e incluir su rol
-    await user.save(); // Esperar a que se guarde antes de buscarlo nuevamente
-    const updatedUser = await User.findByPk(id, { include: Role });
-
-    res.status(200).json(updatedUser);
-
-  } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar el usuario' });
-  }
+export const updateUser = async (req: Request, res: Response) => {
+  const user = await User.findByPk(req.params.id);
+  if (!user) throw notFound('Usuario inválido');
+  const { password, ...data } = req.body as z.infer<typeof updateUserSchema>;
+  await user.update({ ...data, ...(password ? { password: await bcrypt.hash(password, 10) } : {}) });
+  if (data.roleId) invalidateRoleCache();
+  res.json(await User.findByPk(user.id, { include: Role }));
 };
 
-export const updateMyOwnUser = async (req: any, res: any) => {
-  const errors: ValidationErrors = {};  // Tipo explícito para los errores
-  try {
-    const { firstName, lastName, email, username, roleId, password, biography, phone, avatar } = req.body;
-    if (!req.user) {
-      return res.status(401).json({ message: 'No autorizado. Usuario no autenticado.' });
-    }
+/**
+ * Perfil propio. Lista blanca de campos: antes cualquier usuario podía enviar `roleId`
+ * y convertirse en administrador.
+ */
+export const updateMeSchema = z.object({
+  firstName: z.string().min(1).max(80).optional(),
+  lastName: z.string().min(1).max(80).optional(),
+  username: USERNAME.optional(),
+  phone: z.string().max(40).nullish(),
+  biography: z.string().max(1000).nullish(),
+  avatar: z.string().url().max(500).nullish(),
+});
 
-    const user = await User.findByPk(req.user.id);
-
-    if (!user) {
-      return res.status(404).json({ message: 'User invalido' });
-    }
-
-    // Validación para el email
-    if (email && !/\S+@\S+\.\S+/.test(email)) {
-      errors.newEmail = 'Email inválido';  // Guarda el error para el email
-    }
-
-    // Validación para el nombre de usuario
-    if (username && !/^[a-zA-Z0-9_-]+$/.test(username)) {
-      errors.newUsername = 'El nombre de usuario solo puede contener letras, números, guiones y guiones bajos';  // Guarda el error para el nombre de usuario
-    }
-
-    // Si hay errores, devuelve el objeto con los errores
-    if (Object.keys(errors).length > 0) {
-      return res.status(400).json({ errors });
-    }
-
-    // Si no hay errores, actualiza el usuario
-    user.username = username ? username : user.username;
-    user.email = email ? email : user.email;
-    user.password = password ? await bcrypt.hash(password, 10) : user.password;
-    user.roleId = roleId ? roleId : user.roleId;
-    user.firstName = firstName ? firstName : user.firstName;
-    user.lastName = lastName ? lastName : user.lastName;
-    user.phone = phone ? phone : user.phone;
-    user.biography = biography ? biography : user.biography;
-    user.avatar = avatar ? avatar : user.avatar;
-
-    // Buscar el usuario actualizado e incluir su rol
-    await user.save(); // Esperar a que se guarde antes de buscarlo nuevamente
-    const updatedUser = await User.findByPk(req.user.id, {
-      include: [{
-        model: Role,
-        include: [Permission]
-      }, {
-        model: UserCourse,
-        include: [Course]
-      }]
-    });
-    if (!updatedUser) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-    res.status(200).json({
-      id: updatedUser.id,
-      username: updatedUser.username,
-      phone: updatedUser.phone,
-      biography: updatedUser.biography,
-      avatar: updatedUser.avatar,
-      email: updatedUser.email,
-      firstName: updatedUser.firstName,
-      lastName: updatedUser.lastName,
-      roleId: updatedUser.roleId,
-      roleName: updatedUser.Role?.roleName,
-      courses: updatedUser?.UserCourses,
-      permissions: updatedUser.Role?.Permissions?.map(p => ({
-        entity: p.entity,
-        action: p.action
-      }))
-    });
-
-  } catch (error) {
-    res.status(500).json({ message: 'Error al actualizar el usuario' });
+export const updateMyOwnUser = async (req: Request, res: Response) => {
+  const data = req.body as z.infer<typeof updateMeSchema>;
+  if (data.username && (await User.count({ where: { username: data.username, id: { [Op.ne]: req.user!.id } } }))) {
+    throw new HttpError(400, 'Datos inválidos', { newUsername: 'Ese nombre de usuario ya está en uso' });
   }
+  await User.update(data, { where: { id: req.user!.id } });
+  res.json(await userPayload(req.user!.id));
 };
 
-export const changeMyOwnPassword = async (req: any, res: any) => {
+export const changePasswordSchema = z.object({ currentPassword: z.string().min(1), newPassword: PASSWORD });
 
-  try {
-    const { currentPassword, newPassword } = req.body;
-    if (!req.user) {
-      return res.status(401).json({ message: 'No autorizado. Usuario no autenticado.' });
-    }
-    const id = req.user.id
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Contraseña actual incorrecta' });
-    }
-
-    // Validar que la nueva contraseña cumpla con los criterios (mínimo 6 caracteres, por ejemplo)
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
-    }
-
-    // Encriptar la nueva contraseña
-    const hashedNewPassword: string = await bcrypt.hash(newPassword, 10)
-
-    // Actualizar la contraseña en la base de datos
-    user.password = hashedNewPassword;
-    await user.save();
-
-    res.status(200).json({ message: 'Contraseña cambiada con éxito' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error al cambiar la contraseña', error });
-  }
+export const changeMyOwnPassword = async (req: Request, res: Response) => {
+  const { currentPassword, newPassword } = req.body as z.infer<typeof changePasswordSchema>;
+  const user = await User.scope('withPassword').findByPk(req.user!.id);
+  if (!user) throw notFound('Usuario no encontrado');
+  if (!(await bcrypt.compare(currentPassword, user.password))) throw unauthorized('Contraseña actual incorrecta');
+  if (currentPassword === newPassword) throw badRequest('La nueva contraseña debe ser distinta de la actual.');
+  await user.update({ password: await bcrypt.hash(newPassword, 10), mustChangePassword: false });
+  res.json({ message: 'Contraseña cambiada con éxito' });
 };
 
-export const changePassword = async (req: Request, res: any) => {
-  const { currentPassword, newPassword } = req.body;
-  const { id } = req.params;
-
-  try {
-    // Verificar si el usuario existe
-    const user = await User.findByPk(id);
-    if (!user) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Contraseña actual incorrecta' });
-    }
-
-    // Validar que la nueva contraseña cumpla con los criterios (mínimo 6 caracteres, por ejemplo)
-    if (newPassword.length < 6) {
-      return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
-    }
-
-    // Encriptar la nueva contraseña
-    const hashedNewPassword: string = await bcrypt.hash(newPassword, 10)
-
-    // Actualizar la contraseña en la base de datos
-    user.password = hashedNewPassword;
-    await user.save();
-
-    res.status(200).json({ message: 'Contraseña cambiada con éxito' });
-  } catch (error) {
-    res.status(500).json({ message: 'Error al cambiar la contraseña', error });
-  }
+/** Cambio de contraseña de otro usuario (admin). Ya no exige la contraseña actual del otro usuario. */
+export const changePassword = async (req: Request, res: Response) => {
+  const { newPassword } = req.body as { newPassword: string };
+  PASSWORD.parse(newPassword);
+  const user = await User.findByPk(req.params.id);
+  if (!user) throw notFound('Usuario no encontrado');
+  await user.update({ password: await bcrypt.hash(newPassword, 10) });
+  res.json({ message: 'Contraseña cambiada con éxito' });
 };
 
-export const resetPasswordByAdmin = async (req: any, res: any) => {
-  const { id } = req.params;
-
-  try {
-    const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
-
-    // Generar nueva contraseña aleatoria
-    const newPassword = Math.random().toString(36).slice(-10); // 10 caracteres aleatorios
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-    user.password = hashedPassword;
-    await user.save();
-
-    // Enviar mail con el template HTML
-    const cuerpo = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; font-family: Arial, sans-serif;">
-        <tr>
-          <td align="center" style="padding: 30px 0;">
-            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 247, 0.1); color: #FFFFFF;">
-              <tr>
-                <td style="padding: 40px; text-align: center;">
-                  <h2 style="color: #00FFF7; margin-bottom: 10px;">¡Hola ${user.firstName} ${user.lastName}!</h2>
-                  <p style="color: #CCCCCC; font-size: 16px; margin-top: 0;">Tu contraseña fue restablecida por un administrador.</p>
-                  <p style="font-size: 16px; color: #CCCCCC; margin-top: 30px;">
-                    Podés acceder al portal en:<br>
-                    <a href="https://sentryx.wearesrv.com" style="color: #00FFF7; text-decoration: none;">https://sentryx.wearesrv.com</a>
-                  </p>
-                  <div style="margin: 30px 0; padding: 20px; border: 1px solid #333333; border-radius: 8px;">
-                    <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Usuario: <b>${user.email}</b></p>
-                    <p style="color: #FFFFFF; font-size: 16px; margin: 0;">Contraseña temporal: <b>${newPassword}</b></p>
-                  </div>
-                  <p style="color: #FF6B6B; font-size: 14px; margin-top: 0;"><i>Por favor, cambiala apenas ingreses.</i></p>
-                  <p style="color: #CCCCCC; margin-top: 40px;">Saludos,<br><b style="color: #00FFF7;">Equipo weareSRV</b></p>
-                </td>
-              </tr>
-            </table>
-            <img src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" alt="weareSRV Logo" width="150" style="margin-bottom: 20px;" />
-          </td>
-        </tr>
-      </table>
-    `;
-
-    await transporter.sendMail({
-      from: `"SRV" <${process.env.SMTP_USER}>`,
+export const resetPasswordByAdmin = async (req: Request, res: Response) => {
+  const user = await User.findByPk(req.params.id);
+  if (!user) throw notFound('Usuario no encontrado');
+  const plain = tempPassword();
+  await user.update({ password: await bcrypt.hash(plain, 10), mustChangePassword: true });
+  const hasEmail = !user.email.endsWith('@sin-email.local');
+  if (hasEmail) {
+    sendMail({
       to: user.email,
-      subject: 'Tu nueva contraseña - Plataforma Sentryx',
-      html: cuerpo,
+      subject: 'Tu nueva contraseña - Sentryx',
+      html: brandEmail({
+        title: `¡Hola ${user.firstName}!`,
+        paragraphs: ['Tu contraseña fue restablecida por un administrador.'],
+        box: [`Usuario: ${user.dni ?? user.email}`, `Contraseña temporal: ${plain}`],
+        cta: { label: 'Ingresar', url: `${env.FRONTEND_URL}/login` },
+      }),
     });
-
-    res.status(200).json({ message: 'Contraseña reseteada y correo enviado' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Error al resetear la contraseña', error });
   }
+  // Si no tiene email, se devuelve una única vez para entregarla en mano.
+  res.json({ message: hasEmail ? 'Contraseña reseteada y correo enviado' : 'Contraseña reseteada', tempPassword: hasEmail ? undefined : plain });
 };
 
-export const getUserCourses = async (req: any, res: any) => {
-  const { id } = req.params;
-
-  try {
-    // Buscar usuario por id incluyendo sus cursos asociados
-    const userWithCourses = await User.findByPk(id, {
-      include: [{
-        model: UserCourse,
-        include: [Course]
-      }]
-    });
-
-    if (!userWithCourses) {
-      return res.status(404).json({ message: 'Usuario no encontrado' });
-    }
-
-    // Retornar los cursos
-    return res.status(200).json(userWithCourses.UserCourses);
-  } catch (error) {
-    console.error('Error fetching user courses:', error);
-    return res.status(500).json({ message: 'Error al obtener cursos del usuario', error });
-  }
+export const getUserCourses = async (req: Request, res: Response) => {
+  const user = await User.findByPk(req.params.id, { include: [{ model: UserCourse, include: [Course] }] });
+  if (!user) throw notFound('Usuario no encontrado');
+  res.json(user.UserCourses);
 };
 
-
-export const addUserToCourse = async (req: Request, res: any) => {
-  const { id, courseId } = req.params;
-
-  try {
-    // Validar usuario
-    const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
-
-    // Validar curso
-    const course = await Course.findByPk(courseId);
-    if (!course) return res.status(404).json({ message: 'Curso no encontrado' });
-
-    // Validar si ya tiene el curso
-    const alreadyAssigned = await UserCourse.findOne({
-      where: {
-        userId: id,
-        courseId: courseId,
-      },
-    });
-
-    if (alreadyAssigned) {
-      return res.status(400).json({ message: 'El usuario ya tiene este curso asignado' });
-    }
-
-    // Crear asignación
-    const userCourse = await UserCourse.create({
-      userId: id,
-      courseId: courseId,
-      grantedAt: new Date(),
-    });
-
-    return res.status(201).json({ message: 'Curso asignado correctamente', userCourse });
-  } catch (error) {
-    console.error(error);
-    return res.status(500).json({ message: 'Error al asignar curso', error });
-  }
+export const addUserToCourse = async (req: Request, res: Response) => {
+  const userId = Number(req.params.id);
+  const courseId = Number(req.params.courseId);
+  if (!(await User.count({ where: { id: userId } }))) throw notFound('Usuario no encontrado');
+  if (!(await Course.count({ where: { id: courseId } }))) throw notFound('Curso no encontrado');
+  const [userCourse, created] = await UserCourse.findOrCreate({ where: { userId, courseId }, defaults: { userId, courseId, grantedAt: new Date() } as any });
+  if (!created) throw badRequest('El usuario ya tiene este curso asignado');
+  res.status(201).json({ message: 'Curso asignado correctamente', userCourse });
 };
 
-export const syncUserCourses = async (req: any, res: any) => {
-  const { id } = req.params;
-  const { courseIds = [] } = req.body; // lista completa de cursos que el usuario debe tener
-
-  try {
-    // Validar usuario
-    const user = await User.findByPk(id);
-    if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
-
-    // Validar que existan todos los cursos enviados
-    if (courseIds.length > 0) {
-      const courses = await Course.findAll({ where: { id: courseIds } });
-      if (courses.length !== courseIds.length) {
-        return res.status(404).json({ message: 'Algunos cursos no fueron encontrados' });
-      }
-    }
-
-    // Obtener asignaciones actuales del usuario
-    const existingAssignments = await UserCourse.findAll({ where: { userId: id } });
-    const existingCourseIds = existingAssignments.map(a => a.courseId);
-
-    // Cursos a agregar (los que están en courseIds pero no en existing)
-    const toAdd = courseIds.filter((courseId: any) => !existingCourseIds.includes(courseId))
-      .map((courseId: any) => ({ userId: id, courseId }));
-
-    // Cursos a eliminar (los que están en existing pero no en courseIds)
-    const toRemove = existingCourseIds.filter(courseId => !courseIds.includes(courseId));
-
-    // Ejecutar operaciones
-    if (toAdd.length > 0) await UserCourse.bulkCreate(toAdd);
-    if (toRemove.length > 0) await UserCourse.destroy({ where: { userId: id, courseId: toRemove } });
-
-    return res.status(200).json({
-      message: 'Cursos sincronizados correctamente',
-      added: toAdd.length,
-      removed: toRemove.length
-    });
-
-  } catch (error) {
-    console.error('Error sincronizando cursos del usuario:', error);
-    return res.status(500).json({ message: 'Error al sincronizar cursos', error });
+export const syncUserCourses = async (req: Request, res: Response) => {
+  const userId = Number(req.params.id);
+  const courseIds = z.array(z.number().int()).parse(req.body.courseIds ?? []);
+  if (!(await User.count({ where: { id: userId } }))) throw notFound('Usuario no encontrado');
+  if (courseIds.length && (await Course.count({ where: { id: courseIds } })) !== courseIds.length) {
+    throw notFound('Algunos cursos no fueron encontrados');
   }
+  const existingIds = (await UserCourse.findAll({ where: { userId }, attributes: ['courseId'], raw: true })).map((a) => a.courseId);
+  const toAdd = courseIds.filter((id) => !existingIds.includes(id));
+  const toRemove = existingIds.filter((id) => !courseIds.includes(id));
+  if (toAdd.length) await UserCourse.bulkCreate(toAdd.map((courseId) => ({ userId, courseId })) as any[]);
+  if (toRemove.length) await UserCourse.destroy({ where: { userId, courseId: toRemove } });
+  res.json({ message: 'Cursos sincronizados correctamente', added: toAdd.length, removed: toRemove.length });
 };
 
-export const requestPasswordReset = async (req: any, res: any) => {
-  const { email } = req.body;
-  if (!email) {
-    return res.status(400).json({ error: 'Email requerido' });
-  }
+const hashToken = (token: string) => crypto.createHash('sha256').update(token).digest('hex');
 
-  try {
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
-      // No revelar si el email existe o no
-      return res.status(200).json({ message: 'Si el correo existe, se envió un email para resetear la contraseña' });
-    }
+export const requestPasswordReset = async (req: Request, res: Response) => {
+  const { email } = z.object({ email: z.string().trim().min(3) }).parse(req.body);
+  const generic = { message: 'Si el usuario existe, enviamos un email para restablecer la contraseña.' };
+  const user = await User.findOne({ where: email.includes('@') ? { email: email.toLowerCase() } : { dni: email.replace(/\D/g, '') } });
+  if (!user || user.email.endsWith('@sin-email.local')) return res.json(generic);
 
-    // Generar token aleatorio y expiración en 1 hora
-    const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + 3600 * 1000); // 1 hora
-
-    // Eliminar tokens antiguos
-    await PasswordResetToken.destroy({ where: { userId: user.id } });
-
-    // Crear nuevo token
-    await PasswordResetToken.create({ userId: user.id, token, expiresAt });
-
-    // Construir link para reset (ajustar FRONTEND_URL en .env)
-    const resetLink = `https://sentryx.wearesrv.com/reset-password?token=${token}`;
-
-    const cuerpo = `
-      <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; font-family: Arial, sans-serif;">
-        <tr>
-          <td align="center" style="padding: 30px 0;">
-            <table width="600" cellpadding="0" cellspacing="0" border="0" style="background-color: #1B1B1B; border-radius: 10px; box-shadow: 0 0 20px rgba(0, 255, 247, 0.1); color: #FFFFFF;">
-              <tr>
-                <td style="padding: 40px; text-align: center;">
-                  <h2 style="color: #00FFF7; margin-bottom: 10px;">¡Hola ${user.firstName} ${user.lastName}!</h2>
-                  <p style="color: #CCCCCC; font-size: 16px; margin-top: 0;">
-                    Recibimos una solicitud para restablecer tu contraseña.
-                    Para continuar, hacé clic en el siguiente enlace:
-                  </p>
-                  <a href="${resetLink}" style="display: inline-block; padding: 12px 24px; margin: 20px 0; background-color: #00FFF7; color: #1B1B1B; text-decoration: none; border-radius: 6px; font-weight: bold;">
-                    Restablecer contraseña
-                  </a>
-                  <p style="color: #CCCCCC; font-size: 14px;">
-                    Si no solicitaste este cambio, simplemente ignorá este correo.
-                  </p>
-                  <p style="color: #CCCCCC; margin-top: 40px;">Saludos,<br><b style="color: #00FFF7;">Equipo weareSRV</b></p>
-                </td>
-              </tr>
-            </table>
-            <img src="https://imagenes-landing.s3.us-east-1.amazonaws.com/nuevaweb/logotipo.png" alt="weareSRV Logo" width="150" style="margin-bottom: 20px;" />
-          </td>
-        </tr>
-      </table>
-    `;
-
-    await transporter.sendMail({
-      from: `"SRV" <${process.env.SMTP_USER}>`,
-      to: user.email,
-      subject: 'Restablece tu contraseña - Sentryx',
-      html: cuerpo,
-    });
-
-    return res.status(200).json({ message: 'Si el correo existe, se envió un email para resetear la contraseña' });
-  } catch (error) {
-    console.error('Error en requestPasswordReset:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
-  }
+  const token = crypto.randomBytes(32).toString('hex');
+  await PasswordResetToken.destroy({ where: { userId: user.id } });
+  // Se guarda el hash: si la base se filtrara, los tokens no sirven.
+  await PasswordResetToken.create({ userId: user.id, token: hashToken(token), expiresAt: new Date(Date.now() + 3600_000) } as any);
+  await sendMailNow({
+    to: user.email,
+    subject: 'Restablecé tu contraseña - Sentryx',
+    html: brandEmail({
+      title: `¡Hola ${user.firstName}!`,
+      paragraphs: ['Recibimos un pedido para restablecer tu contraseña. El enlace vence en 1 hora.'],
+      cta: { label: 'Restablecer contraseña', url: `${env.FRONTEND_URL}/reset-password?token=${token}` },
+      footnote: 'Si no lo pediste, ignorá este correo.',
+    }),
+  });
+  res.json(generic);
 };
 
-export const resetPassword = async (req: any, res: any) => {
-  const { token, password } = req.body;
-  if (!token || !password) {
-    return res.status(400).json({ error: 'Token y nueva contraseña son requeridos' });
+export const resetPassword = async (req: Request, res: Response) => {
+  const { token, password } = z.object({ token: z.string().min(10), password: PASSWORD }).parse(req.body);
+  const record = await PasswordResetToken.findOne({ where: { token: hashToken(token) } });
+  if (!record || record.expiresAt < new Date()) {
+    if (record) await record.destroy();
+    throw badRequest('El enlace es inválido o venció. Pedí uno nuevo.');
   }
-
-  try {
-    // Buscar token válido y no expirado
-    const resetToken = await PasswordResetToken.findOne({ where: { token } });
-    if (!resetToken) {
-      return res.status(400).json({ error: 'Token inválido' });
-    }
-    if (resetToken.expiresAt < new Date()) {
-      // Token expirado
-      await resetToken.destroy(); // Eliminar token expirado
-      return res.status(400).json({ error: 'Token expirado' });
-    }
-
-    // Buscar usuario
-    const user = await User.findByPk(resetToken.userId);
-    if (!user) {
-      return res.status(404).json({ error: 'Usuario no encontrado' });
-    }
-
-    // Hashear nueva contraseña y guardar
-    const hashedPassword = await bcrypt.hash(password, 10);
-    user.password = hashedPassword;
-    await user.save();
-
-    // Borrar token para que no se pueda reutilizar
-    await resetToken.destroy();
-
-    return res.json({ message: 'Contraseña reseteada correctamente' });
-  } catch (error) {
-    console.error('Error en resetPassword:', error);
-    return res.status(500).json({ error: 'Error interno del servidor' });
-  }
+  await User.update({ password: await bcrypt.hash(password, 10), mustChangePassword: false }, { where: { id: record.userId } });
+  await record.destroy();
+  res.json({ message: 'Contraseña reseteada correctamente' });
 };
 
-export const searchUsers = async (req: Request, res: any) => {
-  const { q } = req.query;
-
-  if (!q || typeof q !== 'string') {
-    return res.status(400).json({ message: 'Falta el parámetro de búsqueda (?q=)' });
-  }
-
-  try {
-    const users = await User.findAll({
-      where: {
-        [Op.or]: [
-          { firstName: { [Op.iLike]: `%${q}%` } },
-          { lastName: { [Op.iLike]: `%${q}%` } },
-          { username: { [Op.iLike]: `%${q}%` } },
-          { biography: { [Op.iLike]: `%${q}%` } },
-        ]
-      },
-      attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'biography'], // Solo lo necesario
-      include: [{ model: Role, attributes: ['roleName'] }]
-    });
-
-    res.json(users);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al buscar usuarios', error });
-  }
+/** Búsqueda de la comunidad SRV (cursos). No expone email ni datos de familias/escuelas. */
+export const searchUsers = async (req: Request, res: Response) => {
+  const q = z.string().trim().min(2).max(60).parse(req.query.q);
+  const users = await User.findAll({
+    where: {
+      isActive: true,
+      [Op.or]: ['firstName', 'lastName', 'username'].map((f) => ({ [f]: { [Op.iLike]: `%${q}%` } })),
+    },
+    attributes: ['id', 'username', 'firstName', 'lastName', 'avatar', 'biography'],
+    include: [{ model: Role, attributes: ['roleName'], where: { roleName: { [Op.in]: ['user', 'admin'] } } }],
+    limit: 30,
+  });
+  res.json(users);
 };
