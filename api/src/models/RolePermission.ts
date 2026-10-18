@@ -1,31 +1,18 @@
-import { Model, DataTypes } from 'sequelize';
+import { Model, DataTypes, InferAttributes, InferCreationAttributes } from 'sequelize';
 import { sequelize } from '../config/database';
 
-class RolePermission extends Model {
-  public id!: number;
-  public roleId!: number;
-  public permissionId!: number;
+/** Qué permisos tiene cada rol (un rol tiene muchos permisos). */
+export class RolePermission extends Model<InferAttributes<RolePermission>, InferCreationAttributes<RolePermission>> {
+  declare roleId: number;
+  declare permissionId: number;
 }
 
-RolePermission.init({
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
+RolePermission.init(
+  {
+    roleId: { type: DataTypes.INTEGER, primaryKey: true, references: { model: 'Role', key: 'id' }, onDelete: 'CASCADE' },
+    permissionId: { type: DataTypes.INTEGER, primaryKey: true, references: { model: 'Permission', key: 'id' }, onDelete: 'CASCADE' },
   },
-  roleId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-  permissionId: {
-    type: DataTypes.INTEGER,
-    allowNull: false,
-  },
-}, {
-  sequelize,
-  modelName: 'RolePermission',
-  tableName: 'RolePermission',
-  timestamps: false,
-});
+  { sequelize, modelName: 'RolePermission', tableName: 'RolePermission', timestamps: false }
+);
 
 export default RolePermission;

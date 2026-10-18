@@ -1,41 +1,23 @@
-import { Model, DataTypes } from 'sequelize';
+import { Model, DataTypes, InferAttributes, InferCreationAttributes, CreationOptional } from 'sequelize';
 import { sequelize } from '../config/database';
-import Role from './Role';
-import RolePermission from './RolePermission';
+import type { Entity, Action } from '../constants/permissions';
 
-class Permission extends Model {
-  public id!: number;
-  public entity!: string;
-  public action!: string;
-
-  public static associate() {
-    Permission.belongsToMany(Role, {
-      through: RolePermission,
-      foreignKey: 'permissionId',
-      otherKey: 'roleId',
-    });
-  }
+/** Permiso = una ACCIÓN sobre una ENTIDAD (ej: update sobre users). Ver constants/permissions.ts. */
+export class Permission extends Model<InferAttributes<Permission>, InferCreationAttributes<Permission>> {
+  declare id: CreationOptional<number>;
+  declare entity: Entity;
+  declare action: Action;
+  declare description: string;
 }
 
-Permission.init({
-  id: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
+Permission.init(
+  {
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    entity: { type: DataTypes.STRING(40), allowNull: false },
+    action: { type: DataTypes.STRING(40), allowNull: false },
+    description: { type: DataTypes.STRING(300), allowNull: false, defaultValue: '' },
   },
-  entity: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-  action: {
-    type: DataTypes.STRING,
-    allowNull: false,
-  },
-}, {
-  sequelize,
-  modelName: 'Permission',
-  tableName: 'Permission',
-  timestamps: false,
-});
+  { sequelize, modelName: 'Permission', tableName: 'Permission', timestamps: false, indexes: [{ unique: true, fields: ['entity', 'action'] }] }
+);
 
 export default Permission;

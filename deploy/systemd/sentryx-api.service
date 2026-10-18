@@ -1,0 +1,24 @@
+[Unit]
+Description=Sentryx API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=sentryx
+WorkingDirectory=/opt/sentryx/api
+EnvironmentFile=/opt/sentryx/api/.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=REALTIME_MODE=remote
+# Migraciones idempotentes antes de arrancar (nunca borran datos).
+ExecStartPre=/usr/bin/node dist/scripts/migrate.js
+ExecStart=/usr/bin/node dist/server.js
+Restart=always
+RestartSec=3
+MemoryMax=700M
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

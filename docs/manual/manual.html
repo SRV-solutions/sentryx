@@ -1,0 +1,571 @@
+<!doctype html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<title>Sentryx · Manual de usuario</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm;
+    @bottom-left { content: "Sentryx · Manual de usuario"; font: 600 8pt 'Segoe UI', system-ui, sans-serif; color: #8a8f98; }
+    @bottom-right { content: counter(page); font: 800 8pt 'Segoe UI', system-ui, sans-serif; color: #0B78FB; }
+  }
+  @page cover { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+  :root { --blue: #0B78FB; --orange: #F6950A; --ink: #0d0d0d; --ink2: #3c4048; --muted: #7a808a; --line: #e5e8ee; --soft: #f4f6f9; --blue-soft: #e8f1ff; --orange-soft: #fff3e0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; color: var(--ink2); font-size: 10.5pt; line-height: 1.55; }
+  b, strong { color: var(--ink); }
+
+  /* ---------- Portada ---------- */
+  .cover { page: cover; height: 296mm; width: 210mm; color: #fff; position: relative; overflow: hidden; padding: 26mm 22mm; display: flex; flex-direction: column; break-after: page;
+    background:
+      radial-gradient(circle at 92% 6%, rgba(11,120,251,.55) 0, rgba(11,120,251,0) 42%),
+      radial-gradient(circle at 4% 96%, rgba(246,149,10,.38) 0, rgba(246,149,10,0) 40%),
+      #000; }
+  .cover * { position: relative; z-index: 1; }
+  .cover .brand { display: flex; align-items: center; gap: 12px; font-weight: 900; font-size: 15pt; letter-spacing: -.01em; }
+  .cover .brand img { width: 40px; height: 40px; }
+  .cover .tag { margin-top: auto; display: inline-block; border: 1px solid #2a2a2a; color: #9fd0ff; border-radius: 99px; padding: 5px 14px; font-size: 8.5pt; letter-spacing: .14em; text-transform: uppercase; width: fit-content; }
+  .cover h1 { font-size: 50pt; font-weight: 900; line-height: 1; letter-spacing: -.03em; margin: 16px 0 14px; }
+  .cover h1 .b { color: var(--blue); } .cover h1 .o { color: var(--orange); }
+  .cover .lead { font-size: 13.5pt; color: #cfd3da; max-width: 140mm; }
+  .cover .pills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+  .cover .pills span { background: #111; border: 1px solid #262626; border-radius: 99px; padding: 6px 13px; font-size: 9pt; color: #e0e0e0; }
+  .cover .foot { margin-top: 26mm; display: flex; justify-content: space-between; align-items: flex-end; color: #8a8f98; font-size: 9pt; }
+  .cover .phones { position: absolute; right: 18mm; top: 58mm; display: flex; gap: 10px; transform: rotate(-6deg); }
+  .cover .phones img { width: 46mm; border-radius: 16px; border: 3px solid #1f1f1f; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+  .cover .phones img:nth-child(2) { margin-top: 18mm; }
+
+  /* ---------- Tipografía ---------- */
+  h2.chapter { font-size: 24pt; font-weight: 900; color: var(--ink); letter-spacing: -.02em; line-height: 1.1; margin: 0 0 4px; }
+  h2.chapter .o { color: var(--orange); }
+  .kicker { font-size: 8.5pt; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--blue); margin-bottom: 6px; }
+  .chapter-lead { font-size: 11.5pt; color: var(--muted); margin-bottom: 18px; max-width: 150mm; }
+  h3 { font-size: 13.5pt; font-weight: 800; color: var(--ink); margin: 18px 0 8px; letter-spacing: -.01em; }
+  h4 { font-size: 10.5pt; font-weight: 800; color: var(--ink); margin: 12px 0 4px; }
+  p { margin: 0 0 8px; }
+  .sec { break-before: page; }
+  .avoid { break-inside: avoid; }
+
+  /* ---------- Bloques ---------- */
+  .split { display: grid; grid-template-columns: 1fr 58mm; gap: 9mm; align-items: start; margin: 6px 0 14px; break-inside: avoid; }
+  .split.wide-phone { grid-template-columns: 1fr 64mm; }
+  .phone { width: 100%; border-radius: 18px; border: 2.5px solid #111; box-shadow: 0 10px 28px rgba(16,24,40,.18); display: block; }
+  .phone-cap { font-size: 8pt; color: var(--muted); text-align: center; margin-top: 6px; }
+
+  ol.steps { list-style: none; counter-reset: s; margin: 6px 0 10px; }
+  ol.steps > li { counter-increment: s; position: relative; padding: 0 0 9px 34px; }
+  ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 23px; height: 23px; border-radius: 50%; background: var(--blue); color: #fff; font-weight: 800; font-size: 9pt; display: flex; align-items: center; justify-content: center; }
+  ul.dots { margin: 4px 0 10px 0; list-style: none; }
+  ul.dots li { position: relative; padding-left: 16px; margin-bottom: 4px; }
+  ul.dots li::before { content: ""; position: absolute; left: 2px; top: .62em; width: 6px; height: 6px; border-radius: 50%; background: var(--orange); }
+
+  .ui { display: inline-block; background: var(--soft); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font-weight: 700; color: var(--ink); font-size: 9.5pt; white-space: nowrap; }
+  .callout { border-radius: 12px; padding: 10px 14px; margin: 10px 0; font-size: 9.8pt; break-inside: avoid; display: flex; gap: 10px; }
+  .callout .ic { font-size: 13pt; line-height: 1.2; }
+  .tip { background: var(--blue-soft); }
+  .warn { background: var(--orange-soft); }
+  .callout b { color: var(--ink); }
+
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.3pt; break-inside: avoid; }
+  th { background: #0d0d0d; color: #fff; text-align: left; padding: 7px 9px; font-weight: 700; }
+  th:first-child { border-top-left-radius: 8px; } th:last-child { border-top-right-radius: 8px; }
+  td { padding: 7px 9px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr:nth-child(even) td { background: #fafbfc; }
+  .yes { color: #138a43; font-weight: 800; } .no { color: #b8bcc4; }
+
+  .toc { columns: 2; column-gap: 12mm; margin-top: 10px; }
+  .toc .item { break-inside: avoid; padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; gap: 12px; }
+  .toc .n { font-weight: 900; color: var(--blue); font-size: 15pt; width: 26px; line-height: 1.1; }
+  .toc .t { font-weight: 800; color: var(--ink); }
+  .toc .d { font-size: 9pt; color: var(--muted); }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; break-inside: avoid; }
+  .card .h { font-weight: 800; color: var(--ink); margin-bottom: 4px; display: flex; gap: 8px; align-items: center; }
+  .badge { display: inline-block; font-size: 8pt; font-weight: 800; border-radius: 99px; padding: 1px 8px; background: var(--blue-soft); color: var(--blue); }
+  .badge.o { background: var(--orange-soft); color: #9a5b00; }
+  .roles { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+  .roles span { font-size: 8.5pt; font-weight: 700; border-radius: 99px; padding: 3px 10px; background: #0d0d0d; color: #fff; }
+  .roles span.o { background: var(--orange); color: #000; }
+
+  .faq h4 { margin-top: 12px; }
+  .back { background: #000; color: #cfd3da; border-radius: 18px; padding: 22px 24px; margin-top: 18px; break-inside: avoid; }
+  .back h3 { color: #fff; margin-top: 0; }
+  .back a { color: #6fb1ff; text-decoration: none; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<!-- ======================= PORTADA ======================= -->
+<section class="cover">
+  <div class="brand"><img src="https://wearesrv.com/srv-logo-256.webp" alt="SRV"><span>Sentryx<span style="color:var(--orange)">.</span></span></div>
+  <div class="phones">
+    <img src="02-familia-inicio.png" alt="">
+    <img src="15-inicio-dark.png" alt="">
+  </div>
+  <span class="tag">Manual de usuario · v1.0</span>
+  <h1>Tu escuela,<br>en un solo <span class="b">lugar</span><span class="o">.</span></h1>
+  <p class="lead">Guía práctica para familias, docentes, preceptoría, conducción y administración: cómo hacer cada cosa importante en Sentryx, paso a paso.</p>
+  <div class="pills"><span>Comunicados</span><span>Mensajes</span><span>Aulas</span><span>Notas y boletines</span><span>Asistencia</span><span>Alertas</span></div>
+  <div class="foot">
+    <div>Inicial · Primario · Secundario<br>Desde el celular o la computadora</div>
+    <div style="text-align:right">Desarrollado por <b style="color:#fff">SRV</b><br>wearesrv.com</div>
+  </div>
+</section>
+
+<!-- ======================= ÍNDICE ======================= -->
+<section>
+  <div class="kicker">Contenido</div>
+  <h2 class="chapter">¿Qué vas a encontrar<span class="o">?</span></h2>
+  <p class="chapter-lead">Cada capítulo está pensado para un rol. Leé "Primeros pasos" y después el capítulo que te corresponde.</p>
+  <div class="toc">
+    <div class="item"><div class="n">1</div><div><div class="t">Primeros pasos</div><div class="d">Ingresar, instalar en el celular, notificaciones, modo oscuro, colegio y nivel.</div></div></div>
+    <div class="item"><div class="n">2</div><div><div class="t">Roles y permisos</div><div class="d">Qué puede ver y hacer cada persona.</div></div></div>
+    <div class="item"><div class="n">3</div><div><div class="t">Familias</div><div class="d">Comunicados, boletín, asistencia, aulas y mensajes.</div></div></div>
+    <div class="item"><div class="n">4</div><div><div class="t">Docentes</div><div class="d">Materias, carga de notas, aulas, comunicados y archivos.</div></div></div>
+    <div class="item"><div class="n">5</div><div><div class="t">Preceptoría</div><div class="d">Tomar asistencia, justificar y seguir alertas.</div></div></div>
+    <div class="item"><div class="n">6</div><div><div class="t">Conducción</div><div class="d">Comunicados, alertas, cierre de períodos y boletines.</div></div></div>
+    <div class="item"><div class="n">7</div><div><div class="t">Administración</div><div class="d">Institución, estructura, aulas, personal, familias y archivos.</div></div></div>
+    <div class="item"><div class="n">8</div><div><div class="t">Preguntas frecuentes</div><div class="d">Las dudas más comunes y cómo resolverlas.</div></div></div>
+  </div>
+
+  <h3>¿Qué es Sentryx?</h3>
+  <p>Sentryx es la plataforma escolar de <b>SRV</b> que reúne en un solo lugar la comunicación y el seguimiento académico de la escuela. Funciona desde el navegador del celular o la computadora y se puede instalar como una app.</p>
+  <div class="grid2">
+    <div class="card"><div class="h">📣 Comunicados</div>La escuela informa a todo el colegio, a un nivel, a un curso o a una familia. Se puede pedir confirmación de lectura.</div>
+    <div class="card"><div class="h">💬 Mensajes</div>Chat privado entre familias y docentes, preceptoría o la dirección del nivel, siempre sobre un alumno.</div>
+    <div class="card"><div class="h">🏫 Aulas</div>Cada curso tiene su aula con docentes, alumnos, materiales, videos, tareas y comunicados.</div>
+    <div class="card"><div class="h">📝 Notas y boletines</div>Carga por materia adaptada a cada nivel. Las familias ven el boletín cuando la escuela lo publica.</div>
+    <div class="card"><div class="h">✅ Asistencia</div>Se toma en segundos desde el celular. La familia ve las faltas de su hijo al instante.</div>
+    <div class="card"><div class="h">🚨 Alertas</div>Avisos automáticos cuando un alumno supera las reglas de inasistencia que define la escuela.</div>
+  </div>
+</section>
+
+<!-- ======================= 1. PRIMEROS PASOS ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 1 · Para todos</div>
+  <h2 class="chapter">Primeros pasos<span class="o">.</span></h2>
+  <p class="chapter-lead">Cómo entrar por primera vez y dejar Sentryx listo en tu celular.</p>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Ingresar</h3>
+      <ol class="steps">
+        <li>Abrí el <b>link de tu colegio</b> que te envió la escuela (por ejemplo <span class="ui">app…/c/nombre-del-colegio</span>). Vas a ver el nombre y el escudo de tu colegio.</li>
+        <li>Escribí tu <b>email o tu DNI</b> (sin puntos). Las familias sin email ingresan siempre con el DNI.</li>
+        <li>Escribí la <b>contraseña temporal</b> que te dio la escuela y tocá <span class="ui">Ingresar</span>.</li>
+        <li>La primera vez, Sentryx te pide <b>elegir una contraseña propia</b> (mínimo 8 caracteres).</li>
+      </ol>
+      <div class="callout tip"><span class="ic">🔑</span><div><b>¿Olvidaste tu contraseña?</b> Tocá <span class="ui">¿Olvidaste tu contraseña?</span> e ingresá tu email: te llega un enlace para crear una nueva (vale 1 hora). Si no tenés email cargado, pedile a la secretaría que te la restablezca.</div></div>
+    </div>
+    <div><img class="phone" src="01-login.png"><div class="phone-cap">Ingreso con la identidad del colegio</div></div>
+  </div>
+
+  <h3>Instalar Sentryx en el celular</h3>
+  <p>Sentryx no se descarga de ninguna tienda: se agrega a la pantalla de inicio en segundos y queda como una app más.</p>
+  <div class="grid2">
+    <div class="card"><div class="h">🤖 Android (Chrome)</div>
+      <ol class="steps" style="margin:6px 0 0"><li>Abrí el link del colegio en <b>Chrome</b>.</li><li>Tocá el menú <span class="ui">⋮</span> (arriba a la derecha).</li><li>Elegí <span class="ui">Instalar app</span> o <span class="ui">Agregar a pantalla principal</span>.</li></ol></div>
+    <div class="card"><div class="h">🍎 iPhone (Safari)</div>
+      <ol class="steps" style="margin:6px 0 0"><li>Abrí el link del colegio en <b>Safari</b>.</li><li>Tocá <span class="ui">Compartir</span> (el cuadrado con la flecha).</li><li>Elegí <span class="ui">Agregar a inicio</span> y abrí Sentryx desde ese ícono.</li></ol></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Activar las notificaciones</h3>
+      <p>Así te enterás de comunicados, mensajes y avisos <b>en el momento</b>, aunque tengas la app cerrada.</p>
+      <ol class="steps">
+        <li>En la pantalla de <b>Inicio</b> aparece el aviso <span class="ui">Activá las notificaciones</span>.</li>
+        <li>Tocá <span class="ui">Activar</span> y aceptá el permiso del celular.</li>
+      </ol>
+      <div class="callout warn"><span class="ic">📱</span><div><b>En iPhone</b> las notificaciones solo funcionan si Sentryx está agregado a la pantalla de inicio (paso anterior) y lo abrís desde ese ícono.</div></div>
+      <h3>Modo claro y modo oscuro</h3>
+      <p>Tocá el ícono de <b>luna / sol</b> arriba a la derecha. Sentryx recuerda tu elección; si no elegís nada, sigue el modo de tu celular.</p>
+      <h3>Campana de notificaciones</h3>
+      <p>La <b>campana</b> muestra todos tus avisos recientes. El punto naranja indica que hay algo sin leer; tocá un aviso para ir directo a lo que corresponde.</p>
+    </div>
+    <div><img class="phone" src="15-inicio-dark.png"><div class="phone-cap">Modo oscuro · vista de conducción</div></div>
+  </div>
+
+  <h3 class="avoid">Colegio y nivel</h3>
+  <p>Arriba de todo ves el <b>escudo y el nombre de tu colegio</b>. Si trabajás en más de un colegio, o tenés a cargo más de un nivel (por ejemplo, la Representante Legal), tocá el nombre del colegio para elegir:</p>
+  <ul class="dots">
+    <li><b>Nivel:</b> Todos, Inicial, Primario o Secundario. Al elegir uno, toda la app (inicio, aulas, alumnos, asistencia, alertas) muestra solo ese nivel.</li>
+    <li><b>Colegio:</b> si pertenecés a más de una institución, cambiás de colegio desde el mismo lugar.</li>
+  </ul>
+</section>
+
+<!-- ======================= 2. ROLES ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 2 · Seguridad de la información</div>
+  <h2 class="chapter">Roles y permisos<span class="o">.</span></h2>
+  <p class="chapter-lead">Cada persona ve únicamente lo que le corresponde. Una familia solo ve a sus hijos; un docente, sus cursos y materias; la Rectora de Secundario, su nivel.</p>
+
+  <table>
+    <tr><th>Rol</th><th>Alcance</th><th>Puede</th></tr>
+    <tr><td><b>Representante Legal</b></td><td>Todo el colegio</td><td>Todo: estructura, personal, notas, boletines, alertas, comunicados a toda la escuela.</td></tr>
+    <tr><td><b>Dirección / Rectoría</b></td><td>Su nivel (o todo el colegio)</td><td>Todo lo de su nivel. La estructura del colegio solo si tiene a cargo toda la escuela.</td></tr>
+    <tr><td><b>Vicedirección</b></td><td>Su nivel</td><td>Igual que Dirección, sin modificar la estructura.</td></tr>
+    <tr><td><b>Secretaría</b></td><td>Todo el colegio</td><td>Alta de personas y familias, comunicados, publicar boletines, ver notas y asistencia.</td></tr>
+    <tr><td><b>Administración</b></td><td>Todo el colegio</td><td>Alta de personas y familias, comunicados.</td></tr>
+    <tr><td><b>Preceptoría</b></td><td>Su nivel o sus cursos</td><td>Tomar asistencia, seguir alertas, comunicados a sus cursos, ver notas.</td></tr>
+    <tr><td><b>Docente</b></td><td>Sus cursos y materias</td><td>Cargar notas de sus materias, publicar en sus aulas, comunicados a sus cursos, mensajes.</td></tr>
+    <tr><td><b>Familia</b></td><td>Sus hijos</td><td>Ver comunicados, aulas, boletín publicado y asistencia; escribir a docentes y conducción del nivel.</td></tr>
+  </table>
+
+  <table>
+    <tr><th>Acción</th><th>Fam.</th><th>Doc.</th><th>Prec.</th><th>Secr.</th><th>Adm.</th><th>Cond.</th><th>R. Legal</th></tr>
+    <tr><td>Leer comunicados y aulas</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Enviar comunicados</td><td class="no">—</td><td class="yes">sus cursos</td><td class="yes">sus cursos</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Cargar notas</td><td class="no">—</td><td class="yes">sus materias</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">corregir</td><td class="yes">corregir</td></tr>
+    <tr><td>Tomar asistencia</td><td class="no">—</td><td class="no">—</td><td class="yes">✔</td><td class="no">—</td><td class="no">—</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Publicar boletines</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✔</td><td class="no">—</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Reglas de alertas</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Alta de personal y familias</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td><td class="yes">✔</td></tr>
+    <tr><td>Estructura (aulas, materias)</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">*</td><td class="yes">✔</td></tr>
+  </table>
+  <p style="font-size:8.5pt;color:var(--muted)">* Solo Dirección o Rectoría con alcance sobre todo el colegio. Todos los cambios sensibles (notas, asistencia, roles, publicaciones) quedan registrados con fecha y autor.</p>
+</section>
+
+<!-- ======================= 3. FAMILIAS ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 3</div>
+  <h2 class="chapter">Familias<span class="o">.</span></h2>
+  <div class="roles"><span class="o">Madres · Padres · Tutores</span></div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">La pantalla de Inicio</h3>
+      <p>Es tu resumen del día. De un vistazo ves:</p>
+      <ul class="dots">
+        <li>Si hay <b>comunicados para confirmar</b> (aviso naranja).</li>
+        <li>Cuántos <b>comunicados</b> y <b>conversaciones</b> nuevas tenés.</li>
+        <li>La tarjeta de cada hijo: si está <b>presente o ausente hoy</b>, su <b>porcentaje de asistencia</b>, la cantidad de faltas y la fecha del último <b>boletín</b>.</li>
+      </ul>
+      <p>Tocá la tarjeta de tu hijo para ver toda su información.</p>
+      <h3>La barra de abajo</h3>
+      <p><span class="ui">Inicio</span> · <span class="ui">Mi hijo/a</span> · <span class="ui">Aulas</span> · <span class="ui">Comunicados</span> · <span class="ui">Mensajes</span>. Un punto naranja indica que hay algo nuevo.</p>
+    </div>
+    <div><img class="phone" src="02-familia-inicio.png"><div class="phone-cap">Inicio de una familia</div></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Leer y confirmar comunicados</h3>
+      <ol class="steps">
+        <li>Entrá a <span class="ui">Comunicados</span>. Los no leídos aparecen resaltados y con un punto.</li>
+        <li>Tocá el comunicado para leerlo completo y abrir sus adjuntos (PDF, fotos, documentos).</li>
+        <li>Si dice <b>"Requiere confirmación"</b>, tocá <span class="ui">Confirmo que lo leí</span>. La escuela ve tu confirmación al instante.</li>
+      </ol>
+      <div class="callout tip"><span class="ic">💡</span><div>Debajo de cada comunicado figura <b>por cuál de tus hijos</b> lo recibiste, útil si tenés hijos en distintos cursos o niveles.</div></div>
+    </div>
+    <div><img class="phone" src="03-familia-comunicado.png"><div class="phone-cap">Comunicado con confirmación de lectura</div></div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Boletín y asistencia de tu hijo</h3>
+      <ol class="steps">
+        <li>Tocá <span class="ui">Mi hijo/a</span> (o la tarjeta de tu hijo en Inicio).</li>
+        <li>En <span class="ui">Boletín</span> ves las notas por materia de los períodos que la escuela ya <b>publicó</b>.</li>
+        <li>En <span class="ui">Asistencia</span> ves el porcentaje, las faltas, las llegadas tarde y cuáles están justificadas.</li>
+        <li>En <span class="ui">Datos</span> ves quiénes están autorizados a retirarlo.</li>
+      </ol>
+      <h4>¿Cómo se lee el boletín?</h4>
+      <ul class="dots">
+        <li><b>Secundario:</b> 2 cuatrimestres con 2 bimestres cada uno. El 1º y 3º bimestre tienen nota <b>conceptual</b> (Avanzado, Suficiente, En proceso, Insuficiente); el 2º y 4º, nota <b>numérica</b> de 1 a 10. La <b>nota final</b> es el promedio de las numéricas.</li>
+        <li><b>Primario:</b> 3 trimestres con escala conceptual (Sobresaliente a Insuficiente).</li>
+        <li><b>Inicial:</b> informes escritos por la docente.</li>
+        <li>Lo que aparece <b style="color:#c62828">en rojo</b> está por debajo de lo esperado.</li>
+      </ul>
+      <p>Con <span class="ui">Imprimir</span> podés guardarlo como PDF.</p>
+    </div>
+    <div><img class="phone" src="04-familia-boletin.png"><div class="phone-cap">Boletín de Secundario</div></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">El aula de tu hijo</h3>
+      <p>Cada curso tiene su <b>aula</b>. Entrá desde <span class="ui">Aulas</span>:</p>
+      <ul class="dots">
+        <li><b>Muro:</b> materiales, videos, links y tareas que publican los docentes, con fecha de entrega. Podés filtrar por materia.</li>
+        <li><b>Comunicados:</b> todo lo que la escuela envió a ese curso, a su nivel o a todo el colegio.</li>
+        <li><b>Integrantes:</b> los docentes del curso con su materia. Por privacidad, solo ves a tus propios hijos entre los alumnos.</li>
+      </ul>
+    </div>
+    <div><img class="phone" src="05-familia-aula.png"><div class="phone-cap">Muro del aula</div></div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Escribirle a un docente o a la dirección</h3>
+      <ol class="steps">
+        <li>Entrá a <span class="ui">Mensajes</span> y tocá <span class="ui">+ Nuevo</span>.</li>
+        <li><b>Elegí sobre qué hijo</b> querés consultar.</li>
+        <li><b>Elegí a quién:</b> aparecen solo los docentes de su curso (con su materia), preceptoría, la conducción de su nivel y secretaría.</li>
+        <li>Escribí un <b>asunto</b> y tu mensaje, y tocá <span class="ui">Enviar</span>.</li>
+      </ol>
+      <div class="callout tip"><span class="ic">🔒</span><div>Las conversaciones son <b>privadas</b>: solo las ven las personas que participan. Si el docente lo necesita, puede sumar a un directivo y vas a ver el aviso en la conversación.</div></div>
+    </div>
+    <div><img class="phone" src="06-familia-nuevo-mensaje.png"><div class="phone-cap">Nuevo mensaje: alumno y destinatario</div></div>
+  </div>
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Conversar en tiempo real</h3>
+      <p>La conversación funciona como un chat: las respuestas aparecen <b>al instante</b> y, si tenés la app cerrada, te llega una notificación.</p>
+      <ul class="dots">
+        <li>Tocá el <b>clip</b> para adjuntar una foto o un PDF (por ejemplo, un certificado médico).</li>
+        <li>Si la escuela cierra la conversación, vas a ver el aviso y podés iniciar una nueva cuando quieras.</li>
+      </ul>
+    </div>
+    <div><img class="phone" src="16-chat.png"><div class="phone-cap">Chat familia ↔ docente</div></div>
+  </div>
+</section>
+
+<!-- ======================= 4. DOCENTES ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 4</div>
+  <h2 class="chapter">Docentes<span class="o">.</span></h2>
+  <div class="roles"><span>Docentes de todos los niveles</span></div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Mis materias</h3>
+      <p>En <span class="ui">Materias</span> ves todas tus materias agrupadas por curso, con el <b>avance de carga</b> de cada período (barra verde = completo).</p>
+      <ul class="dots">
+        <li>Si te falta cargar notas, aparece un aviso naranja: <b>"Faltan N notas"</b>.</li>
+        <li><span class="ui">Estado académico →</span> muestra, por curso, qué alumnos tienen materias en riesgo y su asistencia.</li>
+        <li>El candado 🔒 indica un período <b>cerrado</b> por la dirección.</li>
+      </ul>
+    </div>
+    <div><img class="phone" src="07-docente-materias.png"><div class="phone-cap">Panel "Mis materias"</div></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Cargar notas</h3>
+      <ol class="steps">
+        <li>Tocá la materia. La planilla se abre en el <b>primer período pendiente</b>; podés cambiar de período arriba.</li>
+        <li>Cargá cada nota. El tipo depende del período: <b>numérica</b>, <b>conceptual</b> (lista desplegable) o <b>informe</b> (texto).</li>
+        <li>Con <span class="ui">💬</span> agregás una <b>observación</b> que se ve en el boletín.</li>
+        <li>Tocá <span class="ui">Guardar</span> (botón naranja). No se guarda nada hasta que lo tocás.</li>
+      </ol>
+      <div class="callout warn"><span class="ic">⚡</span><div><b>Carga rápida:</b> elegí una nota y tocá <span class="ui">Poner a todos</span> (o <span class="ui">Solo a los vacíos</span>). Después corregí las excepciones una por una y guardá. Ideal para cargar un curso entero en segundos.</div></div>
+      <p style="font-size:9pt;color:var(--muted)">Las familias ven las notas recién cuando la escuela publica el boletín. Si un período está cerrado, pedile a la dirección que lo reabra para corregir.</p>
+    </div>
+    <div><img class="phone" src="08-docente-planilla.png"><div class="phone-cap">Planilla con carga rápida</div></div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Publicar en el aula</h3>
+      <ol class="steps">
+        <li>Entrá a <span class="ui">Aulas</span> y elegí el curso.</li>
+        <li>Tocá <b>"Compartí material, un video o una tarea…"</b>.</li>
+        <li>Elegí <span class="ui">Material</span> o <span class="ui">Tarea</span> (con fecha de entrega) y la <b>materia</b>.</li>
+        <li>Escribí título y descripción. Podés:
+          <ul class="dots" style="margin-top:4px"><li><b>Pegar links</b>: los videos de YouTube se ven dentro del aula.</li><li><b>Adjuntar archivos</b>: PDF, Word, PowerPoint, fotos, audio o video.</li></ul></li>
+        <li>Dejá marcado <b>"Avisar a las familias"</b> y tocá <span class="ui">Publicar</span>.</li>
+      </ol>
+      <div class="callout tip"><span class="ic">🎬</span><div>Las <b>fotos se optimizan solas</b> antes de subirse. Para <b>videos largos</b>, subilos a YouTube como "no listado" y pegá el link: se ven igual y no ocupan espacio de la escuela.</div></div>
+      <p>Desde el encabezado del aula también tenés accesos directos a <b>Notas</b> de tus materias y al <b>Estado académico</b> del curso.</p>
+    </div>
+    <div><img class="phone" src="09-docente-aula.png"><div class="phone-cap">Aula vista por el docente</div></div>
+  </div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Enviar un comunicado a tus cursos</h3>
+      <ol class="steps">
+        <li>En <span class="ui">Comunicados</span> tocá <span class="ui">+ Nuevo</span> (o desde el aula: <span class="ui">Nuevo comunicado a…</span>).</li>
+        <li>En <b>¿Para quién?</b> elegí uno o varios de tus cursos. Opcional: <i>enviar copia a los docentes</i>.</li>
+        <li>Escribí título y mensaje; adjuntá archivos si hace falta.</li>
+        <li>Marcá <b>"Pedir confirmación de lectura"</b> si necesitás que las familias confirmen (autorizaciones, reuniones).</li>
+        <li>Tocá <span class="ui">Enviar comunicado</span>. Llega al instante por la app y notificación.</li>
+      </ol>
+      <h4>Mis archivos</h4>
+      <p>En <span class="ui">Archivos</span> ves todo lo que subiste, cuánto pesa y en qué aula está. Podés abrirlo o <b>eliminarlo</b> para liberar espacio.</p>
+    </div>
+    <div><img class="phone" src="13-redactar.png"><div class="phone-cap">Redactar un comunicado</div></div>
+  </div>
+</section>
+
+<!-- ======================= 5. PRECEPTORÍA ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 5</div>
+  <h2 class="chapter">Preceptoría<span class="o">.</span></h2>
+  <div class="roles"><span>Preceptores</span><span class="o">También Dirección y Rectoría</span></div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Tomar asistencia</h3>
+      <ol class="steps">
+        <li>Entrá a <span class="ui">Asistencia</span>. Arriba elegís la <b>fecha</b> (por defecto, hoy).</li>
+        <li>Elegí el <b>curso</b>. El círculo verde ✓ indica los cursos ya tomados.</li>
+        <li><b>Todos empiezan presentes.</b> Tocá el estado de un alumno para cambiarlo: <span class="ui">Presente</span> → <span class="ui">Ausente</span> → <span class="ui">Tarde</span> → <span class="ui">Retiro ant.</span></li>
+        <li>Si la falta está justificada, marcá <b>"Justificada"</b>.</li>
+        <li>Tocá <span class="ui">Guardar</span>. Sentryx pasa solo al <b>siguiente curso pendiente</b>.</li>
+      </ol>
+      <div class="callout tip"><span class="ic">⏱️</span><div>Un curso de 30 alumnos con 3 ausentes se toma con <b>4 toques</b>. Las familias ven el estado "Ausente hoy" en su inicio y, si hay alertas configuradas, se disparan solas.</div></div>
+      <h4>Corregir o justificar después</h4>
+      <p>Volvé a elegir la fecha y el curso: la asistencia ya tomada se puede corregir y guardar de nuevo.</p>
+      <h4>Valor de cada inasistencia</h4>
+      <p>Lo define la escuela por nivel (por ejemplo, en Secundario: ausente = 1, tarde = ¼, retiro anticipado = ½).</p>
+    </div>
+    <div><img class="phone" src="10-preceptora-asistencia.png"><div class="phone-cap">Toma de asistencia</div></div>
+  </div>
+</section>
+
+<!-- ======================= 6. CONDUCCIÓN ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 6</div>
+  <h2 class="chapter">Conducción<span class="o">.</span></h2>
+  <div class="roles"><span>Representante Legal</span><span>Dirección</span><span>Vicedirección</span><span>Rectoría</span></div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Panel de alertas</h3>
+      <p>En <span class="ui">Alertas</span> ves los alumnos que superan las reglas de asistencia, ordenados por gravedad: <b style="color:#c62828">Crítica</b>, <b style="color:#9a5b00">Atención</b> e Info.</p>
+      <ul class="dots">
+        <li><span class="ui">Tomar seguimiento</span>: indica que alguien se está ocupando.</li>
+        <li><span class="ui">Resolver</span>: cierra la alerta.</li>
+        <li><span class="ui">Escribir a la familia</span>: abre un mensaje sobre ese alumno.</li>
+        <li>Si se justifica una falta y el alumno deja de cumplir la regla, la alerta <b>se resuelve sola</b>.</li>
+      </ul>
+      <h3>Configurar las reglas (normativa)</h3>
+      <ol class="steps">
+        <li>En <span class="ui">Alertas</span> → pestaña <span class="ui">Reglas</span> → <span class="ui">+ Nueva regla</span>.</li>
+        <li>Elegí el tipo: <b>total de faltas</b>, <b>días consecutivos</b>, <b>porcentaje</b> o <b>faltas en los últimos N días</b>.</li>
+        <li>Definí el umbral, el nivel, la gravedad y si se avisa automáticamente a la familia.</li>
+        <li>Guardá: Sentryx recalcula todas las alertas.</li>
+      </ol>
+      <p style="font-size:9pt;color:var(--muted)">Las reglas que vienen cargadas son ejemplos: ajustalas a la normativa vigente de tu jurisdicción.</p>
+    </div>
+    <div><img class="phone" src="11-alertas.png"><div class="phone-cap">Panel de alertas</div></div>
+  </div>
+</section>
+
+<section class="sec">
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Seguir la lectura de un comunicado</h3>
+      <p>Al abrir un comunicado que enviaste ves cuántos lo <b>leyeron</b> y cuántos lo <b>confirmaron</b>, y la lista de destinatarios con el alumno por el que lo recibieron.</p>
+      <ul class="dots">
+        <li>Filtrá por <span class="ui">Sin leer</span> o <span class="ui">Sin confirmar</span>.</li>
+        <li><span class="ui">Recordar a pendientes</span> envía un recordatorio solo a quienes faltan.</li>
+        <li>En <span class="ui">Comunicados → Enviados</span> ves el porcentaje de lectura de cada envío.</li>
+      </ul>
+      <h4>Comunicados a todo el colegio</h4>
+      <p>Conducción, Secretaría y Administración pueden enviar a <b>Toda la escuela</b>, a uno o más <b>niveles</b>, o <b>solo al personal</b>. Marcalo como <b>urgente</b> para que también llegue por email.</p>
+    </div>
+    <div><img class="phone" src="12-comunicado-stats.png"><div class="phone-cap">Estadísticas de lectura</div></div>
+  </div>
+
+  <h3 class="avoid">Cerrar períodos y publicar boletines</h3>
+  <div class="grid2">
+    <div class="card"><div class="h">🔒 Cerrar un período <span class="badge">Dirección</span></div>Desde cualquier planilla de notas, en <b>Cierre del período</b> → <span class="ui">Cerrar período</span>. Los docentes ya no pueden modificar las notas de ese período en todo el nivel. Se puede <b>reabrir</b> para correcciones.</div>
+    <div class="card"><div class="h">📢 Publicar el boletín <span class="badge o">Dirección · Secretaría</span></div>En la planilla, <span class="ui">Publicar boletín a familias</span>. Las familias de ese curso reciben un aviso y ven las notas del período. Hasta entonces, las notas son internas.</div>
+    <div class="card"><div class="h">📊 Estado académico</div>Por curso: promedio, materias en riesgo y asistencia de cada alumno, con filtro "En riesgo". Desde <span class="ui">Materias</span> o el encabezado del aula.</div>
+    <div class="card"><div class="h">🖨️ Imprimir boletines</div>En la ficha del alumno → <span class="ui">Boletín</span> → <span class="ui">Imprimir</span>. Sale con encabezado del colegio y espacios de firma; también se puede guardar como PDF.</div>
+  </div>
+</section>
+
+<!-- ======================= 7. ADMINISTRACIÓN ======================= -->
+<section class="sec">
+  <div class="kicker">Capítulo 7</div>
+  <h2 class="chapter">Administración<span class="o">.</span></h2>
+  <div class="roles"><span>Representante Legal</span><span>Secretaría</span><span>Administración</span></div>
+
+  <div class="split">
+    <div>
+      <h3 style="margin-top:0">Datos del colegio y escudo</h3>
+      <ol class="steps">
+        <li><span class="ui">Administración</span> → pestaña <span class="ui">Institución</span>.</li>
+        <li>Tocá <span class="ui">Subir escudo</span> y elegí una imagen PNG o JPG.</li>
+        <li>Completá nombre, CUE, teléfono, email y dirección, y tocá <span class="ui">Guardar</span>.</li>
+        <li>Copiá el <b>link de ingreso</b> y compartilo con familias y personal (WhatsApp, email o impreso con un código QR).</li>
+      </ol>
+      <div class="callout tip"><span class="ic">🎨</span><div>El escudo y el nombre identifican al colegio en toda la app y en la pantalla de ingreso. La marca <b>Sentryx · SRV</b> se mantiene.</div></div>
+    </div>
+    <div><img class="phone" src="14-admin-institucion.png"><div class="phone-cap">Pestaña Institución</div></div>
+  </div>
+
+  <h3>Armar la estructura: niveles, materias y aulas</h3>
+  <p>En <span class="ui">Administración → Estructura</span> (Representante Legal o Dirección general). Elegí el nivel arriba y seguí este orden:</p>
+  <ol class="steps">
+    <li><b>Materias:</b> escribí el nombre (ej. "Matemática") y tocá <span class="ui">+</span>.</li>
+    <li><b>Aulas (divisiones):</b> en "Divisiones y docentes" completá el nombre (ej. "3º B"), el año y el turno, y tocá <span class="ui">+ División</span>.</li>
+    <li><b>Docentes:</b> en la tarjeta de cada aula, junto a cada materia, usá <span class="ui">+ Asignar docente</span>.</li>
+    <li><b>Períodos:</b> revisá el tipo de cada período (conceptual, numérica o informe) y cargá sus fechas.</li>
+    <li><b>Escala:</b> en "Calificación y asistencia" podés editar la escala conceptual del nivel.</li>
+  </ol>
+  <div class="callout warn"><span class="ic">📅</span><div>Las aulas pertenecen al <b>ciclo lectivo vigente</b>. Al empezar un año nuevo se crea el ciclo y se arman las divisiones de ese año.</div></div>
+</section>
+
+<section class="sec">
+  <h3 style="margin-top:0">Dar de alta al personal</h3>
+  <ol class="steps">
+    <li><span class="ui">Administración → Personal</span> → <span class="ui">Agregar</span>.</li>
+    <li>Nombre, apellido, <b>email</b> (si tiene) y <b>DNI</b>.</li>
+    <li>Elegí el <b>rol</b> y, si corresponde, el <b>nivel a cargo</b> (ej. Rectoría → Secundario). Para preceptores podés elegir sus cursos.</li>
+    <li>Guardá. Quien tiene email recibe su acceso automáticamente; si no tiene, aparece una <b>contraseña temporal</b> para imprimir y entregar.</li>
+  </ol>
+  <p>Una persona puede tener <b>más de un rol</b> (por ejemplo, docente y preceptora). Con <span class="ui">Desactivar</span> le quitás el acceso sin borrar su historial.</p>
+
+  <h3>Cargar alumnos y familias</h3>
+  <div class="grid2">
+    <div class="card"><div class="h">👤 Uno por uno</div>
+      <ol class="steps" style="margin:6px 0 0"><li><span class="ui">Alumnos y familias</span> → <b>Alta individual</b>.</li><li>Datos del alumno y su <b>división</b>.</li><li>Hasta 4 familiares: nombre, DNI, vínculo, email y teléfono.</li><li><span class="ui">Guardar alumno y familia</span>.</li></ol></div>
+    <div class="card"><div class="h">📄 Todos juntos (CSV)</div>
+      <ol class="steps" style="margin:6px 0 0"><li><span class="ui">Descargar plantilla</span> y completala en Excel (una fila por alumno, hasta 2 familiares).</li><li>Guardala como <b>CSV</b>.</li><li><span class="ui">Elegir CSV</span> → revisá el resumen → <span class="ui">Importar</span>.</li></ol></div>
+  </div>
+  <ul class="dots">
+    <li>Los <b>hermanos</b> se vinculan solos a la misma familia (por DNI o email): cada familia tiene <b>un solo usuario</b> para todos sus hijos.</li>
+    <li>Al terminar aparece la lista de <b>credenciales</b> (usuario y contraseña temporal) para imprimir o descargar. <b>Se muestra una sola vez.</b></li>
+    <li>Si una fila tiene un error (por ejemplo, una división mal escrita), se informa el número de fila y el resto se importa igual.</li>
+  </ul>
+
+  <h3>Archivos y espacio de almacenamiento</h3>
+  <p>En <span class="ui">Archivos</span> → <span class="ui">Uso</span> ves cuánto espacio usa el colegio, el detalle por tipo (documentos, imágenes, videos) y el <b>ranking por docente</b>. Desde <span class="ui">Todos</span> podés buscar y eliminar archivos para liberar espacio.</p>
+  <div class="callout tip"><span class="ic">🗂️</span><div>Límites por defecto: <b>25 MB</b> por archivo y <b>300 MB</b> por video. Solo se aceptan formatos de clase (PDF, Office, imágenes, audio y video).</div></div>
+</section>
+
+<!-- ======================= 8. FAQ ======================= -->
+<section class="sec faq">
+  <div class="kicker">Capítulo 8</div>
+  <h2 class="chapter">Preguntas frecuentes<span class="o">.</span></h2>
+
+  <h4>No me llegan las notificaciones.</h4>
+  <p>Verificá que las activaste desde Inicio y que el celular no bloquea las notificaciones del navegador. En iPhone, Sentryx tiene que estar agregado a la pantalla de inicio. Igual, todo queda en la app y en la campana.</p>
+  <h4>Tengo dos hijos en el colegio, ¿necesito dos usuarios?</h4>
+  <p>No. Con un solo usuario ves a todos tus hijos; en Inicio aparece una tarjeta por cada uno.</p>
+  <h4>Un familiar no tiene email.</h4>
+  <p>Ingresa con su <b>DNI</b> y la contraseña temporal que le entrega la escuela. Si la olvida, la secretaría se la restablece.</p>
+  <h4>No veo las notas de mi hijo.</h4>
+  <p>Las notas se ven cuando la escuela <b>publica el boletín</b> de ese período. Hasta entonces, los docentes pueden estar cargándolas.</p>
+  <h4>Un docente no ve su curso en Aulas o Materias.</h4>
+  <p>Falta asignarle la materia en esa división: <b>Administración → Estructura</b>, en la tarjeta del aula.</p>
+  <h4>Me equivoqué en una nota y el período está cerrado.</h4>
+  <p>Pedile a la dirección que reabra el período (o que corrija la nota): queda registrado quién hizo el cambio y cuándo.</p>
+  <h4>¿Quién puede ver los mensajes privados?</h4>
+  <p>Solo las personas que participan en la conversación. Si un docente suma a un directivo, aparece un aviso visible en el chat.</p>
+  <h4>¿Puedo usarlo en la computadora?</h4>
+  <p>Sí. En pantallas grandes el menú aparece a la izquierda; en el celular, abajo. Es la misma cuenta y la misma información.</p>
+
+  <div class="back">
+    <h3>¿Necesitás ayuda?</h3>
+    <p>Primero consultá con la secretaría de tu colegio: puede restablecer contraseñas, corregir datos y vincular familias.</p>
+    <p>Para soporte técnico de la plataforma: <a href="https://wearesrv.com">wearesrv.com</a></p>
+    <p style="margin-top:14px;font-size:9pt;color:#8a8f98">Sentryx · Plataforma escolar desarrollada por SRV. Las imágenes de este manual corresponden a un colegio de demostración con datos ficticios.</p>
+  </div>
+</section>
+
+</body>
+</html>

@@ -1,101 +1,39 @@
-import express, { Request, NextFunction } from 'express';
-import { sequelize } from './config/database';
+import express from 'express';
+import compression from 'compression';
+import './models';
+import './lib/validationMessages';
+import { apiRouter } from './routes';
+import { securityHeaders, corsPolicy, requireTrustedClient } from './middlewares/security';
+import { ipLimiter } from './middlewares/rateLimits';
+import { errorHandler } from './lib/http';
+import { withRequestContext } from './lib/requestContext';
+import { activityLogger } from './middlewares/activityLog';
 
-import userRoutes from './routes/userRoutes';
-import roleRoutes from './routes/roleRoutes';
-import reportRoutes from './routes/reportRoutes'
-import chatRoutes from './routes/chatRoutes'
-import courseRoutes from './routes/courseRoutes'
-import lessonRoutes from './routes/lessonRoutes'
-import embeddingRoutes from './routes/embeddingRoutes';
-import notificationRoutes from './routes/notificationRoutes'
-import friendRoutes from './routes/friendRoutes'
-import moduleRoutes from './routes/moduleRoutes'
-
-import Role from './models/Role';
-import User from './models/User';
-import Permission from './models/Permission';
-import Chat from './models/Chat';
-import ChatMessage from './models/ChatMessage';
-import Course from './models/Course';
-import Lesson from './models/Lesson';
-import UserCourse from './models/UserCourse';
-import Module from './models/Module';
-
-// import limiter from './middlewares/rateLimit';
-import { seedDatabase, seedUsers } from './utils/seedDataBase';
-import LessonComment from './models/LessonComment';
-import Notification from './models/Notification';
-import UserNotification from './models/UserNotification';
-import Friendship from './models/Friendship';
-import ChatUser from './models/ChatUser';
-
-User.associate();
-Chat.associate();
-ChatUser.associate();
-ChatMessage.associate();
-
-Role.associate();
-Permission.associate();
-Course.associate();
-Lesson.associate();
-UserCourse.associate();
-Module.associate()
-LessonComment.associate()
-Notification.associate()
-UserNotification.associate()
-Friendship.associate()
-
+/**
+ * Aplicación Express. El orden importa:
+ *   headers de seguridad → CORS → límite por IP → solo clientes de confianza → JSON → contexto y
+ *   registro de actividad → rutas → errores.
+ */
 const app = express();
 
-// app.ts
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.set('trust proxy', 1); // detrás de Caddy: la IP real llega en X-Forwarded-For
+app.disable('x-powered-by');
+app.use(securityHeaders);
+app.use(corsPolicy);
+app.use(ipLimiter);
+app.get('/health', (_req, res) => res.json({ ok: true }));
+app.use(requireTrustedClient);
+// gzip de respuestas JSON: en celulares con datos móviles reduce ~70% el tamaño.
+app.use(compression());
+// Los archivos van directo al bucket con URL firmada: la API solo recibe JSON chico.
+app.use(express.json({ limit: '1mb' }));
+// Contexto del pedido (IP, usuario, colegio) para la auditoría y registro de actividad.
+app.use(withRequestContext);
+app.use(activityLogger);
 
+app.use(apiRouter);
 
-app.use((req: Request, res: any, next: NextFunction) => {
-  const allowedOrigins = ['http://localhost:5174', 'http://localhost:5173', 'https://sentryx.wearesrv.com'];
-  const origin = req.headers.origin;
-
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
-  }
-
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-
-  if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
-  }
-
-  next();
-});
-
-app.get('/', (_req, res) => {
-  res.send('Iam in')
-});
-
-app.use('/chats', chatRoutes);
-app.use('/users', userRoutes);
-app.use('/roles', roleRoutes);
-app.use('/reports', reportRoutes)
-app.use('/courses', courseRoutes)
-app.use('/lessons', lessonRoutes)
-app.use('/embedding', embeddingRoutes);
-app.use('/notifications', notificationRoutes)
-app.use('/friends', friendRoutes)
-app.use('/modules', moduleRoutes)
-const forceSync = process.env.FORCE_SYNC === "true";
-
-sequelize.sync({ force: forceSync }).then(() => {
-  // if (forceSync) {
-  //   seedDatabase()
-  //   console.log("Seeder ejecutado con exito");
-  // }
-  console.log('Database connected and synchronized');
-}).catch(err => {
-  console.error('Unable to connect to the database:', err);
-});
+app.use((_req, res) => res.status(404).json({ message: 'Ruta inexistente.' }));
+app.use(errorHandler);
 
 export default app;

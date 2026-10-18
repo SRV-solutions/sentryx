@@ -1,0 +1,23 @@
+[Unit]
+Description=Sentryx tiempo real (chat y avisos)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=sentryx
+WorkingDirectory=/opt/sentryx/api
+EnvironmentFile=/opt/sentryx/api/.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+ExecStart=/usr/bin/node dist/realtime-server.js
+Restart=always
+RestartSec=2
+MemoryMax=400M
+# Muchas conexiones abiertas a la vez (una por celular).
+LimitNOFILE=65536
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

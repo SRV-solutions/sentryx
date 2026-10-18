@@ -1,0 +1,10 @@
+[Unit]
+Description=Sentryx backup de PostgreSQL al bucket
+
+[Service]
+Type=oneshot
+User=sentryx
+WorkingDirectory=/opt/sentryx/api
+EnvironmentFile=/opt/sentryx/api/.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node dist/scripts/backup.js
