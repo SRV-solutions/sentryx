@@ -13,7 +13,6 @@ import { ReportProblemSheet } from '../school/ReportProblem';
 
 const SRV_LOGO = 'https://wearesrv.com/srv-logo-96.webp';
 
-
 interface NotificationRow {
   notificationId: number;
   read: boolean;
