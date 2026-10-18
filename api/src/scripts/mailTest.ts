@@ -48,6 +48,7 @@ const run = async () => {
   console.log(`  Servidor : ${env.SMTP_HOST ?? 'gmail (sin SMTP_HOST)'}:${env.SMTP_PORT}`);
   console.log(`  Usuario  : ${env.SMTP_USER ?? '(vacío)'}`);
   console.log(`  Remitente: "${env.MAIL_FROM_NAME}" <${from}>`);
+  console.log(to)
 
   try {
     await transporter.verify();
