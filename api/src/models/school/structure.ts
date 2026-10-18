@@ -8,7 +8,7 @@ import {
   NonAttribute,
 } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { LevelType, LevelSettings, SchoolRole, LEVEL_TYPES, SCHOOL_ROLES } from '../../school/constants';
+import { LevelType, LevelSettings, LEVEL_TYPES } from '../../constants/school';
 
 export class School extends Model<InferAttributes<School>, InferCreationAttributes<School>> {
   declare id: CreationOptional<number>;
@@ -171,38 +171,5 @@ TeachingAssignment.init(
       { unique: true, fields: ['divisionId', 'subjectId', 'teacherId'] },
       { fields: ['teacherId'] },
     ],
-  }
-);
-
-/** Rol de un usuario dentro de una institución. Un usuario puede tener varios (ej: docente + preceptor). */
-export class Membership extends Model<InferAttributes<Membership>, InferCreationAttributes<Membership>> {
-  declare id: CreationOptional<number>;
-  declare userId: ForeignKey<number>;
-  declare schoolId: ForeignKey<School['id']>;
-  declare role: SchoolRole;
-  /** Limita el alcance a un nivel (ej: Rectora → Secundario). null = toda la institución. */
-  declare levelId: ForeignKey<number | null>;
-  /** Para preceptores: divisiones a cargo. Vacío = todo su nivel. */
-  declare divisionIds: CreationOptional<number[]>;
-  declare title: string | null;
-  declare active: CreationOptional<boolean>;
-  declare School?: NonAttribute<School>;
-  declare Level?: NonAttribute<Level>;
-}
-
-Membership.init(
-  {
-    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    role: { type: DataTypes.ENUM(...SCHOOL_ROLES), allowNull: false },
-    divisionIds: { type: DataTypes.ARRAY(DataTypes.INTEGER), allowNull: false, defaultValue: [] },
-    title: { type: DataTypes.STRING(80), allowNull: true },
-    active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-  },
-  {
-    sequelize,
-    modelName: 'Membership',
-    tableName: 'Membership',
-    timestamps: true,
-    indexes: [{ fields: ['userId', 'schoolId'] }, { fields: ['schoolId', 'role'] }],
   }
 );

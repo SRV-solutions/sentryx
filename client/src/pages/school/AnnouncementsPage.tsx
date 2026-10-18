@@ -6,6 +6,7 @@ import { apiGet } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Empty, ErrorBox, PageHeader, Skeleton, Tabs, Badge, timeAgo, fullName, Avatar } from '../../ui';
 import type { Paginated, PersonLite } from '../../school/types';
+import { Entity, Action } from '../../school/permissions';
 
 interface InboxItem {
   id: number;
@@ -44,7 +45,7 @@ export default function AnnouncementsPage() {
     getNextPageParam: (last) => (last.pagination.currentPage < last.pagination.totalPages ? last.pagination.currentPage + 1 : undefined),
   });
   const items = q.data?.pages.flatMap((p) => p.data) ?? [];
-  const canPublish = can('announcements.publish');
+  const canPublish = can(Entity.ANNOUNCEMENTS, Action.CREATE);
 
   return (
     <div className="stack">

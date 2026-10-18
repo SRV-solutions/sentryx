@@ -4,13 +4,13 @@ import { API_URL, getSession, setSession, setSchoolId, onUnauthorized, StoredSes
 
 export interface AuthValue {
   user: StoredSession | null;
-  isAdmin: boolean;
+  /** Equipo de Sentryx: consola de la plataforma (colegios y facturación de todos). */
+  isSuperAdmin: boolean;
   login: (identifier: string, password: string) => Promise<StoredSession>;
   logout: () => void;
-  authFetch: (url: string, options?: RequestInit) => Promise<Response | null>;
-  updateUserData: (data: object) => Promise<unknown>;
   patchUserData: (patch: Partial<StoredSession['userData']>) => void;
-  hasPermission: (entity: string, action: string) => boolean;
+  /** Reemplaza el token (al cambiar la contraseña la API cierra las otras sesiones y entrega uno nuevo). */
+  replaceToken: (token: string) => void;
 }
 
 const AuthContext = createContext<AuthValue>(null as unknown as AuthValue);
@@ -33,7 +33,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const navigate = useNavigate();
   const [user, setUser] = useState<StoredSession | null>(initialUser);
 
-  const isAdmin = user?.userData?.roleName === 'admin';
+  const isSuperAdmin = !!user?.userData?.isSuperAdmin;
 
   const logout = useCallback(() => {
     setSession(null);
@@ -67,6 +67,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   /** Actualiza datos locales del usuario (ej: luego de cambiar la contraseña obligatoria). */
+  const replaceToken = (token: string) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, token };
+      setSession(next);
+      return next;
+    });
+  };
+
   const patchUserData = (patch: Partial<StoredSession['userData']>) => {
     setUser((prev) => {
       if (!prev) return prev;
@@ -76,43 +85,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  const authFetch = async (url: string, options: RequestInit = {}) => {
-    const token = user?.token;
-    if (!token) {
-      logout();
-      return null;
-    }
-    const isFormData = options.body instanceof FormData;
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        ...((options.headers as Record<string, string>) || {}),
-        Authorization: `Bearer ${token}`,
-        ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      },
-    });
-    // Solo 401 cierra la sesión. Antes un 403 (falta de permiso) también deslogueaba al usuario.
-    if (res.status === 401) {
-      logout();
-      navigate('/login', { replace: true });
-      return null;
-    }
-    return res;
-  };
-
-  const updateUserData = async (newData: object) => {
-    const res = await authFetch(`${API_URL}/users/me`, { method: 'PATCH', body: JSON.stringify(newData) });
-    if (!res || !res.ok) return { message: 'Error al actualizar el usuario', response: res, type: 'error' };
-    const updated = await res.json();
-    const next = { ...user!, userData: updated };
-    setSession(next);
-    setUser(next);
-  };
-
-  const hasPermission = (entity: string, action: string) => !!user?.userData?.permissions?.some((p) => p.entity === entity && p.action === action);
-
   return (
-    <AuthContext.Provider value={{ user, login, logout, authFetch, isAdmin, updateUserData, patchUserData, hasPermission }}>
+    <AuthContext.Provider value={{ user, login, logout, isSuperAdmin, patchUserData, replaceToken }}>
       {children}
     </AuthContext.Provider>
   );

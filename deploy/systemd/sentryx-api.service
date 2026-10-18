@@ -8,6 +8,7 @@ User=sentryx
 WorkingDirectory=/opt/sentryx/api
 EnvironmentFile=/opt/sentryx/api/.env
 Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
 Environment=REALTIME_MODE=remote
 # Migraciones idempotentes antes de arrancar (nunca borran datos).
 ExecStartPre=/usr/bin/node dist/scripts/migrate.js

@@ -10,6 +10,16 @@ import {
 import { sequelize } from '../../config/database';
 import type { Division } from './structure';
 
+/** Motivos de baja de un alumno. */
+export const LEAVE_REASONS = {
+  CAMBIO_DE_COLEGIO: 'Cambio de colegio',
+  EGRESO: 'Egresó',
+  MUDANZA: 'Mudanza',
+  ABANDONO: 'Abandono',
+  OTRO: 'Otro motivo',
+} as const;
+export type LeaveReason = keyof typeof LEAVE_REASONS;
+
 export class Student extends Model<InferAttributes<Student>, InferCreationAttributes<Student>> {
   declare id: CreationOptional<number>;
   declare schoolId: ForeignKey<number>;
@@ -18,9 +28,15 @@ export class Student extends Model<InferAttributes<Student>, InferCreationAttrib
   declare dni: string | null;
   declare birthDate: string | null;
   declare photoUrl: string | null;
-  /** Información sensible (salud, autorizaciones). Solo visible para personal con people.read. */
+  /** Información sensible (salud, autorizaciones). Solo la ve el personal con alcance sobre el alumno (nunca la familia). */
   declare notes: string | null;
+  /** Cuenta propia del alumno (solo Secundario). null = sin cuenta. */
+  declare userId: CreationOptional<number | null>;
   declare active: CreationOptional<boolean>;
+  /** Baja: fecha, motivo (ver LEAVE_REASONS) y notas. null mientras está activo. */
+  declare leftAt: CreationOptional<string | null>;
+  declare leaveReason: CreationOptional<LeaveReason | null>;
+  declare leaveNotes: CreationOptional<string | null>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare Enrollments?: NonAttribute<Enrollment[]>;
@@ -36,7 +52,11 @@ Student.init(
     birthDate: { type: DataTypes.DATEONLY, allowNull: true },
     photoUrl: { type: DataTypes.STRING(500), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    userId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'User', key: 'id' }, onDelete: 'SET NULL' },
     active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    leftAt: { type: DataTypes.DATEONLY, allowNull: true },
+    leaveReason: { type: DataTypes.STRING(30), allowNull: true },
+    leaveNotes: { type: DataTypes.TEXT, allowNull: true },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
   },
@@ -53,7 +73,8 @@ export class Enrollment extends Model<InferAttributes<Enrollment>, InferCreation
   declare studentId: ForeignKey<Student['id']>;
   declare divisionId: ForeignKey<number>;
   declare academicYearId: ForeignKey<number>;
-  declare status: CreationOptional<'ACTIVE' | 'WITHDRAWN'>;
+  /** ACTIVE: cursando · WITHDRAWN: dado de baja · COMPLETED: terminó el ciclo (promovido, repitió o egresó). */
+  declare status: CreationOptional<'ACTIVE' | 'WITHDRAWN' | 'COMPLETED'>;
   declare Division?: NonAttribute<Division>;
   declare Student?: NonAttribute<Student>;
 }
@@ -61,7 +82,7 @@ export class Enrollment extends Model<InferAttributes<Enrollment>, InferCreation
 Enrollment.init(
   {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    status: { type: DataTypes.ENUM('ACTIVE', 'WITHDRAWN'), allowNull: false, defaultValue: 'ACTIVE' },
+    status: { type: DataTypes.ENUM('ACTIVE', 'WITHDRAWN', 'COMPLETED'), allowNull: false, defaultValue: 'ACTIVE' },
   },
   {
     sequelize,
@@ -81,6 +102,9 @@ export class StudentGuardian extends Model<InferAttributes<StudentGuardian>, Inf
   declare isPrimary: CreationOptional<boolean>;
   declare canPickUp: CreationOptional<boolean>;
   declare receivesCommunications: CreationOptional<boolean>;
+  /** Baja lógica: al desvincular no se borra el registro (historial y facturación auditables). */
+  declare active: CreationOptional<boolean>;
+  declare endedAt: CreationOptional<Date | null>;
   declare Student?: NonAttribute<Student>;
 }
 
@@ -91,12 +115,16 @@ StudentGuardian.init(
     isPrimary: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     canPickUp: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     receivesCommunications: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    endedAt: { type: DataTypes.DATE, allowNull: true },
   },
   {
     sequelize,
     modelName: 'StudentGuardian',
     tableName: 'StudentGuardian',
     timestamps: true,
+    // Toda consulta (incluidos los include) ve solo vínculos vigentes. El historial: StudentGuardian.unscoped().
+    defaultScope: { where: { active: true } },
     indexes: [{ unique: true, fields: ['studentId', 'userId'] }, { fields: ['userId'] }],
   }
 );

@@ -40,27 +40,19 @@ Destino: colegios de **~400 alumnos, ~40 docentes y ~700 familias** (por ejemplo
       "AllowedMethods": ["GET", "PUT", "HEAD"], "AllowedHeaders": ["*"], "MaxAgeSeconds": 3600 }]
    ```
 
-**Un solo bucket para todo:** `sentryx-files` guarda:
-- lo escolar, en `schools/`;
-- los videos de los cursos SRV, en `lessons/`;
-- los reportes de errores, en `reports/`.
-
-Los backups van aparte, en `sentryx-backups`.
-
-**Mudar los videos de cursos que hoy están en tu S3 de Amazon (una sola vez):**
-1. Instalá [rclone](https://rclone.org) en tu PC.
-2. Configurá dos remotos con `rclone config`:
-   - `aws`: tipo S3, proveedor AWS, con tus claves actuales;
-   - `r2`: tipo S3, proveedor Cloudflare, con las claves de R2.
-3. Copiá los videos:
+4. Probalo desde el servidor (o tu PC con el `.env` de producción):
 
    ```bash
-   rclone copy aws:<bucket-de-videos-actual> r2:sentryx-files --progress
+   cd api && npm run build && npm run storage:setup
    ```
 
-   Las claves de los videos no cambian, así que las clases siguen funcionando sin tocar la base.
-4. Verificá que los videos se vean bien desde la app.
-5. Recién entonces borrá el bucket de Amazon. A partir de ahí no pagás más descargas de video, que es justamente donde S3 más cobra.
+   Verifica las credenciales y que el bucket exista, **aplica la política CORS** con los orígenes de `CORS_ORIGINS` (así no hace falta el paso 3 a mano; `--no-cors` lo saltea) y sube, lee y borra un archivo de prueba. Si algo falla, dice qué revisar.
+
+Mientras R2 no esté configurado, la app funciona igual: los botones de adjuntar se ocultan en mensajes y canales y, si alguien intenta subir algo, ve un mensaje claro en lugar de un error.
+
+**Un solo bucket para todo:** `sentryx-files` guarda los archivos de cada colegio en `schools/<id>/`.
+
+Los backups van aparte, en `sentryx-backups`.
 
 **Gestión de los archivos de docentes:**
 - **Registro y aula:** cada archivo queda registrado (quién lo subió, peso real verificado en el bucket, aula y materia).
@@ -98,7 +90,14 @@ Todo queda instalado directo en Ubuntu: Node 22, PostgreSQL, Caddy (HTTPS autom�
    - dominios del frontend.
 
    Después corré `systemctl restart sentryx-api sentryx-realtime`.
-5. Creá el colegio y su Representante Legal (la contraseña temporal se muestra una sola vez):
+5. Creá tu cuenta de superadmin (equipo Sentryx) y, desde la app, *Plataforma → Colegios → Nuevo colegio*:
+
+   ```bash
+   cd /opt/sentryx/api
+   sudo -u sentryx npm run superadmin -- --email equipo@tudominio.com --first Nombre --last Apellido
+   ```
+
+   O por consola, el colegio y su Representante Legal (la contraseña temporal se muestra una sola vez):
 
    ```bash
    cd /opt/sentryx/api
@@ -142,9 +141,32 @@ Todo queda instalado directo en Ubuntu: Node 22, PostgreSQL, Caddy (HTTPS autom�
 ## 4. Push y email
 
 - **Push:** `cd api && npm run push:keys` en tu PC; pegá las claves en el `.env`. En iPhone, la familia tiene que agregar Sentryx a la pantalla de inicio.
-- **Email:** solo se manda a quien no tiene push activo, o en comunicados urgentes o que piden confirmación. Así el volumen es bajo.
-  - **Brevo**: 300 por día gratis (ya está en la plantilla).
-  - Amazon SES: unos USD 0,10 cada 1.000 emails.
+- **Email:** solo se manda a quien no tiene push activo, o en comunicados urgentes o que piden confirmación (además de altas y recupero de contraseña). Así el volumen es bajo.
+
+### Remitente `sentryx@wearesrv.com`
+
+Estado del dominio `wearesrv.com` (revisado el 18/10/2026):
+
+| Registro | Valor actual | Estado |
+|---|---|---|
+| MX | `mx1/mx2.hostinger.com` **y** `smtp.google.com` | ⚠️ Mezcla dos proveedores: dejá solo los de Hostinger (o solo Google) para que el correo entrante no se pierda |
+| SPF | `v=spf1 include:_spf.mail.hostinger.com ~all` | ✅ Autoriza a Hostinger |
+| DKIM | `hostingermail-a._domainkey` | ✅ Firmado por Hostinger |
+| DMARC | `v=DMARC1; p=none` | ⚠️ Solo monitorea: cuando los envíos estén estables, pasalo a `p=quarantine` |
+
+**Opción A: Hostinger (recomendada para empezar, costo 0).** El dominio ya está listo para Hostinger:
+1. En hPanel → *Emails*, creá la casilla `sentryx@wearesrv.com`.
+2. En el `.env`: `SMTP_HOST=smtp.hostinger.com`, `SMTP_PORT=465`, `SMTP_USER=sentryx@wearesrv.com`, `SMTP_PASS=<clave de la casilla>`, `MAIL_FROM=sentryx@wearesrv.com`.
+3. Probalo: `npm run mail:test -- --to tu@email.com --check-dns`. Verifica la conexión, manda un email de prueba y revisa SPF, DKIM y DMARC.
+
+El límite de Hostinger depende del plan (en general, cientos de envíos por día). Alcanza para varios colegios por el bajo volumen.
+
+**Opción B: proveedor transaccional (cuando crezca).** Mejor entregabilidad, métricas de rebotes y sin límites de casilla:
+- **Resend**: 3.000 por mes gratis (100 por día). Se verifica el dominio con un registro DKIM (`resend._domainkey`) y un SPF en un subdominio de envío (`send.wearesrv.com`), así **no toca** el SPF de Hostinger. SMTP: `smtp.resend.com:465`, usuario `resend` y la API key como contraseña.
+- **Amazon SES**: unos USD 0,10 cada 1.000 emails. Hay que pedir salir del *sandbox*. SMTP: `email-smtp.<región>.amazonaws.com:587`.
+- **SendGrid**: ya no tiene plan gratis permanente. No conviene para este volumen.
+
+En cualquier caso, el remitente sigue siendo `sentryx@wearesrv.com`: solo cambian las 4 variables `SMTP_*`.
 
 ## 5. Costos mensuales y costo por usuario
 
@@ -168,6 +190,46 @@ Todo queda instalado directo en Ubuntu: Node 22, PostgreSQL, Caddy (HTTPS autom�
 - **Almacenamiento:** después de los 10 GB gratis, cada GB extra cuesta USD 0,015 por mes (50 GB son unos USD 0,60).
 - **Más colegios en el mismo VPS:** el CX23 aguanta unos 5–8 colegios de este tamaño. Con 5 colegios, el costo baja a unos USD 0,004 por alumno por mes.
 - **Al crecer:** primero el chat a su propio VPS (cambiando una URL); después la base de datos a un servidor aparte o administrado.
-- **Variables a vigilar:** el ancho de banda de Netlify, los videos subidos en lugar de enlazados y Solvix (OpenAI), si se usan los cursos con IA.
+- **Variables a vigilar:** el ancho de banda de Netlify y los videos subidos en lugar de enlazados.
 
 **Conclusión:** la infraestructura cuesta centavos de dólar por alumno por año. El costo real del servicio está en soporte, capacitación y desarrollo.
+
+## 6. Colegio de demostración (para directivos)
+
+Crea un colegio de demo completo (Inicial, Primario y Secundario, con alumnos, notas, asistencia, comunicados y mensajes) con **un usuario por rol**:
+
+```bash
+cd api && npm run build
+npm run seed:demo:prod -- --password 'Una-Clave-Larga-2026' --domain demo.wearesrv.com --name "Colegio Demo Sentryx" --slug demo
+```
+
+- `--password` es obligatoria en producción (mínimo 10 caracteres) y es la misma para todos los usuarios de la demo.
+- En producción no se cargan DNIs ficticios (podrían coincidir con personas reales): se ingresa con el email.
+- `--with-superadmin` crea además `superadmin@<dominio>` para mostrar la consola de la plataforma (no lo uses si no hace falta).
+- Link de ingreso: `https://<tu-front>/c/demo`.
+
+| Rol | Usuario | Qué muestra |
+|---|---|---|
+| Representante Legal | `representante@demo.wearesrv.com` | Todo el colegio, incluida la facturación |
+| Dirección · Primario | `directora@demo.wearesrv.com` | Conducción de Primario |
+| Vicedirección · Primario | `vicedirectora@demo.wearesrv.com` | Acompaña a la conducción |
+| Rectoría · Secundario | `rectora@demo.wearesrv.com` | Conducción de Secundario |
+| Secretaría | `secretaria@demo.wearesrv.com` | Altas, legajos y comunicados |
+| Administración | `administracion@demo.wearesrv.com` | Familias y comunicados (no ve notas) |
+| Preceptoría · Secundario | `preceptora@demo.wearesrv.com` | Asistencia, alertas y canales |
+| Docente | `docente1@demo.wearesrv.com` | Sus materias: notas, aulas y mensajes |
+| Familia (Inicial) | `familia1@demo.wearesrv.com` | Un hijo/a en Sala de 5 |
+| Familia (Secundario) | `familia19@demo.wearesrv.com` | Un hijo/a en 2º 1ª |
+| Estudiante (Secundario) | `estudiante1@demo.wearesrv.com` | Canales, aulas y mensajes con docentes |
+
+Cuando termine la presentación, se puede suspender desde *Plataforma → Colegios* (no factura mientras está suspendido).
+
+## 7. Soporte y auditoría
+
+- **Reportar un problema:** cualquier usuario lo hace desde el menú (o *Mi perfil*). El reporte llega con su usuario, colegio, pantalla, IP, navegador y los últimos errores técnicos de su sesión. Se responde desde *Plataforma → Reportes de usuarios*, y quien reportó recibe la respuesta como notificación.
+- **Auditoría:**
+  - Cada acción que modifica algo queda registrada con usuario, IP, fecha y hora, resultado y duración.
+  - También quedan los cambios sensibles (con el antes y el después) y los ingresos, incluidos los fallidos.
+  - Cada colegio lo ve en *Administración → Auditoría* (Representante Legal y Dirección); el equipo Sentryx, en *Plataforma → Auditoría*.
+  - La IP real se toma de `X-Forwarded-For`, que agrega Caddy (`app.set('trust proxy', 1)` en `api/src/app.ts`). Si además ponés el proxy naranja de Cloudflare delante, subilo a `2`: si no, se registra la IP de Cloudflare.
+

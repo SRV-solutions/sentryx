@@ -6,6 +6,7 @@ import { apiGet } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Empty, ErrorBox, PageHeader, Skeleton, Tabs, Badge } from '../../ui';
 import type { PeriodKind } from '../../school/types';
+import { Entity, Action } from '../../school/permissions';
 
 interface SubjectCard {
   id: number;
@@ -19,7 +20,7 @@ const KIND_LABEL: Record<PeriodKind, string> = { CONCEPTUAL: 'Conceptual', NUMER
 
 export default function SubjectsPage() {
   const { session, can } = useSchool();
-  const canAll = can('grades.read');
+  const canAll = can(Entity.GRADES, Action.READ);
   const [view, setView] = useState<'mine' | 'all'>(session?.teaching.length ? 'mine' : 'all');
   const q = useQuery({
     queryKey: ['my-subjects', view],

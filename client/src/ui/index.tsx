@@ -1,5 +1,7 @@
-import { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
-import { Inbox } from 'lucide-react';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { Inbox, Eye, EyeOff } from 'lucide-react';
+import { mediaUrl } from '../lib/api';
 
 /* ---------------- Primitivos ---------------- */
 
@@ -48,11 +50,15 @@ const initials = (name: string) =>
     .map((p) => p[0]?.toUpperCase())
     .join('');
 
-export const Avatar = ({ name, src, size }: { name: string; src?: string | null; size?: 'sm' | 'lg' }) => (
-  <span className={`avatar ${size ? `avatar-${size}` : ''}`} aria-hidden>
-    {src ? <img src={src} alt="" loading="lazy" /> : initials(name)}
-  </span>
-);
+export const Avatar = ({ name, src, size }: { name: string; src?: string | null; size?: 'sm' | 'lg' | 'xl' }) => {
+  const [broken, setBroken] = useState(false);
+  const url = mediaUrl(src);
+  return (
+    <span className={`avatar ${size ? `avatar-${size}` : ''}`} aria-hidden>
+      {url && !broken ? <img src={url} alt="" loading="lazy" onError={() => setBroken(true)} /> : initials(name)}
+    </span>
+  );
+};
 
 export const Badge = ({ tone, children }: { tone?: 'ok' | 'warn' | 'danger' | 'info' | 'accent'; children: ReactNode }) => (
   <span className={`badge ${tone ? `badge-${tone}` : ''}`}>{children}</span>
@@ -104,19 +110,30 @@ export const Field = ({ label, children, hint }: { label: string; children: Reac
   </div>
 );
 
+/** Pila de hojas abiertas: Escape cierra solo la de arriba. */
+const sheetStack: Array<() => void> = [];
+const onSheetKey = (e: KeyboardEvent) => e.key === 'Escape' && sheetStack[sheetStack.length - 1]?.();
+
+/** Hoja deslizable (abajo en el celular, centrada en escritorio). Se monta en <body> para poder apilar varias. */
 export const Sheet = ({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) => {
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
-    document.addEventListener('keydown', onKey);
+    const close = () => closeRef.current();
+    if (!sheetStack.length) document.addEventListener('keydown', onSheetKey);
+    sheetStack.push(close);
     document.body.style.overflow = 'hidden';
     return () => {
-      document.removeEventListener('keydown', onKey);
-      document.body.style.overflow = '';
+      sheetStack.splice(sheetStack.indexOf(close), 1);
+      if (!sheetStack.length) {
+        document.removeEventListener('keydown', onSheetKey);
+        document.body.style.overflow = '';
+      }
     };
-  }, [open, onClose]);
+  }, [open]);
   if (!open) return null;
-  return (
+  return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
       <div className="sheet" role="dialog" aria-modal aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="row-between" style={{ marginBottom: 16 }}>
@@ -127,8 +144,78 @@ export const Sheet = ({ open, onClose, title, children }: { open: boolean; onClo
         </div>
         {children}
       </div>
+    </div>,
+    document.body
+  );
+};
+
+/* ---------------- Contraseña ---------------- */
+
+/**
+ * Campo de contraseña con botón para verla/ocultarla. Se usa en el ingreso, el cambio obligatorio,
+ * "Mi perfil" y el recupero por email.
+ */
+export const PasswordInput = ({
+  id,
+  value,
+  onChange,
+  autoComplete = 'current-password',
+  required,
+  invalid,
+  placeholder,
+  autoFocus,
+}: {
+  id?: string;
+  value: string;
+  onChange: (value: string) => void;
+  autoComplete?: 'current-password' | 'new-password';
+  required?: boolean;
+  invalid?: boolean;
+  placeholder?: string;
+  autoFocus?: boolean;
+}) => {
+  const [visible, setVisible] = useState(false);
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        id={id}
+        className={`input ${invalid ? 'invalid' : ''}`}
+        type={visible ? 'text' : 'password'}
+        autoComplete={autoComplete}
+        autoCapitalize="none"
+        autoCorrect="off"
+        spellCheck={false}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required={required}
+        placeholder={placeholder}
+        autoFocus={autoFocus}
+        style={{ paddingRight: 48 }}
+        aria-invalid={invalid || undefined}
+      />
+      <button
+        type="button"
+        className="icon-btn"
+        style={{ position: 'absolute', right: 3, top: 3 }}
+        onClick={() => setVisible((v) => !v)}
+        aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+        aria-pressed={visible}
+        tabIndex={-1}
+      >
+        {visible ? <EyeOff size={18} /> : <Eye size={18} />}
+      </button>
     </div>
   );
+};
+
+/** Validación de contraseña nueva en el navegador (la API vuelve a validar). */
+export const newPasswordProblem = (next: string, confirm: string, current?: string) => {
+  if (next.length < 8) return 'La nueva contraseña debe tener al menos 8 caracteres.';
+  if (next.length > 100) return 'La contraseña es demasiado larga (máximo 100 caracteres).';
+  if (current !== undefined && next === current) return 'La nueva contraseña tiene que ser distinta de la actual.';
+  if (confirm && next !== confirm) return 'Las contraseñas no coinciden.';
+  if (!confirm) return 'Repetí la nueva contraseña.';
+  return null;
 };
 
 /* ---------------- Toasts ---------------- */

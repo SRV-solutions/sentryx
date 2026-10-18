@@ -15,7 +15,7 @@ import {
   ALERT_RULE_TYPES,
   Severity,
   SEVERITIES,
-} from '../../school/constants';
+} from '../../constants/school';
 import type { Student } from './people';
 
 export class Attendance extends Model<InferAttributes<Attendance>, InferCreationAttributes<Attendance>> {

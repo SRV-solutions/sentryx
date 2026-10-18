@@ -2,15 +2,17 @@ import { createContext, useContext, useEffect, useMemo, useState, ReactNode } fr
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, getSchoolId, setSchoolId, getLevelId, setLevelId } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
-import type { Permission, SchoolSession, SchoolSummary } from './types';
+import type { SchoolSession, SchoolSummary } from './types';
+import { Entity, Action, permissionKey } from './permissions';
 
 interface Ctx {
   schools: SchoolSummary[];
   session: SchoolSession | null;
   loading: boolean;
-  /** true si el usuario no pertenece a ninguna escuela (alumno de cursos SRV). */
+  /** true si el usuario no pertenece a ningún colegio (o es superadmin sin colegios creados). */
   noSchool: boolean;
-  can: (p: Permission) => boolean;
+  /** ¿Tiene el permiso (acción sobre entidad) en el colegio activo? */
+  can: (entity: Entity, action: Action) => boolean;
   switchSchool: (id: number) => void;
   /** Nivel activo (null = todos). */
   levelId: number | null;
@@ -56,7 +58,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
       session,
       loading: schoolsQ.isLoading || (!!activeId && sessionQ.isLoading),
       noSchool: schoolsQ.isSuccess && schoolsQ.data.length === 0,
-      can: (p) => perms.has(p),
+      can: (entity, action) => perms.has(permissionKey(entity, action)),
       // El servidor confirma el nivel (si no tiene acceso a ese nivel, vuelve a "todos").
       levelId: session?.activeLevelId ?? null,
       switchLevel: (id) => {

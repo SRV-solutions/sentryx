@@ -9,6 +9,7 @@ import { apiGet, apiSend, uploadFile, formatBytes, type UploadedFile } from '../
 import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Chips, Empty, ErrorBox, Field, Sheet, Skeleton, Tabs, fmtDate, fullName, timeAgo, useToast } from '../../ui';
 import type { PersonLite } from '../../school/types';
+import { Entity, Action } from '../../school/permissions';
 
 interface Classroom {
   division: { id: number; name: string; shift: string | null; level: { id: number; name: string; type: string } };
@@ -344,11 +345,11 @@ export default function ClassroomPage() {
             <div className="small" style={{ opacity: 0.9 }}>{new Set(room.subjects.map((s) => s.teacher.id)).size} docentes · {room.studentCount} alumnos</div>
             {!room.asGuardian && (
               <div className="row wrap" style={{ gap: 8, marginTop: 4 }}>
-                {can('attendance.write') && <Link to="/asistencia" className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)' }}><ClipboardCheck size={14} /> Asistencia</Link>}
+                {can(Entity.ATTENDANCE, Action.UPDATE) && <Link to="/asistencia" className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)' }}><ClipboardCheck size={14} /> Asistencia</Link>}
                 {room.subjects.filter((s) => s.mine).map((s) => (
                   <Link key={s.subject.id} to={`/materias/${room.division.id}/${s.subject.id}`} className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)' }}><BookOpenCheck size={14} /> Notas {s.subject.name}</Link>
                 ))}
-                {can('grades.read') && <Link to={`/division/${room.division.id}`} className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)' }}><BarChart3 size={14} /> Estado académico</Link>}
+                {can(Entity.GRADES, Action.READ) && <Link to={`/division/${room.division.id}`} className="btn btn-sm" style={{ background: 'rgba(255,255,255,0.15)' }}><BarChart3 size={14} /> Estado académico</Link>}
               </div>
             )}
           </div>

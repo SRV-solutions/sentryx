@@ -8,6 +8,7 @@ User=sentryx
 WorkingDirectory=/opt/sentryx/api
 EnvironmentFile=/opt/sentryx/api/.env
 Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
 ExecStart=/usr/bin/node dist/realtime-server.js
 Restart=always
 RestartSec=2

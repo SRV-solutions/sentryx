@@ -8,7 +8,7 @@ import {
   NonAttribute,
 } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { AudienceType } from '../../school/constants';
+import { AudienceType } from '../../constants/school';
 
 export interface Attachment {
   /** FileAsset (formato actual). */

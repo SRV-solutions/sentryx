@@ -8,7 +8,7 @@ import {
   NonAttribute,
 } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { PeriodKind, PERIOD_KINDS } from '../../school/constants';
+import { PeriodKind, PERIOD_KINDS } from '../../constants/school';
 
 /** Período de calificación de un nivel en un ciclo lectivo (bimestre, trimestre, informe). */
 export class GradingPeriod extends Model<InferAttributes<GradingPeriod>, InferCreationAttributes<GradingPeriod>> {

@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Megaphone, MessageCircle, BellRing, ClipboardCheck, BookOpenCheck, ChevronRight, BellPlus, CheckCircle2 } from 'lucide-react';
+import { Megaphone, MessageCircle, BellRing, ClipboardCheck, BookOpenCheck, ChevronRight, BellPlus, CheckCircle2, Hash, FileText, School } from 'lucide-react';
 import { apiGet } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { useAuth } from '../../context/AuthContext';
 import { Avatar, Card, ErrorBox, Skeleton, Badge, fmtDate, useToast } from '../../ui';
 import { enablePush, pushState, isIOSNotInstalled, syncPush } from '../../lib/push';
+import { Entity, Action } from '../../school/permissions';
 
 interface Dashboard {
   unreadAnnouncements: number;
@@ -21,6 +22,15 @@ interface Dashboard {
     attendance: { days: number; absences: number; percent: number; absentToday: boolean };
     lastReportCardAt: string | null;
   }>;
+  me?: {
+    id: number;
+    firstName: string;
+    lastName: string;
+    photoUrl: string | null;
+    division?: { id: number; name: string; Level?: { name: string } };
+    attendance: { days: number; absences: number; percent: number; absentToday: boolean };
+    lastReportCardAt: string | null;
+  } | null;
   mySubjects?: number;
   alerts?: Partial<Record<'CRITICAL' | 'WARNING' | 'INFO', number>>;
   attendanceToday?: { divisions: number; taken: number; absent: number };
@@ -152,15 +162,41 @@ export default function HomePage() {
             </section>
           )}
 
+          {d.me && (
+            <section className="stack">
+              <h2 className="h2">Mi curso</h2>
+              <div className="card card-pad stack">
+                <div className="row">
+                  <div className="grow">
+                    <div className="h3">{d.me.division ? `${d.me.division.name} · ${d.me.division.Level?.name}` : 'Sin inscripción vigente'}</div>
+                    <div className="row wrap" style={{ marginTop: 6 }}>
+                      <Badge tone={d.me.attendance.percent < 85 ? 'warn' : undefined}>Asistencia {d.me.attendance.percent}%</Badge>
+                      <Badge>{d.me.attendance.absences} faltas</Badge>
+                      {d.me.lastReportCardAt && <Badge tone="info">Boletín {fmtDate(d.me.lastReportCardAt, { day: 'numeric', month: 'short' })}</Badge>}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Card pad={false}>
+                <div className="list">
+                  <Link to="/canales" className="list-item"><Hash size={18} /><span className="grow">Canales del curso</span><ChevronRight size={16} /></Link>
+                  <Link to="/mensajes/nuevo" className="list-item"><MessageCircle size={18} /><span className="grow">Escribirle a un docente</span><ChevronRight size={16} /></Link>
+                  {d.me.division && <Link to={`/aulas/${d.me.division.id}`} className="list-item"><School size={18} /><span className="grow">Materiales y tareas</span><ChevronRight size={16} /></Link>}
+                  <Link to={`/familia/${d.me.id}`} className="list-item"><FileText size={18} /><span className="grow">Mi boletín y asistencia</span><ChevronRight size={16} /></Link>
+                </div>
+              </Card>
+            </section>
+          )}
+
           {session?.isStaff && (
             <section className="stack">
               <h2 className="h2">Accesos rápidos</h2>
               <Card pad={false}>
                 <div className="list">
-                  {can('announcements.publish') && <Link to="/comunicados/nuevo" className="list-item"><Megaphone size={18} /><span className="grow">Nuevo comunicado</span><ChevronRight size={16} /></Link>}
-                  {can('attendance.write') && <Link to="/asistencia" className="list-item"><ClipboardCheck size={18} /><span className="grow">Tomar asistencia</span><ChevronRight size={16} /></Link>}
-                  {(session.teaching.length > 0 || can('grades.read')) && <Link to="/materias" className="list-item"><BookOpenCheck size={18} /><span className="grow">Cargar notas</span><ChevronRight size={16} /></Link>}
-                  {can('alerts.read') && <Link to="/alertas" className="list-item"><BellRing size={18} /><span className="grow">Panel de alertas</span><ChevronRight size={16} /></Link>}
+                  {can(Entity.ANNOUNCEMENTS, Action.CREATE) && <Link to="/comunicados/nuevo" className="list-item"><Megaphone size={18} /><span className="grow">Nuevo comunicado</span><ChevronRight size={16} /></Link>}
+                  {can(Entity.ATTENDANCE, Action.UPDATE) && <Link to="/asistencia" className="list-item"><ClipboardCheck size={18} /><span className="grow">Tomar asistencia</span><ChevronRight size={16} /></Link>}
+                  {(session.teaching.length > 0 || can(Entity.GRADES, Action.READ)) && <Link to="/materias" className="list-item"><BookOpenCheck size={18} /><span className="grow">Cargar notas</span><ChevronRight size={16} /></Link>}
+                  {can(Entity.ALERTS, Action.READ) && <Link to="/alertas" className="list-item"><BellRing size={18} /><span className="grow">Panel de alertas</span><ChevronRight size={16} /></Link>}
                 </div>
               </Card>
             </section>

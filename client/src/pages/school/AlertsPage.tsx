@@ -6,6 +6,7 @@ import { apiGet, apiSend } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Badge, Chips, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, Tabs, timeAgo, useToast } from '../../ui';
 import type { Severity } from '../../school/types';
+import { Entity, Action } from '../../school/permissions';
 
 interface AlertRow {
   id: number;
@@ -99,7 +100,7 @@ const AlertsList = () => {
               Actualizada {timeAgo(a.updatedAt)}
               {a.note && ` · ${a.note}`}
             </div>
-            {can('alerts.manage') && a.status !== 'RESOLVED' && (
+            {can(Entity.ALERTS, Action.UPDATE) && a.status !== 'RESOLVED' && (
               <div className="row wrap">
                 {a.status === 'OPEN' && (
                   <button className="btn btn-sm btn-ghost" onClick={() => update.mutate({ id: a.id, status: 'ACKNOWLEDGED' })}><Eye size={14} /> Tomar seguimiento</button>
@@ -157,7 +158,7 @@ const RulesPanel = () => {
       <div className="alert alert-info small">
         Las reglas definen cuándo se dispara una alerta. Cuando tengan la normativa vigente, ajustá los umbrales acá: no hace falta tocar el sistema.
       </div>
-      {can('alerts.rules') && (
+      {can(Entity.ALERT_RULES, Action.UPDATE) && (
         <div className="row wrap">
           <button className="btn btn-sm" onClick={() => setEdit({ ...emptyRule })}><Plus size={16} /> Nueva regla</button>
           <button className="btn btn-sm btn-ghost" onClick={() => recompute.mutate()} disabled={recompute.isPending}><RefreshCw size={16} /> Recalcular</button>
@@ -176,7 +177,7 @@ const RulesPanel = () => {
               </div>
             </div>
             <Badge tone={SEV[r.severity].tone}>{SEV[r.severity].label}</Badge>
-            {can('alerts.rules') && (
+            {can(Entity.ALERT_RULES, Action.UPDATE) && (
               <button className="icon-btn" onClick={() => setEdit({ ...r, windowDays: r.windowDays ?? 30 })} aria-label="Editar"><Pencil size={16} /></button>
             )}
           </div>

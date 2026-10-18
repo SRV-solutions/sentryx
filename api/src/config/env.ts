@@ -6,6 +6,13 @@ dotenv.config();
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().default(3000),
+  /** Interfaz de red donde escucha la API. En producción 127.0.0.1: solo se llega a través de Caddy (HTTPS). */
+  HOST: z.string().default('0.0.0.0'),
+  /**
+   * Claves para clientes que no son el navegador (futura app móvil, scripts de soporte), separadas por coma.
+   * Se mandan en el header X-Client-Key. El navegador se identifica por su Origin (CORS_ORIGINS).
+   */
+  CLIENT_APP_KEYS: z.string().default(''),
 
   DATABASE_URL: z.string().optional(),
   DB_USER: z.string().default('postgres'),
@@ -31,7 +38,7 @@ const schema = z.object({
   MAIL_FROM: z.string().optional(),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  MAIL_FROM_NAME: z.string().default('Sentryx · SRV'),
+  MAIL_FROM_NAME: z.string().default('Sentryx'),
 
   // --- Almacenamiento: Cloudflare R2 (recomendado: descargas gratis, 10 GB sin cargo) ---
   /** ID de cuenta de Cloudflare: arma solo el endpoint https://<id>.r2.cloudflarestorage.com */
@@ -48,7 +55,6 @@ const schema = z.object({
   AWS_ACCESS_KEY_ID: z.string().optional(),
   AWS_SECRET_ACCESS_KEY: z.string().optional(),
   S3_BUCKET_NAME: z.string().optional(),
-  S3_VIDEO_BUCKET_NAME: z.string().optional(),
   /** Endpoint S3-compatible (ej: Cloudflare R2 https://<cuenta>.r2.cloudflarestorage.com). Vacío = AWS S3. */
   S3_ENDPOINT: z.string().url().optional(),
   /** Bucket de archivos escolares (materiales, adjuntos). Si falta se usa S3_BUCKET_NAME. */
@@ -70,10 +76,10 @@ const schema = z.object({
   VAPID_PRIVATE_KEY: z.string().optional(),
   VAPID_SUBJECT: z.string().default('mailto:soporte@wearesrv.com'),
 
-  OPENAI_API_KEY: z.string().optional(),
-  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
-  DB_AI_NAME: z.string().optional(),
-  EMBEDDING_SECRET: z.string().optional(),
+  /** Precio mensual por usuario activo (ARS). Se congela en cada liquidación cerrada. */
+  BILLING_PRICE_ARS: z.coerce.number().positive().default(660),
+  /** Zona horaria de los cortes de ciclo (mes calendario). */
+  BILLING_TZ_OFFSET: z.string().regex(/^[+-]\d{2}:\d{2}$/).default('-03:00'),
 });
 
 const parsed = schema.safeParse(process.env);
@@ -101,6 +107,7 @@ export const env = {
   // En desarrollo se usa un secreto efímero: los tokens se invalidan al reiniciar, nunca uno fijo y conocido.
   JWT_SECRET: data.JWT_SECRET ?? require('crypto').randomBytes(32).toString('hex'),
   corsOrigins: data.CORS_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean),
+  clientAppKeys: data.CLIENT_APP_KEYS.split(',').map((k) => k.trim()).filter((k) => k.length >= 24),
   storage: {
     endpoint: data.S3_ENDPOINT ?? (data.R2_ACCOUNT_ID ? `https://${data.R2_ACCOUNT_ID}.r2.cloudflarestorage.com` : undefined),
     accessKeyId: data.R2_ACCESS_KEY_ID ?? data.AWS_ACCESS_KEY_ID,
@@ -108,8 +115,6 @@ export const env = {
     isR2: Boolean(data.R2_ACCOUNT_ID || data.S3_ENDPOINT?.includes('r2.cloudflarestorage.com')),
   },
   filesBucket: data.R2_BUCKET ?? data.S3_FILES_BUCKET ?? data.S3_BUCKET_NAME,
-  videoBucket: data.R2_BUCKET ?? data.S3_VIDEO_BUCKET_NAME,
-  reportsBucket: data.R2_BUCKET ?? data.S3_BUCKET_NAME,
   backupBucket: data.R2_BACKUP_BUCKET ?? process.env.S3_BACKUP_BUCKET ?? data.R2_BUCKET ?? data.S3_FILES_BUCKET,
   pushEnabled: Boolean(data.VAPID_PUBLIC_KEY && data.VAPID_PRIVATE_KEY),
   mailEnabled: Boolean(data.SMTP_USER && data.SMTP_PASS),

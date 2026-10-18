@@ -6,6 +6,7 @@ import { apiGet, apiSend } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Chips, ErrorBox, Skeleton, useToast, fullName, Sheet, Field } from '../../ui';
 import type { LevelSettings, Period, PersonLite } from '../../school/types';
+import { Entity, Action } from '../../school/permissions';
 
 interface Sheet_ {
   division: { id: number; name: string };
@@ -237,11 +238,11 @@ export default function GradeSheetPage() {
         })}
       </div>
 
-      {(can('periods.close') || can('reportcards.publish')) && (
+      {(can(Entity.GRADING_PERIODS, Action.CLOSE) || can(Entity.REPORT_CARDS, Action.PUBLISH)) && (
         <div className="card card-pad stack">
           <h2 className="h3">Cierre del período</h2>
           <div className="row wrap">
-            {can('periods.close') &&
+            {can(Entity.GRADING_PERIODS, Action.CLOSE) &&
               (period.closed ? (
                 <button className="btn btn-sm btn-ghost" onClick={() => periodAction.mutate('reopen')}><Unlock size={16} /> Reabrir período</button>
               ) : (
@@ -249,7 +250,7 @@ export default function GradeSheetPage() {
                   <Lock size={16} /> Cerrar período
                 </button>
               ))}
-            {can('reportcards.publish') && !period.published && (
+            {can(Entity.REPORT_CARDS, Action.PUBLISH) && !period.published && (
               <button className="btn btn-sm" onClick={() => confirm(`¿Publicar el boletín de ${period.name} para ${d.division.name}? Las familias recibirán un aviso.`) && periodAction.mutate('publish')}>
                 <Send size={16} /> Publicar boletín a familias
               </button>

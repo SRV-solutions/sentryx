@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Moon, Sun, MoreHorizontal, LogOut, User, ChevronDown, Check, Layers } from 'lucide-react';
+import { Bell, Moon, Sun, MoreHorizontal, LogOut, ChevronDown, Check, Layers, LifeBuoy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../school/SchoolContext';
@@ -9,6 +9,7 @@ import { useSocketEvent } from '../context/SocketContext';
 import { apiGet, apiSend } from '../lib/api';
 import { buildNav, NavItem } from './nav';
 import { Sheet, timeAgo, Empty, useToast, Avatar } from '../ui';
+import { ReportProblemSheet } from '../school/ReportProblem';
 
 const SRV_LOGO = 'https://wearesrv.com/srv-logo-96.webp';
 
@@ -31,15 +32,18 @@ const useBadges = (enabled: boolean) => {
     enabled,
     refetchInterval: 120_000,
   });
-  return { announcements: announcements.data?.count ?? 0, threads: threads.data?.count ?? 0 };
+  const channels = useQuery({
+    queryKey: ['badge', 'channels'],
+    queryFn: () => apiGet<{ count: number }>('/school/channels-unread'),
+    enabled,
+    refetchInterval: 120_000,
+  });
+  return { announcements: announcements.data?.count ?? 0, threads: threads.data?.count ?? 0, channels: channels.data?.count ?? 0 };
 };
 
 export const AppShell = ({ children, title }: { children: ReactNode; title?: string }) => {
-  const { logout, isAdmin, hasPermission } = useAuth() as {
-    logout: () => void;
-    isAdmin: boolean;
-    hasPermission: (e: string, a: string) => boolean;
-  };
+  const { logout, isSuperAdmin, user } = useAuth();
+  const meName = user ? `${user.userData.firstName} ${user.userData.lastName}` : '?';
   const { darkMode, toggleTheme } = useTheme() as { darkMode: boolean; toggleTheme: () => void };
   const { session, can, schools, switchSchool, levelId, switchLevel } = useSchool();
   const navigate = useNavigate();
@@ -48,9 +52,9 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
   const [moreOpen, setMoreOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
   const [schoolOpen, setSchoolOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
-  const lms = hasPermission('courses', 'read');
-  const nav = useMemo(() => buildNav({ session, can, lms, isAdmin }), [session, can, lms, isAdmin]);
+  const nav = useMemo(() => buildNav({ session, can, isSuperAdmin }), [session, can, isSuperAdmin]);
   const badges = useBadges(!!session);
 
   const notifications = useQuery({
@@ -78,6 +82,8 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
   }, [qc]);
   useSocketEvent('thread_message', onThread);
   useSocketEvent('thread_updated', onThread);
+  const onChannel = useCallback(() => qc.invalidateQueries({ queryKey: ['badge', 'channels'] }), [qc]);
+  useSocketEvent('channel_message', onChannel);
 
   const badgeFor = (item: NavItem) => (item.badge ? badges[item.badge] : 0);
   const mobileMain = nav.length > 5 ? nav.slice(0, 4) : nav;
@@ -113,8 +119,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
 
   const sections: Array<[NavItem['section'], string]> = [
     ['school', session?.school.name ?? 'Escuela'],
-    ['courses', 'Cursos SRV'],
-    ['admin', 'SRV'],
+    ['platform', 'Plataforma Sentryx'],
   ];
 
   return (
@@ -158,8 +163,11 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
         })}
         <div style={{ marginTop: 'auto' }}>
           <NavLink to="/perfil/me" className={({ isActive }) => (isActive ? 'active' : '')}>
-            <User size={19} /> Mi perfil
+            <Avatar name={meName} src={user?.userData.avatar} size="sm" /> <span className="truncate">Mi perfil</span>
           </NavLink>
+          <a href="#" onClick={(e) => (e.preventDefault(), setReportOpen(true))}>
+            <LifeBuoy size={19} /> Reportar un problema
+          </a>
           <a href="#" onClick={(e) => (e.preventDefault(), doLogout())}>
             <LogOut size={19} /> Cerrar sesión
           </a>
@@ -193,7 +201,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
             {unreadNotifications > 0 && <span className="dot" style={{ position: 'absolute', top: 9, right: 9 }} />}
           </button>
           <Link to="/perfil/me" className="icon-btn hide-desktop" aria-label="Mi perfil">
-            <User size={20} />
+            <Avatar name={meName} src={user?.userData.avatar} size="sm" />
           </Link>
         </header>
 
@@ -226,11 +234,16 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
               {badgeFor(item) > 0 && <span className="count">{badgeFor(item)}</span>}
             </Link>
           ))}
+          <a href="#" className="list-item" onClick={(e) => (e.preventDefault(), setMoreOpen(false), setReportOpen(true))}>
+            <LifeBuoy size={20} /> <span className="grow">Reportar un problema</span>
+          </a>
           <a href="#" className="list-item" onClick={(e) => (e.preventDefault(), doLogout())}>
             <LogOut size={20} /> <span className="grow">Cerrar sesión</span>
           </a>
         </div>
       </Sheet>
+
+      <ReportProblemSheet open={reportOpen} onClose={() => setReportOpen(false)} />
 
       <Sheet open={bellOpen} onClose={() => setBellOpen(false)} title="Notificaciones">
         {unreadNotifications > 0 && (

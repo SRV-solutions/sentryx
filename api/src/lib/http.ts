@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { ZodError, ZodTypeAny, z } from 'zod';
 import { ValidationError, UniqueConstraintError, ForeignKeyConstraintError } from 'sequelize';
+import { describeZodError } from './validationMessages';
 
 export class HttpError extends Error {
   constructor(public status: number, message: string, public details?: unknown) {
@@ -49,10 +50,13 @@ export const errorHandler = (err: unknown, _req: Request, res: Response, _next: 
     return res.status(err.status).json({ message: err.message, details: err.details });
   }
   if (err instanceof ZodError) {
-    return res.status(400).json({ message: 'Datos inválidos.', details: err.flatten().fieldErrors });
+    const { message, issues } = describeZodError(err);
+    return res.status(400).json({ message, details: err.flatten().fieldErrors, issues });
   }
   if (err instanceof UniqueConstraintError) {
-    return res.status(409).json({ message: 'Ya existe un registro con esos datos.', details: err.fields });
+    const fields = Object.keys(err.fields ?? {});
+    const which = fields.includes('email') ? 'Ese email ya está registrado.' : fields.includes('dni') ? 'Ese DNI ya está registrado.' : fields.includes('username') ? 'Ese nombre de usuario ya está en uso.' : 'Ya existe un registro con esos datos.';
+    return res.status(409).json({ message: which, details: err.fields });
   }
   if (err instanceof ForeignKeyConstraintError) {
     return res.status(400).json({ message: 'Referencia inválida a otro registro.' });

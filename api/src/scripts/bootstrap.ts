@@ -3,16 +3,18 @@
  *
  *   node dist/scripts/bootstrap.js --school "Colegio San Martín" --slug colegio-san-martin \
  *     --levels INICIAL,PRIMARIO,SECUNDARIO --year 2027 \
- *     --admin-email directora@colegio.edu.ar --admin-first Ana --admin-last Pérez [--admin-dni 20111222] [--srv-admin]
+ *     --admin-email directora@colegio.edu.ar --admin-first Ana --admin-last Pérez [--admin-dni 20111222] [--superadmin]
  *
  * Crea la escuela (niveles, ciclo, períodos y reglas de alerta por defecto) y su Representante Legal con
- * contraseña temporal (se muestra una sola vez). Con --srv-admin, el usuario además es administrador global de SRV.
+ * contraseña temporal (se muestra una sola vez). Con --superadmin, el usuario además es superadmin de la plataforma Sentryx (ve todos los colegios).
  */
 import * as M from '../models';
-import { createSchool } from '../school/services/setup';
-import { findOrCreatePerson } from '../school/services/users';
-import { ensureBaseData } from '../utils/seedDataBase';
-import { LEVEL_TYPES, LevelType } from '../school/constants';
+import { createSchool } from '../services/schoolSetup';
+import { findOrCreatePerson } from '../services/accounts';
+import { syncRbacCatalog, grantPlatformRole } from '../services/rbac';
+import { LEVEL_TYPES, LevelType } from '../constants/school';
+import { RoleCode } from '../constants/roles';
+import { reconcileAccess } from '../services/billing';
 
 const arg = (name: string) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -34,17 +36,17 @@ const run = async () => {
   const year = Number(arg('year') ?? new Date().getFullYear());
 
   await M.sequelize.authenticate();
-  await ensureBaseData();
+  await syncRbacCatalog();
 
   if (await M.School.findOne({ where: { slug } })) throw new Error(`Ya existe una escuela con slug "${slug}".`);
   const school = await createSchool({ name, slug, cue: arg('cue') ?? null, levels, year });
   const { user, tempPassword } = await findOrCreatePerson({ firstName, lastName, email, dni: arg('admin-dni') ?? null });
-  await M.Membership.create({ userId: user.id, schoolId: school.id, role: 'REPRESENTANTE_LEGAL', levelId: null, title: null });
+  await M.UserRole.create({ userId: user.id, schoolId: school.id, role: RoleCode.REPRESENTANTE_LEGAL, levelId: null, title: null });
 
-  if (process.argv.includes('--srv-admin')) {
-    const admin = await M.Role.findOne({ where: { roleName: 'admin' } });
-    await user.update({ roleId: admin!.id });
+  if (process.argv.includes('--superadmin')) {
+    await grantPlatformRole(user.id, RoleCode.SUPERADMIN);
   }
+  await reconcileAccess(school.id);
 
   console.log(`\n✅ Escuela "${name}" creada (id ${school.id}) con niveles ${levels.join(', ')} y ciclo ${year}.`);
   console.log(`   Representante Legal: ${email}`);

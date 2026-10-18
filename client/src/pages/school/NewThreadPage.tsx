@@ -19,7 +19,8 @@ export default function NewThreadPage() {
   const navigate = useNavigate();
   const toast = useToast();
   const [params] = useSearchParams();
-  const [studentId, setStudentId] = useState<number | null>(Number(params.get('alumno')) || null);
+  const studentSelf = session?.self && !session.isStaff ? session.self.studentId : null;
+  const [studentId, setStudentId] = useState<number | null>(studentSelf ?? (Number(params.get('alumno')) || null));
   const [recipientId, setRecipientId] = useState<number | null>(null);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -60,7 +61,7 @@ export default function NewThreadPage() {
     <form className="stack-lg page-narrow" style={{ margin: '0 auto', width: '100%' }} onSubmit={submit}>
       <PageHeader title="Nuevo mensaje" />
 
-      <section className="card card-pad stack">
+      {!studentSelf && <section className="card card-pad stack">
         <h2 className="h3">1. ¿Sobre qué alumno?</h2>
         {session?.isStaff && (
           <div style={{ position: 'relative' }}>
@@ -77,11 +78,11 @@ export default function NewThreadPage() {
             </button>
           ))}
         </div>
-      </section>
+      </section>}
 
       {studentId && (
         <section className="card card-pad stack">
-          <h2 className="h3">2. ¿A quién le escribís?</h2>
+          <h2 className="h3">{studentSelf ? '1. ¿A qué docente le escribís?' : '2. ¿A quién le escribís?'}</h2>
           {contacts.isLoading && <Skeleton count={3} h={52} />}
           {contacts.data && !contacts.data.length && <Empty title="No hay destinatarios disponibles" />}
           <div className="list">
@@ -101,7 +102,7 @@ export default function NewThreadPage() {
 
       {recipientId && (
         <section className="card card-pad stack">
-          <h2 className="h3">3. Mensaje</h2>
+          <h2 className="h3">{studentSelf ? '2.' : '3.'} Mensaje</h2>
           <Field label="Asunto">
             <input className="input" value={subject} onChange={(e) => setSubject(e.target.value)} maxLength={160} placeholder="Ej: Consulta sobre la tarea de Matemática" />
           </Field>

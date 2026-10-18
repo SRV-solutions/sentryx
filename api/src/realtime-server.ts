@@ -11,6 +11,7 @@ import http from 'http';
 import jwt from 'jsonwebtoken';
 import { Server } from 'socket.io';
 import { env } from './config/env';
+import { isTrustedOrigin, isTrustedClientKey } from './middlewares/security';
 
 if (!env.REALTIME_SECRET) {
   console.error('❌ REALTIME_SECRET es obligatorio para el servidor de tiempo real.');
@@ -71,6 +72,8 @@ const server = http.createServer(async (req, res) => {
 
 const io = new Server(server, {
   cors: { origin: env.corsOrigins, credentials: true },
+  // Solo el front (o un cliente registrado con X-Client-Key) puede abrir el socket.
+  allowRequest: (req, callback) => callback(null, isTrustedOrigin(req.headers.origin) || isTrustedClientKey(req.headers['x-client-key'])),
   // Celulares que cambian de wifi a datos: detectar caídas rápido y reconectar.
   pingInterval: 20_000,
   pingTimeout: 20_000,
@@ -94,7 +97,7 @@ io.on('connection', (socket) => {
   socket.join(`user_${(socket.data as { userId: number }).userId}`);
 });
 
-server.listen(env.REALTIME_PORT, () => console.log(`⚡ Sentryx realtime en puerto ${env.REALTIME_PORT}`));
+server.listen(env.REALTIME_PORT, env.HOST, () => console.log(`⚡ Sentryx realtime en ${env.HOST}:${env.REALTIME_PORT}`));
 
 const shutdown = () => {
   io.close();

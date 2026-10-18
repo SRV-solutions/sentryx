@@ -6,6 +6,7 @@ import { apiGet, apiSend, formatBytes } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Badge, Card, Empty, ErrorBox, PageHeader, Skeleton, Tabs, fmtDate, useToast } from '../../ui';
 import type { Paginated } from '../../school/types';
+import { Entity, Action } from '../../school/permissions';
 
 interface FileRow {
   id: number;
@@ -127,7 +128,7 @@ const UsagePanel = ({ onPickUser }: { onPickUser: (id: number) => void }) => {
 /** Gestión de archivos: cada docente administra lo suyo; administración ve el uso total y puede liberar espacio. */
 export default function FilesPage() {
   const { can } = useSchool();
-  const admin = can('people.manage');
+  const admin = can(Entity.USERS, Action.UPDATE);
   const [tab, setTab] = useState<'mine' | 'usage' | 'school'>('mine');
   const [uploaderId, setUploaderId] = useState<number | undefined>();
   return (

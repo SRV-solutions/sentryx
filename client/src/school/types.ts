@@ -1,13 +1,13 @@
+import type { PermissionKey } from './permissions';
 /** Tipos del dominio escolar (espejo de api/src/school). Reutilizables por la futura app React Native. */
 
 export type LevelType = 'INICIAL' | 'PRIMARIO' | 'SECUNDARIO';
 export type SchoolRole =
   | 'REPRESENTANTE_LEGAL' | 'DIRECTOR' | 'VICEDIRECTOR' | 'RECTOR' | 'SECRETARIO'
-  | 'PRECEPTOR' | 'ADMINISTRACION' | 'DOCENTE' | 'TUTOR';
-export type Permission =
-  | 'school.manage' | 'people.manage' | 'people.read' | 'announcements.publish' | 'announcements.publish.school'
-  | 'announcements.stats' | 'messages.staff' | 'grades.write' | 'grades.write.any' | 'grades.read' | 'periods.close'
-  | 'reportcards.publish' | 'attendance.write' | 'attendance.read' | 'alerts.read' | 'alerts.manage' | 'alerts.rules' | 'audit.read';
+  | 'PRECEPTOR' | 'ADMINISTRACION' | 'DOCENTE' | 'TUTOR' | 'ESTUDIANTE';
+export type Category = 'DIRECTIVO' | 'DOCENTE' | 'FAMILIA' | 'ESTUDIANTE';
+export const CATEGORY_LABELS: Record<Category, string> = { DIRECTIVO: 'Directivo / Administrativo', DOCENTE: 'Docente', FAMILIA: 'Familia', ESTUDIANTE: 'Estudiante' };
+export const isStaffRole = (r: SchoolRole) => r !== 'TUTOR' && r !== 'ESTUDIANTE';
 export type PeriodKind = 'CONCEPTUAL' | 'NUMERIC' | 'NARRATIVE';
 export type AttendanceStatus = 'PRESENTE' | 'AUSENTE' | 'TARDE' | 'RETIRO';
 export type Severity = 'INFO' | 'WARNING' | 'CRITICAL';
@@ -15,7 +15,7 @@ export type AudienceType = 'SCHOOL' | 'LEVEL' | 'DIVISION' | 'STUDENTS' | 'STAFF
 
 export const ROLE_LABELS: Record<SchoolRole, string> = {
   REPRESENTANTE_LEGAL: 'Representante Legal', DIRECTOR: 'Dirección', VICEDIRECTOR: 'Vicedirección', RECTOR: 'Rectoría',
-  SECRETARIO: 'Secretaría', PRECEPTOR: 'Preceptoría', ADMINISTRACION: 'Administración', DOCENTE: 'Docente', TUTOR: 'Familia',
+  SECRETARIO: 'Secretaría', PRECEPTOR: 'Preceptoría', ADMINISTRACION: 'Administración', DOCENTE: 'Docente', TUTOR: 'Familia', ESTUDIANTE: 'Estudiante',
 };
 
 export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = { PRESENTE: 'Presente', AUSENTE: 'Ausente', TARDE: 'Tarde', RETIRO: 'Retiro ant.' };
@@ -23,6 +23,8 @@ export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = { PRESENTE: '
 export interface SchoolSummary { id: number; name: string; slug: string; logoUrl: string | null }
 
 export interface SchoolSession {
+  /** Funciones que dependen de la configuración del servidor (ej: adjuntos requieren el almacenamiento R2). */
+  features?: { fileUploads: boolean };
   school: { id: number; name: string; slug: string; logoUrl: string | null };
   /** Niveles a los que tiene acceso el personal (selector de nivel). */
   levels: Array<{ id: number; name: string; type: LevelType }>;
@@ -30,12 +32,21 @@ export interface SchoolSession {
   academicYearId: number | null;
   roles: SchoolRole[];
   roleLabels: string[];
-  permissions: Permission[];
+  /** Claves "entidad:acción" (ver school/permissions.ts). */
+  permissions: PermissionKey[];
   isStaff: boolean;
   isGuardian: boolean;
   scope: { all: boolean; levelIds: number[]; divisionIds: number[] };
   teaching: Array<{ divisionId: number; subjectId: number }>;
   childIds: number[];
+  /** Directivo / Docente / Familia / Estudiante. */
+  category: Category | null;
+  categoryLabel: string | null;
+  /** Cuenta de estudiante (Secundario): su legajo y división. */
+  self: { studentId: number; divisionId: number | null } | null;
+  hasChannels: boolean;
+  /** Roles de personal que puede otorgar (calculado por el servidor según la jerarquía). */
+  grantableRoles: SchoolRole[];
 }
 
 export interface LevelSettings {
@@ -70,3 +81,4 @@ export interface Paginated<T> { data: T[]; pagination: { totalItems: number; cur
 export interface Contact { userId: number; name: string; role: string; detail: string | null; avatar: string | null }
 
 export interface AttachmentRef { name: string; url: string; size?: number; type?: string }
+

@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { API_URL, setSchoolId } from '../../lib/api';
-import { Eye, EyeOff, Moon, Sun } from 'lucide-react';
+import { Moon, Sun } from 'lucide-react';
+import { PasswordInput } from '../../ui';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -11,7 +12,6 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
-  const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   // Login con la identidad del colegio: /c/:slug (link que cada colegio comparte con sus familias).
@@ -90,21 +90,7 @@ export default function LoginPage() {
             </div>
             <div className="field">
               <label htmlFor="pw">Contraseña</label>
-              <div style={{ position: 'relative' }}>
-                <input
-                  id="pw"
-                  className="input"
-                  type={show ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={{ paddingRight: 48 }}
-                />
-                <button type="button" className="icon-btn" style={{ position: 'absolute', right: 3, top: 3 }} onClick={() => setShow((s) => !s)} aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}>
-                  {show ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
-              </div>
+              <PasswordInput id="pw" value={password} onChange={setPassword} required />
             </div>
             {error && <div className="alert alert-danger">{error}</div>}
             <button className="btn btn-accent btn-block" disabled={loading || !identifier || !password}>
@@ -116,12 +102,8 @@ export default function LoginPage() {
           </form>
 
           <p className="xs muted" style={{ textAlign: 'center' }}>
-            {!slug && (
-              <>
-                ¿Querés aprender a programar? <Link to="/register">Creá tu cuenta de cursos SRV</Link>
-                <br />
-              </>
-            )}
+            ¿No tenés usuario? Pedíselo a la secretaría de tu colegio.
+            <br />
             Sentryx · por{' '}
             <a href="https://wearesrv.com" target="_blank" rel="noreferrer">
               SRV

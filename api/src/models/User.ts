@@ -1,13 +1,7 @@
 import { Model, DataTypes, InferAttributes, InferCreationAttributes, CreationOptional, NonAttribute } from 'sequelize';
 import { sequelize } from '../config/database';
 
-import Chat from './Chat';
-import UserCourse from './UserCourse';
-import Role from './Role';
-import Friendship from './Friendship';
 import Notification from './Notification';
-import UserLessonProgress from './UserLessonProgress';
-import ChatUser from './ChatUser';
 
 class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   declare id: CreationOptional<number>;
@@ -16,7 +10,6 @@ class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   declare lastName: string;
   declare email: string;
   declare password: string;
-  declare roleId: number;
   declare dni: string | null;
   declare phone: string | null;
   declare biography: string | null;
@@ -25,22 +18,15 @@ class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   /** Se fuerza al cambiar la contraseña temporal enviada por administración. */
   declare mustChangePassword: CreationOptional<boolean>;
   declare isActive: CreationOptional<boolean>;
-  declare Role?: NonAttribute<Role>;
-  declare UserCourses?: NonAttribute<UserCourse[]>;
+  /** Versión de sesión: sube al cambiar/blanquear la contraseña e invalida los tokens anteriores. */
+  declare tokenVersion: CreationOptional<number>;
 
   get fullName(): NonAttribute<string> {
     return `${this.firstName} ${this.lastName}`;
   }
 
   public static associate() {
-    User.belongsTo(Role, { foreignKey: 'roleId' });
-    User.hasMany(UserCourse, { foreignKey: 'userId' });
     User.belongsToMany(Notification, { through: 'UserNotification', foreignKey: 'userId' });
-    User.hasMany(Friendship, { foreignKey: 'requesterId', as: 'friendRequestsSent' });
-    User.hasMany(Friendship, { foreignKey: 'receiverId', as: 'friendRequestsReceived' });
-    User.hasMany(UserLessonProgress, { foreignKey: 'userId' });
-    User.belongsToMany(Chat, { through: 'ChatUser', foreignKey: 'userId', otherKey: 'chatId', as: 'Chats' });
-    User.hasMany(ChatUser, { foreignKey: 'userId', as: 'ChatUsers' });
   }
 }
 
@@ -59,7 +45,7 @@ User.init(
     lastLogin: { type: DataTypes.DATE, allowNull: true },
     mustChangePassword: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
-    roleId: { type: DataTypes.INTEGER, allowNull: false, references: { model: 'Role', key: 'id' } },
+    tokenVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   },
   {
     sequelize,

@@ -8,27 +8,20 @@ import User from './User';
 import Role from './Role';
 import Permission from './Permission';
 import RolePermission from './RolePermission';
-import Chat from './Chat';
-import ChatUser from './ChatUser';
-import ChatMessage from './ChatMessage';
-import Course from './Course';
-import Module from './Module';
-import Lesson from './Lesson';
-import UserCourse from './UserCourse';
-import LessonComment from './LessonComment';
+import UserRole from './UserRole';
 import Notification from './Notification';
 import UserNotification from './UserNotification';
-import Friendship from './Friendship';
-import UserLessonProgress from './UserLessonProgress';
 import PasswordResetToken from './PasswordResetToken';
 
-import { School, Level, AcademicYear, Division, Subject, TeachingAssignment, Membership } from './school/structure';
+import { School, Level, AcademicYear, Division, Subject, TeachingAssignment } from './school/structure';
 import { Student, Enrollment, StudentGuardian } from './school/people';
 import { GradingPeriod, Grade, ReportCardPublication } from './school/academics';
 import { Attendance, AttendanceRule, Alert } from './school/attendance';
 import { Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage } from './school/communication';
-import { AuditLog, DeviceToken } from './school/system';
+import { AuditLog, ActivityLog, SupportReport, DeviceToken, UserAvatar } from './school/system';
 import { FileAsset, ClassroomPost } from './school/classroom';
+import { AccessPeriod, BillingStatement } from './school/billing';
+import { Channel, ChannelMessage, ChannelRead, ChannelMute } from './school/channels';
 
 let associated = false;
 
@@ -36,29 +29,21 @@ export const associateModels = () => {
   if (associated) return;
   associated = true;
 
-  // --- Legacy (LMS, chat social, notificaciones) ---
+  // --- Roles y permisos: un usuario tiene muchos roles; un rol tiene muchos permisos ---
+  Role.belongsToMany(Permission, { through: RolePermission, foreignKey: 'roleId', otherKey: 'permissionId' });
+  Permission.belongsToMany(Role, { through: RolePermission, foreignKey: 'permissionId', otherKey: 'roleId' });
+
+  // --- Cuentas y notificaciones ---
   User.associate();
-  Role.associate();
-  Permission.associate();
-  Chat.associate();
-  ChatUser.associate();
-  ChatMessage.associate();
-  Course.associate();
-  Module.associate();
-  Lesson.associate();
-  UserCourse.associate();
-  LessonComment.associate();
   Notification.associate();
   UserNotification.associate();
-  Friendship.associate();
-  UserLessonProgress.associate();
   PasswordResetToken.associate();
 
   const req = (name: string) => ({ foreignKey: { name, allowNull: false }, onDelete: 'CASCADE' as const });
   const opt = (name: string) => ({ foreignKey: { name, allowNull: true }, onDelete: 'SET NULL' as const });
 
   // --- Estructura ---
-  for (const M of [Level, AcademicYear, Division, Subject, TeachingAssignment, Membership, Student, GradingPeriod, Grade,
+  for (const M of [Level, AcademicYear, Division, Subject, TeachingAssignment, Student, GradingPeriod, Grade,
     ReportCardPublication, Attendance, AttendanceRule, Alert, Announcement, Thread, FileAsset, ClassroomPost]) {
     (M as any).belongsTo(School, req('schoolId'));
   }
@@ -74,9 +59,10 @@ export const associateModels = () => {
   TeachingAssignment.belongsTo(User, { ...req('teacherId'), as: 'Teacher' });
   Division.hasMany(TeachingAssignment, req('divisionId'));
 
-  Membership.belongsTo(User, req('userId'));
-  Membership.belongsTo(Level, opt('levelId'));
-  User.hasMany(Membership, req('userId'));
+  UserRole.belongsTo(User, req('userId'));
+  UserRole.belongsTo(School, opt('schoolId'));
+  UserRole.belongsTo(Level, opt('levelId'));
+  User.hasMany(UserRole, req('userId'));
 
   // --- Personas ---
   Enrollment.belongsTo(Student, req('studentId'));
@@ -127,6 +113,9 @@ export const associateModels = () => {
   ThreadMessage.belongsTo(User, { ...req('senderId'), as: 'Sender' });
 
   DeviceToken.belongsTo(User, req('userId'));
+  SupportReport.belongsTo(User, { foreignKey: 'userId', as: 'Reporter' });
+  AuditLog.belongsTo(User, { foreignKey: 'userId', constraints: false });
+  ActivityLog.belongsTo(User, { foreignKey: 'userId', constraints: false });
 
   // --- Aulas y archivos ---
   FileAsset.belongsTo(User, { ...req('uploaderId'), as: 'Uploader' });
@@ -136,16 +125,21 @@ export const associateModels = () => {
   ClassroomPost.belongsTo(Subject, opt('subjectId'));
   ClassroomPost.belongsTo(User, { ...req('authorId'), as: 'Author' });
   Division.hasMany(ClassroomPost, req('divisionId'));
+
+  // --- Canales de curso ---
+  Channel.belongsTo(Division, { foreignKey: 'divisionId' });
+  Channel.belongsTo(Subject, { foreignKey: 'subjectId' });
+  ChannelMessage.belongsTo(User, { foreignKey: 'senderId', as: 'Sender' });
 };
 
 associateModels();
 
 export {
   sequelize,
-  User, Role, Permission, RolePermission, Chat, ChatUser, ChatMessage, Course, Module, Lesson, UserCourse,
-  LessonComment, Notification, UserNotification, Friendship, UserLessonProgress, PasswordResetToken,
-  School, Level, AcademicYear, Division, Subject, TeachingAssignment, Membership,
+  User, Role, Permission, RolePermission, UserRole, Notification, UserNotification, PasswordResetToken,
+  School, Level, AcademicYear, Division, Subject, TeachingAssignment,
   Student, Enrollment, StudentGuardian, GradingPeriod, Grade, ReportCardPublication,
   Attendance, AttendanceRule, Alert, Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage,
-  AuditLog, DeviceToken, FileAsset, ClassroomPost,
+  AuditLog, ActivityLog, SupportReport, DeviceToken, UserAvatar, FileAsset, ClassroomPost, AccessPeriod, BillingStatement,
+  Channel, ChannelMessage, ChannelRead, ChannelMute,
 };

@@ -9,7 +9,11 @@ import { SocketProvider } from './context/SocketContext';
 import { SchoolProvider } from './school/SchoolContext';
 import { ToastProvider } from './ui';
 import { ApiError } from './lib/api';
+import { installClientErrorBuffer } from './lib/clientErrors';
+import { ErrorBoundary } from './app/ErrorBoundary';
 import './styles/app.css';
+
+installClientErrorBuffer();
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -32,7 +36,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <SocketProvider>
               <SchoolProvider>
                 <ToastProvider>
-                  <App />
+                  <ErrorBoundary>
+                    <App />
+                  </ErrorBoundary>
                 </ToastProvider>
               </SchoolProvider>
             </SocketProvider>
@@ -44,6 +50,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
 );
 
 // PWA: instalable en el celular, push y apertura rápida (shell cacheado).
-if ('serviceWorker' in navigator) {
+// Solo en producción: en desarrollo un service worker viejo puede servir versiones anteriores.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
 }

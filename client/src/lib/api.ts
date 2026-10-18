@@ -1,3 +1,5 @@
+import { recordClientError } from './clientErrors';
+
 export const API_URL: string = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
 const SESSION_KEY = 'user';
@@ -14,9 +16,8 @@ export interface StoredSession {
     dni?: string | null;
     username: string;
     avatar?: string | null;
-    roleName?: string;
     mustChangePassword?: boolean;
-    permissions?: Array<{ entity: string; action: string }>;
+    isSuperAdmin?: boolean;
     [k: string]: unknown;
   };
 }
@@ -74,6 +75,7 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   try {
     res = await fetch(`${API_URL}${path}`, { ...init, headers, body });
   } catch {
+    recordClientError('Sin conexión', `${init.method ?? 'GET'} ${path}`);
     throw new ApiError(0, 'Sin conexión. Revisá tu internet e intentá de nuevo.');
   }
 
@@ -81,6 +83,7 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   const data = await res.json().catch(() => null);
   if (!res.ok) {
     if (res.status === 401 && session) unauthorizedListeners.forEach((fn) => fn());
+    recordClientError(`${res.status} ${data?.message ?? data?.error ?? ''}`.trim(), `${init.method ?? 'GET'} ${path}`);
     throw new ApiError(res.status, data?.message ?? data?.error ?? 'Ocurrió un error.', data?.details);
   }
   return data as T;
@@ -147,3 +150,27 @@ export async function uploadFile(
 
 export const formatBytes = (b: number) =>
   b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : b < 1024 ** 3 ? `${(b / 1024 / 1024).toFixed(1)} MB` : `${(b / 1024 ** 3).toFixed(2)} GB`;
+
+/** Fotos de perfil: el API guarda rutas relativas (/avatars/…) para no depender del dominio. */
+export const mediaUrl = (src?: string | null) => (src && src.startsWith('/avatars/') ? `${API_URL}${src}` : src || null);
+
+/**
+ * Prepara la foto de perfil en el celular: recorte cuadrado centrado de 384 px en JPEG.
+ * Una foto de 4 MB queda en ~30 KB, así sube rápido con datos móviles.
+ */
+export async function avatarDataUrl(file: File): Promise<string> {
+  if (!/^image\/(jpeg|png|webp|heic|heif)$/.test(file.type) && !file.type.startsWith('image/')) throw new ApiError(400, 'Elegí una imagen (JPG o PNG).');
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw new ApiError(400, 'No pudimos leer esa imagen. Probá con una foto JPG o PNG.');
+  }
+  const side = Math.min(bitmap.width, bitmap.height);
+  const size = Math.min(384, side);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(bitmap, (bitmap.width - side) / 2, (bitmap.height - side) / 2, side, side, 0, 0, size, size);
+  return canvas.toDataURL('image/jpeg', 0.85);
+}

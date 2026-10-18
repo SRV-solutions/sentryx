@@ -171,6 +171,23 @@ img { max-width: 100%; display: block; }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar-sm { width: 32px; height: 32px; font-size: 12px; }
 .avatar-lg { width: 56px; height: 56px; font-size: 20px; }
+.avatar-xl { width: 104px; height: 104px; font-size: 36px; border: 4px solid var(--surface); box-shadow: var(--shadow); }
+
+/* ---------- Perfiles ---------- */
+.profile-hero { position: relative; border-radius: var(--radius); overflow: hidden; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.profile-cover { height: 96px; background: radial-gradient(120% 140% at 0% 0%, color-mix(in srgb, var(--primary) 70%, transparent), transparent 60%), radial-gradient(120% 140% at 100% 0%, color-mix(in srgb, var(--accent) 65%, transparent), transparent 55%), #000; }
+.profile-body { padding: 0 16px 16px; margin-top: -52px; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; }
+.profile-photo { position: relative; display: inline-flex; }
+.profile-photo .photo-btn { position: absolute; right: -2px; bottom: 2px; width: 34px; height: 34px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--primary); color: var(--primary-ink); border: 3px solid var(--surface); cursor: pointer; }
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 8px 12px; font-size: 14px; }
+.kv dt { color: var(--text-3); font-weight: 600; }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.list-button { background: transparent; border: 0; border-bottom: 1px solid var(--border); text-align: left; width: 100%; cursor: pointer; color: inherit; font: inherit; }
+.list-button:last-child { border-bottom: 0; }
+.list-button:hover { background: var(--surface-2); }
+.field-error { color: var(--danger); font-size: 12px; font-weight: 600; }
+.input.invalid, .select.invalid { border-color: var(--danger); }
+@media (min-width: 900px) { .profile-cover { height: 120px; } }
 
 .field { display: flex; flex-direction: column; gap: 6px; }
 .field label { font-size: 13px; font-weight: 700; color: var(--text-2); }

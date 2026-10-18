@@ -4,7 +4,8 @@ import { useAuth } from './context/AuthContext';
 import { useSchool } from './school/SchoolContext';
 import { AppShell } from './app/AppShell';
 import { Spinner } from './ui';
-import type { Permission } from './school/types';
+import type { PermissionPair } from './school/permissions';
+import { Entity, Action } from './school/permissions';
 
 // --- Escuela (chunks livianos, sin MUI) ---
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
@@ -29,29 +30,21 @@ const ReportCardPrintPage = lazy(() => import('./pages/school/ReportCardPrintPag
 const ClassroomsPage = lazy(() => import('./pages/school/ClassroomsPage'));
 const ClassroomPage = lazy(() => import('./pages/school/ClassroomPage'));
 const FilesPage = lazy(() => import('./pages/school/FilesPage'));
+const ProfilePage = lazy(() => import('./pages/school/ProfilePage'));
+const PeoplePage = lazy(() => import('./pages/school/PeoplePage'));
+const PersonPage = lazy(() => import('./pages/school/PersonPage'));
+const ChannelsPage = lazy(() => import('./pages/school/ChannelsPage'));
+const ChannelPage = lazy(() => import('./pages/school/ChannelPage'));
+const BillingPage = lazy(() => import('./pages/school/BillingPage'));
 
-// --- Pantallas existentes (cursos SRV, comunidad, Solvix, admin) ---
-const LegacyFrame = lazy(() => import('./app/LegacyFrame.jsx'));
-const Register = lazy(() => import('./pages/Register.jsx'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword.jsx'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword.jsx'));
-const Dashboard = lazy(() => import('./pages/Dashboard.jsx'));
-const Catalogue = lazy(() => import('./pages/Catalogue.jsx'));
-const CourseCatalogueDetail = lazy(() => import('./pages/CourseCatalogueDetail.jsx'));
-const MyCourseDetail = lazy(() => import('./pages/MyCourseDetail.jsx'));
-const CourseDetail = lazy(() => import('./pages/CourseDetail.jsx'));
-const ClassDetail = lazy(() => import('./pages/ClassDetail.jsx'));
-const ChatSolvix = lazy(() => import('./components/Chat/ChatSolvix.jsx'));
-const UserProfile = lazy(() => import('./pages/UserProfile.jsx'));
-const UserPublicProfile = lazy(() => import('./pages/UserPublicProfile.jsx'));
-const UserSearch = lazy(() => import('./pages/UserSearch.jsx'));
-const FriendRequests = lazy(() => import('./components/FriendRequests.jsx'));
-const FriendList = lazy(() => import('./components/FriendList.jsx'));
-const ManageUsers = lazy(() => import('./pages/adminPages/ManageUsers.jsx'));
-const AssignCourses = lazy(() => import('./pages/adminPages/AssignCourses.jsx'));
-const IAEmbeddingUploader = lazy(() => import('./pages/adminPages/IAEmbeddingUploader.jsx'));
-const AdminCourseList = lazy(() => import('./pages/adminPages/AdminCourseList.jsx'));
-const AdminCourseDetail = lazy(() => import('./pages/adminPages/AdminCourseDetail.jsx'));
+// --- Recupero de contraseña y plataforma ---
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
+const PlatformSchoolsPage = lazy(() => import('./pages/platform/PlatformSchoolsPage'));
+const PlatformBillingPage = lazy(() => import('./pages/platform/PlatformBillingPage'));
+const PlatformSupportPage = lazy(() => import('./pages/platform/PlatformSupportPage'));
+const PlatformAuditPage = lazy(() => import('./pages/platform/PlatformAuditPage'));
+const NoSchoolPage = lazy(() => import('./pages/auth/NoSchoolPage'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
 const RequireAuth = () => {
@@ -71,24 +64,25 @@ const Shell = () => (
 );
 
 /** Protege por permiso escolar; si falta, vuelve al inicio (sin cerrar sesión). */
-const Need = ({ perm, any, children }: { perm?: Permission; any?: Permission[]; children: ReactNode }) => {
+const Need = ({ perm, any, children }: { perm?: PermissionPair; any?: PermissionPair[]; children: ReactNode }) => {
   const { can, loading } = useSchool();
   if (loading) return <Spinner center />;
-  const ok = perm ? can(perm) : any ? any.some(can) : true;
+  const ok = perm ? can(...perm) : any ? any.some((pair) => can(...pair)) : true;
   return ok ? <>{children}</> : <Navigate to="/inicio" replace />;
 };
 
-const RequireAdmin = ({ children }: { children: ReactNode }) => {
-  const { isAdmin } = useAuth();
-  return isAdmin ? <>{children}</> : <Navigate to="/" replace />;
+const RequireSuperAdmin = ({ children }: { children: ReactNode }) => {
+  const { isSuperAdmin } = useAuth();
+  return isSuperAdmin ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 /** Destino inicial según el tipo de usuario. */
 const Landing = () => {
   const { session, loading, noSchool } = useSchool();
+  const { isSuperAdmin } = useAuth();
   if (loading) return <Spinner center />;
   if (session) return <Navigate to="/inicio" replace />;
-  if (noSchool) return <Navigate to="/dashboard" replace />;
+  if (noSchool) return <Navigate to={isSuperAdmin ? '/plataforma' : '/sin-colegio'} replace />;
   return <Spinner center />;
 };
 
@@ -99,9 +93,8 @@ export default function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/c/:slug" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/cambiar-clave" element={user ? <ForcePasswordChange /> : <Navigate to="/login" replace />} />
 
         <Route element={<RequireAuth />}>
@@ -109,7 +102,7 @@ export default function App() {
             <Route index element={<Landing />} />
             <Route path="/inicio" element={<HomePage />} />
             <Route path="/comunicados" element={<AnnouncementsPage />} />
-            <Route path="/comunicados/nuevo" element={<Need perm="announcements.publish"><AnnouncementComposePage /></Need>} />
+            <Route path="/comunicados/nuevo" element={<Need perm={[Entity.ANNOUNCEMENTS, Action.CREATE]}><AnnouncementComposePage /></Need>} />
             <Route path="/comunicados/:id" element={<AnnouncementDetailPage />} />
             <Route path="/mensajes" element={<ThreadsPage />} />
             <Route path="/mensajes/nuevo" element={<NewThreadPage />} />
@@ -120,34 +113,26 @@ export default function App() {
             <Route path="/familia" element={<FamilyPage />} />
             <Route path="/familia/:id" element={<StudentPage />} />
             <Route path="/boletin/:id" element={<ReportCardPrintPage />} />
-            <Route path="/alumnos" element={<Need perm="people.read"><StudentsPage /></Need>} />
-            <Route path="/alumnos/:id" element={<Need perm="people.read"><StudentPage /></Need>} />
-            <Route path="/division/:id" element={<Need perm="grades.read"><DivisionStatusPage /></Need>} />
-            <Route path="/materias" element={<Need any={['grades.write', 'grades.read']}><SubjectsPage /></Need>} />
-            <Route path="/materias/:divisionId/:subjectId" element={<Need any={['grades.write', 'grades.read']}><GradeSheetPage /></Need>} />
-            <Route path="/asistencia" element={<Need perm="attendance.write"><AttendancePage /></Need>} />
-            <Route path="/alertas" element={<Need perm="alerts.read"><AlertsPage /></Need>} />
-            <Route path="/admin" element={<Need any={['school.manage', 'people.manage']}><AdminPage /></Need>} />
+            <Route path="/alumnos" element={<Need perm={[Entity.USERS, Action.READ]}><StudentsPage /></Need>} />
+            <Route path="/alumnos/:id" element={<Need perm={[Entity.USERS, Action.READ]}><StudentPage /></Need>} />
+            <Route path="/division/:id" element={<Need perm={[Entity.GRADES, Action.READ]}><DivisionStatusPage /></Need>} />
+            <Route path="/materias" element={<Need any={[[Entity.GRADES, Action.UPDATE], [Entity.GRADES, Action.READ]]}><SubjectsPage /></Need>} />
+            <Route path="/materias/:divisionId/:subjectId" element={<Need any={[[Entity.GRADES, Action.UPDATE], [Entity.GRADES, Action.READ]]}><GradeSheetPage /></Need>} />
+            <Route path="/asistencia" element={<Need perm={[Entity.ATTENDANCE, Action.UPDATE]}><AttendancePage /></Need>} />
+            <Route path="/alertas" element={<Need perm={[Entity.ALERTS, Action.READ]}><AlertsPage /></Need>} />
+            <Route path="/admin" element={<Need any={[[Entity.SCHOOL, Action.UPDATE], [Entity.USERS, Action.UPDATE]]}><AdminPage /></Need>} />
+            <Route path="/personas" element={<Need perm={[Entity.USERS, Action.READ]}><PeoplePage /></Need>} />
+            <Route path="/personas/:id" element={<PersonPage />} />
+            <Route path="/perfil/me" element={<ProfilePage />} />
+            <Route path="/canales" element={<ChannelsPage />} />
+            <Route path="/canales/:id" element={<ChannelPage />} />
+            <Route path="/facturacion" element={<Need perm={[Entity.BILLING, Action.READ]}><BillingPage /></Need>} />
 
-            <Route element={<LegacyFrame />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/catalogue" element={<Catalogue />} />
-              <Route path="/catalogue/curso/:courseId" element={<CourseCatalogueDetail />} />
-              <Route path="/curso" element={<MyCourseDetail />} />
-              <Route path="/curso/:courseId" element={<CourseDetail />} />
-              <Route path="/curso/:courseId/modulo/:moduleId/clase/:classId" element={<ClassDetail />} />
-              <Route path="/chat/:id" element={<ChatSolvix />} />
-              <Route path="/perfil/me" element={<UserProfile />} />
-              <Route path="/perfil/:id" element={<UserPublicProfile />} />
-              <Route path="/usuarios" element={<UserSearch />} />
-              <Route path="/friends/requests" element={<FriendRequests />} />
-              <Route path="/my-friends" element={<FriendList />} />
-              <Route path="/admin/usuarios" element={<RequireAdmin><ManageUsers /></RequireAdmin>} />
-              <Route path="/admin/asignar-cursos/:userId" element={<RequireAdmin><AssignCourses /></RequireAdmin>} />
-              <Route path="/admin/solvix" element={<RequireAdmin><IAEmbeddingUploader /></RequireAdmin>} />
-              <Route path="/admin/cursos" element={<RequireAdmin><AdminCourseList /></RequireAdmin>} />
-              <Route path="/admin/cursos/:courseId" element={<RequireAdmin><AdminCourseDetail /></RequireAdmin>} />
-            </Route>
+            <Route path="/sin-colegio" element={<NoSchoolPage />} />
+            <Route path="/plataforma" element={<RequireSuperAdmin><PlatformSchoolsPage /></RequireSuperAdmin>} />
+            <Route path="/plataforma/facturacion" element={<RequireSuperAdmin><PlatformBillingPage /></RequireSuperAdmin>} />
+            <Route path="/plataforma/reportes" element={<RequireSuperAdmin><PlatformSupportPage /></RequireSuperAdmin>} />
+            <Route path="/plataforma/auditoria" element={<RequireSuperAdmin><PlatformAuditPage /></RequireSuperAdmin>} />
           </Route>
         </Route>
         <Route path="*" element={<NotFound />} />
