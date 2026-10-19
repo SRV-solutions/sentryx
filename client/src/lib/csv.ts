@@ -47,6 +47,20 @@ export const CSV_TEMPLATE =
   'nivel;division;alumno_apellido;alumno_nombre;alumno_dni;fecha_nacimiento;tutor1_apellido;tutor1_nombre;tutor1_dni;tutor1_email;tutor1_telefono;tutor1_vinculo;tutor2_apellido;tutor2_nombre;tutor2_dni;tutor2_email;tutor2_telefono;tutor2_vinculo\n' +
   'Secundario;2º 1ª;Pérez;Juana;50123456;2012-05-14;Pérez;Carlos;28111222;carlos@mail.com;1155550000;Padre;Gómez;Laura;29333444;;1155551111;Madre\n';
 
+/**
+ * Una fila CSV segura: comillas cuando hace falta y sin "inyección de fórmulas" (un nombre como
+ * =HIPERVINCULO(...) se ejecutaría al abrir el archivo en Excel). Los números se dejan tal cual.
+ */
+export const csvRow = (values: Array<string | number | null | undefined>) =>
+  values
+    .map((value) => {
+      if (typeof value === 'number') return String(value);
+      let text = String(value ?? '');
+      if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+      return /[";\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+    })
+    .join(';');
+
 export const downloadText = (name: string, content: string, type = 'text/csv;charset=utf-8') => {
   const url = URL.createObjectURL(new Blob(['﻿' + content], { type }));
   const a = Object.assign(document.createElement('a'), { href: url, download: name });

@@ -186,7 +186,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
               <Crest size={30} />
               <span style={{ minWidth: 0 }}>
                 <span className="truncate" style={{ display: 'block', fontWeight: 900, fontSize: 15, lineHeight: 1.15 }}>{title ?? session.school.name}</span>
-                <span className="xs muted truncate row" style={{ gap: 2 }}>{contextLabel}{canSwitch && <ChevronDown size={12} />}</span>
+                <span className="xs muted row" style={{ gap: 2, minWidth: 0 }}><span className="truncate">{contextLabel}</span>{canSwitch && <ChevronDown size={12} style={{ flexShrink: 0 }} />}</span>
               </span>
             </button>
           ) : (

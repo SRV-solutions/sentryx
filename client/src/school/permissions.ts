@@ -19,6 +19,12 @@ export enum Entity {
   ALERT_RULES = 'alert_rules',
   BILLING = 'billing',
   AUDIT_LOG = 'audit_log',
+  PLANS = 'plans',
+  STAFF_RECORDS = 'staff_records',
+  PAYROLL = 'payroll',
+  EVENTS = 'events',
+  SUBJECT_PROGRAMS = 'subject_programs',
+  QUIZZES = 'quizzes',
 }
 
 export enum Action {

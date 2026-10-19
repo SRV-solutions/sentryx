@@ -1,5 +1,5 @@
 import { Download, Printer, Copy } from 'lucide-react';
-import { downloadText } from '../lib/csv';
+import { downloadText, csvRow } from '../lib/csv';
 import { Sheet, useToast } from '../ui';
 
 export type Credential = { name: string; login: string; tempPassword: string; email: string | null; student?: string };
@@ -40,7 +40,7 @@ export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generad
         <div className="row wrap">
           <button className="btn btn-sm" onClick={() => window.print()}><Printer size={16} /> Imprimir</button>
           <button className="btn btn-sm btn-ghost" onClick={copy}><Copy size={16} /> Copiar</button>
-          <button className="btn btn-sm btn-ghost" onClick={() => downloadText('credenciales.csv', 'nombre;alumno;usuario;contrasena\n' + items.map((c) => [c.name, c.student ?? '', c.login, c.tempPassword].join(';')).join('\n'))}>
+          <button className="btn btn-sm btn-ghost" onClick={() => downloadText('credenciales.csv', 'nombre;alumno;usuario;contrasena\n' + items.map((c) => csvRow([c.name, c.student ?? '', c.login, c.tempPassword])).join('\n'))}>
             <Download size={16} /> Descargar
           </button>
         </div>

@@ -192,6 +192,8 @@ En cualquier caso, el remitente sigue siendo `sentryx@wearesrv.com`: solo cambia
 - **Al crecer:** primero el chat a su propio VPS (cambiando una URL); después la base de datos a un servidor aparte o administrado.
 - **Variables a vigilar:** el ancho de banda de Netlify y los videos subidos en lugar de enlazados.
 
+**Ingresos por plan:** se cobra por persona según su plan ($660 Básico, $720 Ampliado, $2.150 Profesional y $3.000 Integral; ver README → Planes). La infraestructura es la misma para todos los planes. El espacio extra (15 GB Ampliado, 30 GB Profesional, 50 GB Integral) es el único costo que crece, y solo si se usa: R2 cobra USD 0,015 por GB al mes, así que una persona que llena 50 GB cuesta unos USD 0,75 por mes.
+
 **Conclusión:** la infraestructura cuesta centavos de dólar por alumno por año. El costo real del servicio está en soporte, capacitación y desarrollo.
 
 ## 6. Colegio de demostración (para directivos)
@@ -206,6 +208,9 @@ npm run seed:demo:prod -- --password 'Una-Clave-Larga-2026' --domain demo.weares
 - `--password` es obligatoria en producción (mínimo 10 caracteres) y es la misma para todos los usuarios de la demo.
 - En producción no se cargan DNIs ficticios (podrían coincidir con personas reales): se ingresa con el email.
 - `--with-superadmin` crea además `superadmin@<dominio>` para mostrar la consola de la plataforma (no lo uses si no hace falta).
+- Todos quedan en el **plan Básico**. Con `--show-plans`, el equipo directivo, docente1 y dos familias pasan a Integral para mostrar todas las funciones.
+- Se cargan comunicados (con lecturas y confirmaciones), conversaciones familia–escuela y actividad en un canal de Secundario. Para agregar ese contenido a un colegio demo ya creado: `npm run demo:content:prod -- --slug demo --domain demo.wearesrv.com`.
+- Manual para presentar a la conducción: `docs/Manual Sentryx - Colegio Demo.pdf` (los usuarios de ejemplo de la familia y el estudiante son `familia25` y `estudiante7`).
 - Link de ingreso: `https://<tu-front>/c/demo`.
 
 | Rol | Usuario | Qué muestra |

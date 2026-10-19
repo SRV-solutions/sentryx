@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { apiGet } from '../../lib/api';
-import { downloadText } from '../../lib/csv';
+import { downloadText, csvRow } from '../../lib/csv';
 import { Badge, ErrorBox, PageHeader, Skeleton } from '../../ui';
 
 interface Overview {
@@ -40,7 +40,7 @@ export default function PlatformBillingPage() {
       <PageHeader
         title="Facturación global"
         subtitle="Todos los colegios de la plataforma"
-        actions={d && <button className="btn btn-ghost" onClick={() => downloadText(`sentryx-facturacion-${d.cycle}.csv`, `colegio;usuarios;monto_ars\n${d.schools.map((s) => [s.name, s.billableUsers, s.total].join(';')).join('\n')}\nTOTAL;${d.billableUsers};${d.total}`)}><Download size={16} /> CSV</button>}
+        actions={d && <button className="btn btn-ghost" onClick={() => downloadText(`sentryx-facturacion-${d.cycle}.csv`, `colegio;usuarios;monto_ars\n${d.schools.map((s) => csvRow([s.name, s.billableUsers, s.total])).join('\n')}\nTOTAL;${d.billableUsers};${d.total}`)}><Download size={16} /> CSV</button>}
       />
       {q.error && <ErrorBox error={q.error} />}
       {!d && !q.error && <Skeleton count={3} h={80} />}

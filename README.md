@@ -134,6 +134,27 @@ Se evalúan solas al tomar o justificar asistencia y avisan a preceptoría y con
   2. Se revisa el destino sugerido de cada alumno: promueve al año siguiente (Sala de 5 → 1º grado, último grado → 1º año), repite o egresa.
   3. Se aplica en un solo paso. El ciclo nuevo pasa a ser el actual y los egresados quedan dados de baja con motivo *Egreso*.
 
+## Planes (por persona)
+
+Cada persona del colegio tiene un plan. La Representante Legal los cambia desde *Planes*, de a una persona o varias juntas. Ahí también aprueba los pedidos de cambio que llegan desde *Mi perfil*.
+
+| Plan | $/persona/mes | Espacio | Agrega |
+|---|---|---|---|
+| Básico | 660 | 5 GB | Comunicados, boletines, notas, asistencia y chats (lo de siempre) |
+| Ampliado | 720 | 15 GB | Más espacio para archivos |
+| Profesional | 2.150 | 30 GB | Recibos de sueldo con conformidad y legajo docente (cargos, horas, turnos y horario) |
+| Integral | 3.000 | 50 GB | Calendario con feriados y actos, encargados de actos con su espacio, programas de materias y juegos de preguntas |
+
+- **Dónde está definido:** el catálogo vive en `api/src/constants/plans.ts` (precios, espacio y funciones).
+- **Cómo se protege cada función:** las rutas exigen el permiso del rol (`authorize`) **y** que el plan incluya la función (`requireFeature`).
+- **Si el plan no alcanza:** la API responde 402 con el plan necesario, y la app muestra qué incluye y ofrece pedirlo.
+- **Familias:** con planes superiores solo *ven* más cosas: el calendario, los programas de sus hijos y los resultados de los juegos.
+- **Facturación:** se cobra el mes completo del plan **más alto** que la persona tuvo en el mes. El historial queda en `PlanAssignment`.
+- **Juegos en vivo:**
+  - Los alumnos entran desde `/jugar` con el PIN y un apodo, sin cuenta.
+  - El estado se consulta cada segundo.
+  - Tiene su propio límite de pedidos por jugador, porque toda el aula sale por la misma IP.
+
 ## Soporte y auditoría
 
 - **Reportar un problema:** en el menú y en *Mi perfil*. Va asociado al usuario, con la pantalla y los últimos errores técnicos. Se ve el estado y la respuesta en *Mis reportes*.

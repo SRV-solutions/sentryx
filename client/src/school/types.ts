@@ -47,6 +47,8 @@ export interface SchoolSession {
   hasChannels: boolean;
   /** Roles de personal que puede otorgar (calculado por el servidor según la jerarquía). */
   grantableRoles: SchoolRole[];
+  /** Plan de la persona (ver school/plans.ts). */
+  plan: { code: import('./plans').PlanCode; name: string; storageGb: number; features: import('./plans').PlanFeature[] };
 }
 
 export interface LevelSettings {

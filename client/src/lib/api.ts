@@ -92,7 +92,7 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
 export const apiGet = <T,>(path: string) => api<T>(path);
 export const apiSend = <T,>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, json?: unknown) => api<T>(path, { method, json });
 
-export type UploadPurpose = 'MATERIAL' | 'ANNOUNCEMENT' | 'MESSAGE' | 'OTHER';
+export type UploadPurpose = 'MATERIAL' | 'ANNOUNCEMENT' | 'MESSAGE' | 'OTHER' | 'PAYROLL' | 'EVENT' | 'PROGRAM';
 export interface UploadedFile { fileId: number; name: string; size: number; mimeType: string }
 
 /**

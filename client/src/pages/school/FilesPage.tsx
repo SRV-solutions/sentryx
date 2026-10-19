@@ -21,14 +21,31 @@ interface FileRow {
 }
 
 interface Usage {
-  quota: number;
+  /** Tope del colegio entero (opcional); si no hay, cada persona tiene el espacio de su plan. */
+  quota: number | null;
   used: number;
-  byUser: Array<{ uploaderId: number; firstName: string; lastName: string; files: number; bytes: string }>;
+  byUser: Array<{ uploaderId: number; firstName: string; lastName: string; files: number; bytes: string; plan: string; limit: number }>;
   byType: Array<{ kind: string; files: number; bytes: string }>;
 }
 
 const icon = (mime: string) => (mime.startsWith('video/') ? <Film size={18} /> : mime.startsWith('image/') ? <ImageIcon size={18} /> : mime.startsWith('audio/') ? <Music size={18} /> : <FileText size={18} />);
-const PURPOSE: Record<string, string> = { MATERIAL: 'Material de aula', ANNOUNCEMENT: 'Adjunto de comunicado', MESSAGE: 'Adjunto de mensaje', OTHER: 'Otro' };
+const PURPOSE: Record<string, string> = { MATERIAL: 'Material de aula', ANNOUNCEMENT: 'Adjunto de comunicado', MESSAGE: 'Adjunto de mensaje', OTHER: 'Otro', EVENT: 'Espacio de un acto', PROGRAM: 'Programa de materia' };
+
+/** Mi espacio: lo que subí contra el límite de mi plan. */
+const MyUsage = () => {
+  const q = useQuery({ queryKey: ['my-storage'], queryFn: () => apiGet<{ used: number; limit: number; plan: { name: string } }>('/school/files/my-usage') });
+  if (!q.data) return null;
+  const pct = Math.min(100, Math.round((q.data.used / q.data.limit) * 100));
+  return (
+    <Card>
+      <div className="stack" style={{ gap: 6 }}>
+        <div className="row-between small"><span className="row" style={{ gap: 6 }}><HardDrive size={16} /> Mi espacio (plan {q.data.plan.name})</span><span><b>{formatBytes(q.data.used)}</b> de {formatBytes(q.data.limit)}</span></div>
+        <div className="progress"><span style={{ width: `${pct}%`, background: pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--brand-orange)' : undefined }} /></div>
+        {pct > 90 && <span className="xs muted">Borrá archivos que ya no uses o pedí un plan con más espacio en Mi perfil.</span>}
+      </div>
+    </Card>
+  );
+};
 
 const FileList = ({ scope, uploaderId }: { scope: 'mine' | 'school'; uploaderId?: number }) => {
   const qc = useQueryClient();
@@ -46,6 +63,7 @@ const FileList = ({ scope, uploaderId }: { scope: 'mine' | 'school'; uploaderId?
       toast('Archivo eliminado');
       qc.invalidateQueries({ queryKey: ['files'] });
       qc.invalidateQueries({ queryKey: ['files-usage'] });
+      qc.invalidateQueries({ queryKey: ['my-storage'] });
     },
     onError: (e: Error) => toast(e.message, true),
   });
@@ -60,6 +78,7 @@ const FileList = ({ scope, uploaderId }: { scope: 'mine' | 'school'; uploaderId?
   const rows = list.data?.pages.flatMap((p) => p.data) ?? [];
   return (
     <div className="stack">
+      {scope === 'mine' && <MyUsage />}
       <div style={{ position: 'relative' }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: 14 }} className="muted" />
         <input className="input" style={{ paddingLeft: 42 }} placeholder="Buscar por nombre" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -96,28 +115,32 @@ const UsagePanel = ({ onPickUser }: { onPickUser: (id: number) => void }) => {
   const q = useQuery({ queryKey: ['files-usage'], queryFn: () => apiGet<Usage>('/school/files/usage') });
   if (q.error) return <ErrorBox error={q.error} />;
   if (!q.data) return <Skeleton count={2} h={90} />;
-  const pct = Math.min(100, Math.round((q.data.used / q.data.quota) * 100));
+  const pct = q.data.quota ? Math.min(100, Math.round((q.data.used / q.data.quota) * 100)) : 0;
   return (
     <div className="stack">
       <Card>
         <div className="stack">
           <div className="row-between">
             <span className="row h3"><HardDrive size={18} /> Almacenamiento</span>
-            <span className="small"><b>{formatBytes(q.data.used)}</b> de {formatBytes(q.data.quota)}</span>
+            <span className="small"><b>{formatBytes(q.data.used)}</b>{q.data.quota ? ` de ${formatBytes(q.data.quota)}` : ' en total'}</span>
           </div>
-          <div className="progress" style={{ height: 10 }}><span style={{ width: `${pct}%`, background: pct > 85 ? 'var(--danger)' : pct > 65 ? 'var(--brand-orange)' : undefined }} /></div>
+          {q.data.quota ? (
+            <div className="progress" style={{ height: 10 }}><span style={{ width: `${pct}%`, background: pct > 85 ? 'var(--danger)' : pct > 65 ? 'var(--brand-orange)' : undefined }} /></div>
+          ) : (
+            <p className="xs muted">Cada persona tiene el espacio de su plan (Básico 5 GB, Ampliado 15 GB, Profesional 30 GB, Integral 50 GB).</p>
+          )}
           <div className="row wrap" style={{ gap: 6 }}>
             {q.data.byType.map((t) => <Badge key={t.kind}>{t.kind}: {formatBytes(Number(t.bytes))}</Badge>)}
           </div>
         </div>
       </Card>
-      <h2 className="h2">Por docente</h2>
+      <h2 className="h2">Por persona</h2>
       <div className="card list" style={{ overflow: 'hidden' }}>
         {q.data.byUser.map((u) => (
           <button key={u.uploaderId} className="list-item" style={{ background: 'transparent', border: 0, borderBottom: '1px solid var(--border)', width: '100%', textAlign: 'left', cursor: 'pointer' }} onClick={() => onPickUser(u.uploaderId)}>
             <span className="grow h3">{u.lastName}, {u.firstName}</span>
-            <span className="xs muted">{u.files} archivos</span>
-            <Badge>{formatBytes(Number(u.bytes))}</Badge>
+            <span className="xs muted">{u.files} archivos · plan {u.plan}</span>
+            <Badge tone={Number(u.bytes) / u.limit > 0.9 ? 'danger' : undefined}>{formatBytes(Number(u.bytes))} / {formatBytes(u.limit)}</Badge>
           </button>
         ))}
       </div>

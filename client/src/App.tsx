@@ -36,6 +36,20 @@ const PersonPage = lazy(() => import('./pages/school/PersonPage'));
 const ChannelsPage = lazy(() => import('./pages/school/ChannelsPage'));
 const ChannelPage = lazy(() => import('./pages/school/ChannelPage'));
 const BillingPage = lazy(() => import('./pages/school/BillingPage'));
+// --- Planes y funciones por plan ---
+const PlansPage = lazy(() => import('./pages/school/PlansPage'));
+const MyRecordPage = lazy(() => import('./pages/school/MyRecordPage'));
+const StaffAdminPage = lazy(() => import('./pages/school/StaffAdminPage'));
+const CalendarPage = lazy(() => import('./pages/school/CalendarPage'));
+const EventPage = lazy(() => import('./pages/school/EventPage'));
+const ProgramsPage = lazy(() => import('./pages/school/ProgramsPage'));
+const ProgramPage = lazy(() => import('./pages/school/ProgramPage'));
+const QuizzesPage = lazy(() => import('./pages/school/QuizzesPage'));
+const QuizEditorPage = lazy(() => import('./pages/school/QuizEditorPage'));
+const LiveHostPage = lazy(() => import('./pages/school/LiveHostPage'));
+const QuizHomeworkPage = lazy(() => import('./pages/school/QuizHomeworkPage'));
+const QuizResultsPage = lazy(() => import('./pages/school/QuizResultsPage'));
+const PlayPage = lazy(() => import('./pages/PlayPage'));
 
 // --- Recupero de contraseña y plataforma ---
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
@@ -95,6 +109,8 @@ export default function App() {
         <Route path="/c/:slug" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        {/* Juego en vivo: los alumnos entran con PIN, sin cuenta. */}
+        <Route path="/jugar" element={<PlayPage />} />
         <Route path="/cambiar-clave" element={user ? <ForcePasswordChange /> : <Navigate to="/login" replace />} />
 
         <Route element={<RequireAuth />}>
@@ -127,6 +143,19 @@ export default function App() {
             <Route path="/canales" element={<ChannelsPage />} />
             <Route path="/canales/:id" element={<ChannelPage />} />
             <Route path="/facturacion" element={<Need perm={[Entity.BILLING, Action.READ]}><BillingPage /></Need>} />
+            <Route path="/planes" element={<Need perm={[Entity.PLANS, Action.READ]}><PlansPage /></Need>} />
+            <Route path="/mi-legajo" element={<MyRecordPage />} />
+            <Route path="/personal" element={<Need any={[[Entity.STAFF_RECORDS, Action.READ], [Entity.PAYROLL, Action.READ]]}><StaffAdminPage /></Need>} />
+            <Route path="/calendario" element={<CalendarPage />} />
+            <Route path="/calendario/:id" element={<EventPage />} />
+            <Route path="/programas" element={<ProgramsPage />} />
+            <Route path="/programas/:id" element={<ProgramPage />} />
+            <Route path="/juegos" element={<QuizzesPage />} />
+            <Route path="/juegos/nuevo" element={<Need perm={[Entity.QUIZZES, Action.CREATE]}><QuizEditorPage /></Need>} />
+            <Route path="/juegos/en-vivo/:id" element={<Need perm={[Entity.QUIZZES, Action.CREATE]}><LiveHostPage /></Need>} />
+            <Route path="/juegos/tarea/:id" element={<QuizHomeworkPage />} />
+            <Route path="/juegos/resultados/:id" element={<Need perm={[Entity.QUIZZES, Action.CREATE]}><QuizResultsPage /></Need>} />
+            <Route path="/juegos/:id" element={<Need perm={[Entity.QUIZZES, Action.CREATE]}><QuizEditorPage /></Need>} />
 
             <Route path="/sin-colegio" element={<NoSchoolPage />} />
             <Route path="/plataforma" element={<RequireSuperAdmin><PlatformSchoolsPage /></RequireSuperAdmin>} />

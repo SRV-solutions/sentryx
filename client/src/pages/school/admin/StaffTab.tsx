@@ -91,7 +91,7 @@ export const StaffTab = () => {
               <Badge tone="info">{m.roleLabel}{m.Level ? ` · ${m.Level.name}` : ''}</Badge>
             </Link>
             {grantable.includes(m.role) && m.userId !== user?.userData.id && (
-              <div className="row" style={{ gap: 4 }}>
+              <div className="row wrap" style={{ gap: 4 }}>
                 {m.active && <ResetPasswordButton userId={m.userId} name={`${m.User.firstName} ${m.User.lastName}`} />}
                 <button className="btn btn-sm btn-ghost" onClick={() => toggle.mutate(m)}>{m.active ? 'Desactivar' : 'Activar'}</button>
               </div>

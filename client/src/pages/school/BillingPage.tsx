@@ -3,12 +3,13 @@ import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Download, Search, Users, UserMinus, UserPlus, Receipt, Lock, Info } from 'lucide-react';
 import { apiGet } from '../../lib/api';
-import { downloadText } from '../../lib/csv';
+import { downloadText, csvRow } from '../../lib/csv';
 import { useSchool } from '../../school/SchoolContext';
 import { Badge, Card, Chips, ErrorBox, PageHeader, Skeleton, fmtDate } from '../../ui';
 import { CATEGORY_LABELS, type Category } from '../../school/types';
+import { PLAN_CODES, PLAN_NAMES, PLAN_TONES, type PlanCode } from '../../school/plans';
 
-interface Line { userId: number; name: string; login: string; category: Category; activeFrom: string; deactivatedAt: string | null; activeDays: number; amount: number }
+interface Line { userId: number; name: string; login: string; category: Category; activeFrom: string; deactivatedAt: string | null; activeDays: number; plan?: PlanCode; amount: number }
 interface Billing {
   cycle: string;
   currentCycle: string;
@@ -23,6 +24,7 @@ interface Billing {
   deactivatedInCycle: number;
   newInCycle: number;
   byCategory: Record<Category, { users: number; amount: number }>;
+  byPlan?: Record<PlanCode, { users: number; amount: number; price: number }>;
   total: number;
   lines: Line[];
 }
@@ -67,8 +69,8 @@ export default function BillingPage() {
 
   const exportCsv = () => {
     if (!d) return;
-    const rows = d.lines.map((l) => [l.name, l.login, CATEGORY_LABELS[l.category], fmtDate(l.activeFrom), l.deactivatedAt ? fmtDate(l.deactivatedAt) : '', l.activeDays, l.amount].join(';'));
-    downloadText(`facturacion-${session?.school.slug ?? 'colegio'}-${d.cycle}.csv`, `usuario;login;categoria;alta;baja;dias_activo;monto_ars\n${rows.join('\n')}\n;;;;;TOTAL;${d.total}`);
+    const rows = d.lines.map((l) => csvRow([l.name, l.login, CATEGORY_LABELS[l.category], fmtDate(l.activeFrom), l.deactivatedAt ? fmtDate(l.deactivatedAt) : '', l.activeDays, PLAN_NAMES[l.plan ?? 'BASICO'], l.amount]));
+    downloadText(`facturacion-${session?.school.slug ?? 'colegio'}-${d.cycle}.csv`, `usuario;login;categoria;alta;baja;dias_activo;plan;monto_ars\n${rows.join('\n')}\n;;;;;;TOTAL;${d.total}`);
   };
 
   return (
@@ -96,7 +98,7 @@ export default function BillingPage() {
           <div className="card card-pad" style={{ background: '#000', color: '#fff', border: 0, backgroundImage: 'radial-gradient(120% 140% at 0% 0%, rgba(11,120,251,.55), transparent 55%), radial-gradient(120% 140% at 100% 0%, rgba(246,149,10,.45), transparent 55%)' }}>
             <div className="small" style={{ opacity: 0.8 }}>{d.status === 'OPEN' ? 'Total estimado a pagar' : 'Total del ciclo'} · {monthName(d.cycle)}</div>
             <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.1, margin: '6px 0' }}>{ars(d.total)}</div>
-            <div className="small" style={{ opacity: 0.85 }}>{d.billableUsers} usuarios × {ars(d.unitPrice)} por mes</div>
+            <div className="small" style={{ opacity: 0.85 }}>{d.billableUsers} usuarios · cada uno según su plan (desde {ars(d.unitPrice)} por mes)</div>
           </div>
 
           <div className="grid grid-2 grid-4">
@@ -117,6 +119,21 @@ export default function BillingPage() {
               ))}
             </div>
           </Card>
+
+          {d.byPlan && (
+            <Card>
+              <div className="stack" style={{ gap: 10 }}>
+                <div className="row-between"><h2 className="h3">Por plan</h2><Link to="/planes" className="small">Cambiar planes</Link></div>
+                {PLAN_CODES.filter((p) => d.byPlan![p].users).map((p) => (
+                  <div key={p} className="row-between small">
+                    <span><Badge tone={PLAN_TONES[p]}>{PLAN_NAMES[p]}</Badge> {ars(d.byPlan![p].price)} c/u</span>
+                    <span><b>{d.byPlan![p].users}</b> · {ars(d.byPlan![p].amount)}</span>
+                  </div>
+                ))}
+                <p className="xs muted">Si alguien cambió de plan durante el mes, se cobra el plan más alto que tuvo.</p>
+              </div>
+            </Card>
+          )}
 
           <div className="alert alert-info small">
             <Info size={18} />
@@ -147,7 +164,7 @@ export default function BillingPage() {
             <div className="table-wrap card">
               <table className="table">
                 <thead>
-                  <tr><th>Usuario</th><th>Categoría</th><th>Alta</th><th>Baja</th><th style={{ textAlign: 'right' }}>Días</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
+                  <tr><th>Usuario</th><th>Categoría</th><th>Plan</th><th>Alta</th><th>Baja</th><th style={{ textAlign: 'right' }}>Días</th><th style={{ textAlign: 'right' }}>Monto</th></tr>
                 </thead>
                 <tbody>
                   {lines.map((l) => (
@@ -157,16 +174,17 @@ export default function BillingPage() {
                         {l.login && <div className="xs muted">{l.login}</div>}
                       </td>
                       <td className="small">{CATEGORY_LABELS[l.category].split(' /')[0]}</td>
+                      <td className="small"><Badge tone={PLAN_TONES[l.plan ?? 'BASICO']}>{PLAN_NAMES[l.plan ?? 'BASICO']}</Badge></td>
                       <td className="small">{fmtDate(l.activeFrom, { day: 'numeric', month: 'short', year: '2-digit' })}</td>
                       <td className="small">{l.deactivatedAt ? <Badge tone="warn">{fmtDate(l.deactivatedAt, { day: 'numeric', month: 'short' })}</Badge> : '—'}</td>
                       <td className="small" style={{ textAlign: 'right' }}>{l.activeDays}</td>
                       <td style={{ textAlign: 'right', fontWeight: 700 }}>{ars(l.amount)}</td>
                     </tr>
                   ))}
-                  {!lines.length && <tr><td colSpan={6} className="muted small">Sin resultados.</td></tr>}
+                  {!lines.length && <tr><td colSpan={7} className="muted small">Sin resultados.</td></tr>}
                 </tbody>
                 <tfoot>
-                  <tr><td colSpan={5} style={{ fontWeight: 800 }}>Total {cat !== 'ALL' || q ? '(filtrado)' : ''}</td><td style={{ textAlign: 'right', fontWeight: 900 }}>{ars(lines.reduce((s, l) => s + l.amount, 0))}</td></tr>
+                  <tr><td colSpan={6} style={{ fontWeight: 800 }}>Total {cat !== 'ALL' || q ? '(filtrado)' : ''}</td><td style={{ textAlign: 'right', fontWeight: 900 }}>{ars(lines.reduce((s, l) => s + l.amount, 0))}</td></tr>
                 </tfoot>
               </table>
             </div>

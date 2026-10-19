@@ -9,6 +9,7 @@ import { useSchool } from '../../school/SchoolContext';
 import { enablePush, pushState, isIOSNotInstalled } from '../../lib/push';
 import { usePerson } from '../../school/PersonProfile';
 import { ReportProblemSheet } from '../../school/ReportProblem';
+import { MyPlanCard } from '../../school/MyPlanCard';
 import { Avatar, Badge, Card, Field, PageHeader, Sheet, useToast, PasswordInput, newPasswordProblem } from '../../ui';
 
 type UserData = StoredSession['userData'] & { phone?: string | null; biography?: string | null };
@@ -212,6 +213,8 @@ export default function ProfilePage() {
           </div>
         </section>
       )}
+
+      {session && <MyPlanCard />}
 
       <PasswordCard />
 

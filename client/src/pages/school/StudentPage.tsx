@@ -11,6 +11,32 @@ import { Avatar, Badge, Card, ErrorBox, Skeleton, Tabs, fmtDate, Empty, Field, S
 import { ATTENDANCE_LABELS, type AttendanceStatus, type ReportCard } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
 import { StudentLifecycleCard } from '../../school/StudentLifecycle';
+import { UpgradeCard } from '../../school/PlanGate';
+import { PlanFeature, usePlan } from '../../school/plans';
+
+interface QuizResults { student?: string; results: Array<{ id: number; title?: string; subject: string | null; score: number; correctCount: number; questionCount: number; finishedAt: string }> }
+
+/** Juegos de preguntas que respondió (personal; familias con plan Integral). */
+const QuizResultsTab = ({ id, locked }: { id: number; locked: boolean }) => {
+  const q = useQuery({ queryKey: ['student-quizzes', id], queryFn: () => apiGet<QuizResults>(`/school/quiz-results/student/${id}`), enabled: !locked });
+  if (locked) return <UpgradeCard feature={PlanFeature.QUIZZES} title="Resultados de los juegos" />;
+  if (q.isLoading) return <Skeleton count={2} h={60} />;
+  if (q.error) return <ErrorBox error={q.error} />;
+  if (!q.data?.results.length) return <Empty title="Todavía no respondió juegos" text="Los juegos que asignan los docentes como tarea aparecen acá." />;
+  return (
+    <div className="card list" style={{ overflow: 'hidden' }}>
+      {q.data.results.map((r) => (
+        <div key={r.id} className="list-item">
+          <div className="grow">
+            <div className="h3">{r.title}</div>
+            <div className="xs muted">{r.subject ? `${r.subject} · ` : ''}{fmtDate(r.finishedAt)}</div>
+          </div>
+          <Badge tone={r.correctCount / Math.max(1, r.questionCount) >= 0.6 ? 'ok' : 'warn'}>{r.correctCount}/{r.questionCount} · {r.score} pts</Badge>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 interface StudentDetail {
   id: number;
@@ -184,7 +210,8 @@ export default function StudentPage() {
     onError: (e: Error) => toast(e.message, true),
   });
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<'grades' | 'attendance' | 'info'>(params.get('tab') === 'datos' ? 'info' : 'grades');
+  const [tab, setTab] = useState<'grades' | 'attendance' | 'info' | 'quizzes'>(params.get('tab') === 'datos' ? 'info' : 'grades');
+  const { hasFeature } = usePlan();
 
   const student = useQuery({ queryKey: ['student', id], queryFn: () => apiGet<StudentDetail>(`/school/students/${id}`) });
   const report = useQuery({ queryKey: ['report-card', id], queryFn: () => apiGet<ReportCard>(`/school/grades/report-card/${id}`), enabled: tab === 'grades' });
@@ -213,7 +240,7 @@ export default function StudentPage() {
       {s && manage && <div className="no-print"><StudentLifecycleCard student={s} divisionId={division?.id} /></div>}
 
       <div className="no-print">
-        <Tabs value={tab} onChange={setTab} items={[{ value: 'grades', label: 'Boletín' }, { value: 'attendance', label: 'Asistencia' }, { value: 'info', label: 'Datos' }]} />
+        <Tabs value={tab} onChange={setTab} items={[{ value: 'grades', label: 'Boletín' }, { value: 'attendance', label: 'Asistencia' }, { value: 'quizzes', label: 'Juegos' }, { value: 'info', label: 'Datos' }]} />
       </div>
 
       {tab === 'grades' && (
@@ -232,6 +259,7 @@ export default function StudentPage() {
         </>
       )}
       {tab === 'attendance' && <AttendanceTab id={id} />}
+      {tab === 'quizzes' && <QuizResultsTab id={id} locked={isGuardian && !session?.self && !hasFeature(PlanFeature.QUIZZES)} />}
       {tab === 'info' && s && (
         <div className="stack">
           <Card>
