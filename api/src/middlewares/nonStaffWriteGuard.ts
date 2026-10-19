@@ -16,6 +16,8 @@ export const NON_STAFF_WRITE_ALLOWLIST: Array<{ method: string; path: RegExp; wh
   { method: 'DELETE', path: /^\/files\/\d+$/, why: 'Borrar un archivo propio' },
   { method: 'POST', path: /^\/channels\/\d+\/messages$/, why: 'Escribir en el canal de su curso' },
   { method: 'POST', path: /^\/channels\/\d+\/read$/, why: 'Marcar el canal como leído' },
+  { method: 'POST', path: /^\/quiz-assignments\/\d+\/attempt$/, why: 'Responder un juego asignado a su curso (estudiantes)' },
+  { method: 'POST', path: /^\/plans\/requests$/, why: 'Pedir un cambio de plan (lo aprueba la Representante Legal)' },
 ];
 
 export const isAllowedForNonStaff = (method: string, path: string) =>

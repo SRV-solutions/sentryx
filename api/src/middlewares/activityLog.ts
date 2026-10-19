@@ -4,7 +4,8 @@ import { currentRequest } from '../lib/requestContext';
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 /** Pedidos que no aportan a la auditoría (marcar como leído, suscripciones push). */
-const IGNORED_PATHS = [/\/read$/, /\/read-all$/, /^\/school\/push\//, /\/ack$/];
+// Las respuestas de los juegos en vivo (/play) son muchas por segundo y anónimas: no se registran.
+const IGNORED_PATHS = [/\/read$/, /\/read-all$/, /^\/school\/push\//, /\/ack$/, /^\/play\//];
 
 /**
  * Registra en ActivityLog cada pedido que modifica algo: usuario, colegio, IP, ruta, resultado y duración.

@@ -38,7 +38,8 @@ export const requireTrustedClient = (req: Request, res: Response, next: NextFunc
 export const corsPolicy = cors({
   origin: (origin, callback) => callback(null, !origin || env.corsOrigins.includes(origin)),
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-School-Id', 'X-Level-Id', 'X-Client-Key'],
+  // X-Player-Token: jugadores de partidas en vivo (/play), sin cuenta.
+  allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-School-Id', 'X-Level-Id', 'X-Client-Key', 'X-Player-Token'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   maxAge: 86400,
 });

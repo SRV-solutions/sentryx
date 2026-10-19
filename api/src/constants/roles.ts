@@ -93,6 +93,31 @@ const ALL_SCHOOL_PERMISSIONS: PermissionPair[] = [
   [Entity.ALERTS, Action.READ],
   [Entity.ALERTS, Action.UPDATE],
   [Entity.ALERT_RULES, Action.UPDATE],
+  [Entity.PLANS, Action.READ],
+  [Entity.PLANS, Action.UPDATE],
+  [Entity.STAFF_RECORDS, Action.READ],
+  [Entity.STAFF_RECORDS, Action.UPDATE],
+  [Entity.PAYROLL, Action.READ],
+  [Entity.PAYROLL, Action.CREATE],
+  [Entity.PAYROLL, Action.DELETE],
+  [Entity.EVENTS, Action.READ],
+  [Entity.EVENTS, Action.CREATE],
+  [Entity.EVENTS, Action.UPDATE],
+  [Entity.EVENTS, Action.DELETE],
+  [Entity.SUBJECT_PROGRAMS, Action.CREATE],
+  [Entity.SUBJECT_PROGRAMS, Action.READ],
+  [Entity.SUBJECT_PROGRAMS, Action.UPDATE],
+  [Entity.QUIZZES, Action.CREATE],
+  [Entity.QUIZZES, Action.READ],
+];
+
+/** Lo que solo decide la Representante Legal: planes (lo que se cobra) y sueldos. */
+const LEGAL_REP_ONLY: PermissionPair[] = [
+  [Entity.BILLING, Action.READ],
+  [Entity.PLANS, Action.UPDATE],
+  [Entity.PAYROLL, Action.READ],
+  [Entity.PAYROLL, Action.CREATE],
+  [Entity.PAYROLL, Action.DELETE],
 ];
 
 export const ROLE_CATALOG: RoleDefinition[] = [
@@ -113,17 +138,17 @@ export const ROLE_CATALOG: RoleDefinition[] = [
   {
     code: RoleCode.DIRECTOR, name: 'Dirección', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 80, schoolWide: false, leadership: true,
     description: 'Conduce un nivel (o todos si no tiene nivel asignado).',
-    defaultPermissions: schoolPermissionsExcept([Entity.BILLING, Action.READ]),
+    defaultPermissions: schoolPermissionsExcept(...LEGAL_REP_ONLY),
   },
   {
     code: RoleCode.RECTOR, name: 'Rectoría', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 80, schoolWide: false, leadership: true,
     description: 'Conduce el nivel Secundario.',
-    defaultPermissions: schoolPermissionsExcept([Entity.BILLING, Action.READ]),
+    defaultPermissions: schoolPermissionsExcept(...LEGAL_REP_ONLY),
   },
   {
     code: RoleCode.VICEDIRECTOR, name: 'Vicedirección', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 70, schoolWide: false, leadership: true,
     description: 'Acompaña a la conducción del nivel; no modifica la estructura de la institución.',
-    defaultPermissions: schoolPermissionsExcept([Entity.BILLING, Action.READ], [Entity.SCHOOL, Action.UPDATE]),
+    defaultPermissions: schoolPermissionsExcept(...LEGAL_REP_ONLY, [Entity.SCHOOL, Action.UPDATE], [Entity.EVENTS, Action.DELETE]),
   },
   {
     code: RoleCode.SECRETARIO, name: 'Secretaría', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 60, schoolWide: true, leadership: false,
@@ -133,15 +158,21 @@ export const ROLE_CATALOG: RoleDefinition[] = [
       [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.CREATE_SCHOOL_WIDE], [Entity.ANNOUNCEMENTS, Action.READ_STATS],
       [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
       [Entity.GRADES, Action.READ], [Entity.REPORT_CARDS, Action.PUBLISH], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ],
+      [Entity.PLANS, Action.READ], [Entity.STAFF_RECORDS, Action.READ], [Entity.STAFF_RECORDS, Action.UPDATE],
+      [Entity.EVENTS, Action.READ], [Entity.EVENTS, Action.CREATE], [Entity.EVENTS, Action.UPDATE], [Entity.EVENTS, Action.DELETE],
+      [Entity.SUBJECT_PROGRAMS, Action.READ],
     ],
   },
   {
     code: RoleCode.ADMINISTRACION, name: 'Administración', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 50, schoolWide: true, leadership: false,
-    description: 'Carga de familias y comunicación administrativa. No ve notas.',
+    description: 'Familias, comunicación administrativa, legajos, recibos de sueldo y calendario. No ve notas.',
     defaultPermissions: [
       [Entity.USERS, Action.READ], [Entity.USERS, Action.CREATE], [Entity.USERS, Action.UPDATE], [Entity.CONTACT_INFO, Action.READ],
       [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.CREATE_SCHOOL_WIDE], [Entity.ANNOUNCEMENTS, Action.READ_STATS],
       [Entity.MESSAGES, Action.MANAGE],
+      [Entity.PLANS, Action.READ], [Entity.STAFF_RECORDS, Action.READ], [Entity.STAFF_RECORDS, Action.UPDATE],
+      [Entity.PAYROLL, Action.READ], [Entity.PAYROLL, Action.CREATE], [Entity.PAYROLL, Action.DELETE],
+      [Entity.EVENTS, Action.READ], [Entity.EVENTS, Action.CREATE], [Entity.EVENTS, Action.UPDATE],
     ],
   },
   {
@@ -153,6 +184,7 @@ export const ROLE_CATALOG: RoleDefinition[] = [
       [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE],
       [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ATTENDANCE, Action.UPDATE],
       [Entity.ALERTS, Action.READ], [Entity.ALERTS, Action.UPDATE],
+      [Entity.EVENTS, Action.READ], [Entity.QUIZZES, Action.CREATE],
     ],
   },
   {
@@ -161,6 +193,7 @@ export const ROLE_CATALOG: RoleDefinition[] = [
     defaultPermissions: [
       [Entity.USERS, Action.READ], [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
       [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE], [Entity.GRADES, Action.UPDATE], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ],
+      [Entity.EVENTS, Action.READ], [Entity.SUBJECT_PROGRAMS, Action.CREATE], [Entity.QUIZZES, Action.CREATE],
     ],
   },
   {

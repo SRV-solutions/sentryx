@@ -19,7 +19,7 @@ export class School extends Model<InferAttributes<School>, InferCreationAttribut
   declare phone: string | null;
   declare email: string | null;
   declare logoUrl: string | null;
-  /** Cuota de almacenamiento en MB (null = la global STORAGE_QUOTA_MB). */
+  /** Tope opcional de almacenamiento del colegio entero, en MB (null = sin tope: manda el espacio del plan de cada persona). */
   declare storageQuotaMb: CreationOptional<number | null>;
   declare active: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;

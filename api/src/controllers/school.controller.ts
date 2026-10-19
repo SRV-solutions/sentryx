@@ -11,6 +11,7 @@ import { publicSchool, resolveLogo, isImageAsset } from '../services/branding';
 import { isSuperAdmin } from '../middlewares/authenticate';
 import { Entity, Action } from '../constants/permissions';
 import { RoleCode } from '../constants/roles';
+import { planDefinition, featuresOf } from '../constants/plans';
 
 // El alta de colegios está en la consola de la plataforma (src/platform/routes.ts).
 
@@ -54,7 +55,8 @@ export const getSession = asyncHandler(async (req, res) => {
       categoryLabel: session.category ? CATEGORY_LABELS[session.category] : null,
       self: session.self,
       hasChannels: await hasChannels(session),
-      
+      /** Plan de la persona: la app muestra o bloquea (con opción de pedir el cambio) las funciones extra. */
+      plan: { code: session.plan, name: planDefinition(session.plan).name, storageGb: planDefinition(session.plan).storageGb, features: [...featuresOf(session.plan)] },
       /** Funciones que dependen de la configuración del servidor (la app oculta lo que no está disponible). */
       features: { fileUploads: isStorageConfigured() },
       grantableRoles: session.can(Entity.USERS, Action.UPDATE) ? grantableRoles(session.roles, session.superAdmin) : [],

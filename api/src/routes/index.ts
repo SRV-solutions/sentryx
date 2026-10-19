@@ -28,6 +28,11 @@ import billingRoutes from './billing.routes';
 import auditRoutes from './audit.routes';
 import academicRoutes from './academic.routes';
 import supportRoutes from './support.routes';
+import plansRoutes from './plans.routes';
+import staffRecordsRoutes from './staffRecords.routes';
+import eventsRoutes from './events.routes';
+import teachingRoutes from './teaching.routes';
+import playRoutes from './play.routes';
 
 /**
  * MAPA DE LA API
@@ -38,6 +43,7 @@ import supportRoutes from './support.routes';
  *   /notifications/*    campana de notificaciones
  *   /support/*          reportes de problemas (cualquier usuario con sesión)
  *   /platform/*         consola del equipo Sentryx (rol de plataforma SUPERADMIN)
+ *   /play/*             partidas en vivo de los juegos (alumnos sin cuenta: PIN + apodo)
  *   /school/*           todo lo de un colegio: requiere sesión escolar (X-School-Id)
  */
 export const apiRouter = Router();
@@ -48,6 +54,7 @@ apiRouter.use('/users', usersRoutes);
 apiRouter.use('/notifications', authenticate, userLimiter, notificationsRoutes);
 apiRouter.use('/support', authenticate, userLimiter, supportRoutes);
 apiRouter.use('/platform', authenticate, userLimiter, platformRoutes);
+apiRouter.use('/play', playRoutes);
 
 // ---------------- /school ----------------
 const school = Router();
@@ -76,5 +83,9 @@ school.use(filesRoutes);
 school.use(dashboardRoutes);
 school.use(billingRoutes);
 school.use(auditRoutes);
+school.use(plansRoutes);
+school.use(staffRecordsRoutes);
+school.use(eventsRoutes);
+school.use(teachingRoutes);
 
 apiRouter.use('/school', school);

@@ -1,5 +1,6 @@
 import { Op } from 'sequelize';
-import { UserRole, AcademicYear, Division, TeachingAssignment, StudentGuardian, Student, Enrollment, School, Level } from '../models';
+import { UserRole, AcademicYear, Division, TeachingAssignment, StudentGuardian, Student, Enrollment, School, Level, PlanAssignment } from '../models';
+import { PlanCode, PlanFeature, DEFAULT_PLAN, featuresOf } from '../constants/plans';
 import { RoleCode, SchoolRole, Category, isStaffRole, categoryOf, SCHOOL_WIDE_ROLES } from '../constants/roles';
 import { Entity, Action, PermissionKey, permissionKey } from '../constants/permissions';
 import { permissionsForRoles } from './rbac';
@@ -39,6 +40,10 @@ export interface SchoolSession {
   activeLevelId: number | null;
   /** divisionId → levelId del ciclo vigente (para filtrar por nivel sin consultar la base). */
   divisionLevel: Record<number, number>;
+  /** Plan contratado para esta persona (el equipo de Sentryx: Integral). */
+  plan: PlanCode;
+  /** ¿Su plan incluye esta función? Usar junto con can(): el rol dice qué le toca, el plan qué tiene contratado. */
+  hasFeature: (feature: PlanFeature) => boolean;
 }
 
 const withPermissionCheck = (permissions: Set<PermissionKey>) => (entity: Entity, action: Action) => permissions.has(permissionKey(entity, action));
@@ -58,7 +63,7 @@ export const currentAcademicYear = async (schoolId: number) =>
   (await AcademicYear.findOne({ where: { schoolId }, order: [['year', 'DESC']] }));
 
 const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: boolean): Promise<SchoolSession> => {
-  const [userRoles, academicYear, guardianLinks] = await Promise.all([
+  const [userRoles, academicYear, guardianLinks, planAssignment] = await Promise.all([
     UserRole.findAll({ where: { userId, schoolId, active: true } }),
     currentAcademicYear(schoolId),
     StudentGuardian.findAll({
@@ -66,7 +71,10 @@ const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: 
       include: [{ model: Student, where: { schoolId, active: true }, attributes: ['id'] }],
       attributes: ['studentId'],
     }),
+    PlanAssignment.findOne({ where: { schoolId, userId, endedAt: null }, attributes: ['plan'], raw: true }),
   ]);
+  const plan: PlanCode = superAdmin ? 'INTEGRAL' : planAssignment?.plan ?? DEFAULT_PLAN;
+  const features = featuresOf(plan);
 
   const roles = [...new Set(userRoles.map((userRole) => userRole.role as SchoolRole))];
   if (superAdmin && !roles.includes(RoleCode.REPRESENTANTE_LEGAL)) roles.push(RoleCode.REPRESENTANTE_LEGAL);
@@ -162,6 +170,8 @@ const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: 
     levelIds: roles.some(isStaffRole) ? staffLevelIds : [],
     activeLevelId: null,
     divisionLevel,
+    plan,
+    hasFeature: (feature) => features.has(feature),
   };
 };
 

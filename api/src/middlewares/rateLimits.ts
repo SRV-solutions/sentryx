@@ -26,7 +26,8 @@ export const ipLimiter = rateLimit({
   ...common,
   windowMs: MINUTE,
   limit: 3000,
-  skip: (req) => req.path === '/health',
+  // /play tiene su propio límite por jugador: toda un aula juega desde la misma IP (ver playLimiter).
+  skip: (req) => req.path === '/health' || req.path.startsWith('/play/'),
   message: tooMany('Demasiados pedidos desde tu red. Esperá un minuto.'),
 });
 
@@ -84,4 +85,33 @@ export const uploadLimiter = rateLimit({
   limit: 60,
   keyGenerator: (req) => `upload:${req.user?.id ?? clientIp(req)}`,
   message: tooMany('Demasiadas subidas seguidas. Esperá unos minutos.'),
+});
+
+/**
+ * Juegos en vivo: cada celular consulta el estado ~1 vez por segundo. Límite por jugador (token) y,
+ * para entrar a una partida, por IP (frena que alguien pruebe PINs al azar).
+ */
+export const playLimiter = rateLimit({
+  ...common,
+  windowMs: MINUTE,
+  limit: 240,
+  keyGenerator: (req) => `play:${String(req.headers['x-player-token'] ?? '').slice(0, 64) || clientIp(req)}`,
+  message: tooMany('Demasiados pedidos. Esperá un momento.'),
+});
+
+/** Tope por IP para /play: alcanza para un aula de 60 celulares consultando cada segundo. */
+export const playIpLimiter = rateLimit({
+  ...common,
+  windowMs: MINUTE,
+  limit: 6000,
+  keyGenerator: (req) => `play-ip:${clientIp(req)}`,
+  message: tooMany('Demasiados pedidos desde tu red. Esperá un minuto.'),
+});
+
+export const joinGameLimiter = rateLimit({
+  ...common,
+  windowMs: MINUTE,
+  limit: 60,
+  keyGenerator: (req) => `join:${clientIp(req)}`,
+  message: tooMany('Demasiados intentos de entrar a una partida. Esperá un minuto.'),
 });

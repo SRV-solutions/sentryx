@@ -18,6 +18,8 @@ import { evaluateAlerts } from '../services/alerts';
 import { LevelType } from '../constants/school';
 import { RoleCode, SchoolRole } from '../constants/roles';
 import { reconcileAccess } from '../services/billing';
+import { changePlans } from '../services/plans';
+import { addDemoContent } from './demoContent';
 
 const argument = (name: string) => {
   const index = process.argv.indexOf(`--${name}`);
@@ -28,6 +30,8 @@ const DOMAIN = argument('domain') ?? 'demo.sentryx';
 const SCHOOL_NAME = argument('name') ?? 'Colegio Demo SRV';
 const SCHOOL_SLUG = argument('slug') ?? 'colegio-demo';
 const WITH_SUPERADMIN = !env.isProd || process.argv.includes('--with-superadmin');
+/** Por defecto todos en el plan Básico. --show-plans pone a los directivos y a docente1 en Integral para mostrar todo. */
+const SHOW_PLANS = process.argv.includes('--show-plans');
 /** DNIs ficticios solo en desarrollo: en producción podrían coincidir con personas reales. */
 const USE_DEMO_DNI = !env.isProd;
 const YEAR = new Date().getFullYear();
@@ -60,8 +64,16 @@ const run = async () => {
   // sale de su rol escolar (UserRole): Directivo / Docente / Familia / Estudiante. Ver constants/roles.ts.
   let studentAccounts = 0;
   const levels: LevelType[] = ['INICIAL', 'PRIMARIO', 'SECUNDARIO'];
-  const school = await createSchool({ name: SCHOOL_NAME, slug: SCHOOL_SLUG, cue: null, levels, year: YEAR });
-  const year = (await M.AcademicYear.findOne({ where: { schoolId: school.id } }))!;
+  const school = await createSchool({
+    name: SCHOOL_NAME,
+    slug: SCHOOL_SLUG,
+    cue: null,
+    levels,
+    year: YEAR,
+  });
+  const year = (await M.AcademicYear.findOne({
+    where: { schoolId: school.id },
+  }))!;
   const lv = Object.fromEntries((await M.Level.findAll({ where: { schoolId: school.id } })).map((l) => [l.type, l])) as Record<LevelType, M.Level>;
 
   // --- Personal ---
@@ -76,7 +88,13 @@ const run = async () => {
   ];
   for (const [f, l, user, role, level] of staff) {
     const u = await mkUser(f, l, `${user}@${DOMAIN}`);
-    await M.UserRole.create({ userId: u.id, schoolId: school.id, role, levelId: level ? lv[level].id : null, title: null });
+    await M.UserRole.create({
+      userId: u.id,
+      schoolId: school.id,
+      role,
+      levelId: level ? lv[level].id : null,
+      title: null,
+    });
   }
 
   // --- Divisiones y materias ---
@@ -89,19 +107,51 @@ const run = async () => {
   const teachers: M.User[] = [];
   for (let i = 0; i < 8; i++) {
     const t = await mkUser(pick(FIRST, i + 3), pick(LAST, i + 5), `docente${i + 1}@${DOMAIN}`);
-    await M.UserRole.create({ userId: t.id, schoolId: school.id, role: RoleCode.DOCENTE, levelId: null, title: null });
+    await M.UserRole.create({
+      userId: t.id,
+      schoolId: school.id,
+      role: RoleCode.DOCENTE,
+      levelId: null,
+      title: null,
+    });
     teachers.push(t);
   }
 
   let s = 0;
   for (const type of levels) {
-    const subjects = await Promise.all(plan[type].subjects.map((name) => M.Subject.create({ schoolId: school.id, levelId: lv[type].id, name, code: null, gradeYear: null })));
-    const periods = await M.GradingPeriod.findAll({ where: { levelId: lv[type].id, academicYearId: year.id }, order: [['order', 'ASC']] });
+    const subjects = await Promise.all(
+      plan[type].subjects.map((name) =>
+        M.Subject.create({
+          schoolId: school.id,
+          levelId: lv[type].id,
+          name,
+          code: null,
+          gradeYear: null,
+        })
+      )
+    );
+    const periods = await M.GradingPeriod.findAll({
+      where: { levelId: lv[type].id, academicYearId: year.id },
+      order: [['order', 'ASC']],
+    });
 
     for (const [name, gradeYear] of plan[type].divisions) {
-      const division = await M.Division.create({ schoolId: school.id, levelId: lv[type].id, academicYearId: year.id, name, gradeYear, section: null, shift: 'Mañana' });
+      const division = await M.Division.create({
+        schoolId: school.id,
+        levelId: lv[type].id,
+        academicYearId: year.id,
+        name,
+        gradeYear,
+        section: null,
+        shift: 'Mañana',
+      });
       for (const [i, subject] of subjects.entries()) {
-        await M.TeachingAssignment.create({ schoolId: school.id, divisionId: division.id, subjectId: subject.id, teacherId: teachers[(i + gradeYear) % teachers.length].id });
+        await M.TeachingAssignment.create({
+          schoolId: school.id,
+          divisionId: division.id,
+          subjectId: subject.id,
+          teacherId: teachers[(i + gradeYear) % teachers.length].id,
+        });
       }
 
       for (let k = 0; k < 6; k++, s++) {
@@ -110,8 +160,19 @@ const run = async () => {
         await M.Enrollment.create({ studentId: student.id, divisionId: division.id, academicYearId: year.id });
 
         const parent = await mkUser(pick(['Mariana', 'Pablo', 'Lorena', 'Javier', 'Verónica', 'Gustavo'], s), lastName, `familia${s + 1}@${DOMAIN}`);
-        await M.StudentGuardian.create({ studentId: student.id, userId: parent.id, relationship: s % 2 ? 'Padre' : 'Madre', isPrimary: true });
-        await M.UserRole.create({ userId: parent.id, schoolId: school.id, role: RoleCode.TUTOR, levelId: null, title: null });
+        await M.StudentGuardian.create({
+          studentId: student.id,
+          userId: parent.id,
+          relationship: s % 2 ? 'Padre' : 'Madre',
+          isPrimary: true,
+        });
+        await M.UserRole.create({
+          userId: parent.id,
+          schoolId: school.id,
+          role: RoleCode.TUTOR,
+          levelId: null,
+          title: null,
+        });
 
         // Secundario: el alumno tiene cuenta propia (ingresa con su DNI) para el chat con docentes y el canal del curso.
         if (type === 'SECUNDARIO') {
@@ -121,7 +182,13 @@ const run = async () => {
             username: `estudiante${studentAccounts}-${SCHOOL_SLUG}`.slice(0, 40), password: hash, phone: null, biography: null, avatar: null, lastLogin: null,
           });
           await student.update({ userId: account.id });
-          await M.UserRole.create({ userId: account.id, schoolId: school.id, role: RoleCode.ESTUDIANTE, levelId: null, title: null });
+          await M.UserRole.create({
+            userId: account.id,
+            schoolId: school.id,
+            role: RoleCode.ESTUDIANTE,
+            levelId: null,
+            title: null,
+          });
         }
 
         // Notas de los dos primeros períodos.
@@ -166,7 +233,12 @@ const run = async () => {
         links: [], fileIds: [], dueDate: new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10), pinned: false,
       });
       // Boletín del primer período publicado.
-      await M.ReportCardPublication.create({ schoolId: school.id, divisionId: division.id, periodId: periods[0].id, publishedById: teachers[0].id });
+      await M.ReportCardPublication.create({
+        schoolId: school.id,
+        divisionId: division.id,
+        periodId: periods[0].id,
+        publishedById: teachers[0].id,
+      });
     }
   }
 
@@ -181,6 +253,19 @@ const run = async () => {
   await evaluateAlerts(school.id);
   // Facturación: abre los períodos de acceso de todos los usuarios demo.
   await reconcileAccess(school.id);
+  // Comunicados, conversaciones y un canal con actividad, para que la demo se vea en uso.
+  await addDemoContent(school.id, DOMAIN);
+  // Planes: todos en Básico (lo que se presenta). Con --show-plans, directivos, docente1 y dos familias en Integral.
+  if (SHOW_PLANS) {
+    const integral = await M.User.findAll({
+      where: { email: ['representante', 'directora', 'vicedirectora', 'rectora', 'secretaria', 'administracion', 'preceptora', 'docente1', 'familia1', 'familia19'].map((u) => `${u}@${DOMAIN}`) },
+      attributes: ['id'],
+    });
+    const ampliado = await M.User.findAll({ where: { email: `docente2@${DOMAIN}` }, attributes: ['id'] });
+    const changedBy = integral[0]?.id ?? 0;
+    await changePlans({ schoolId: school.id, userIds: integral.map((u) => u.id), plan: 'INTEGRAL', changedById: changedBy });
+    await changePlans({ schoolId: school.id, userIds: ampliado.map((u) => u.id), plan: 'AMPLIADO', changedById: changedBy });
+  }
   // Deja terminar las notificaciones que se envían en segundo plano.
   await new Promise((r) => setTimeout(r, 3000));
 
@@ -203,6 +288,7 @@ const run = async () => {
   console.log(`   Contraseña de todos los usuarios: ${PASSWORD}\n`);
   console.log('   Un usuario por rol:');
   for (const [role, email, description] of oneUserPerRole) console.log(`   ${role.padEnd(28)} ${email.padEnd(36)} ${description}`);
+  console.log(SHOW_PLANS ? '\n   Planes: directivos, docente1, familia1 y familia19 en Integral; docente2 en Ampliado; el resto en Básico.' : '\n   Planes: todos en Básico ($660 por persona). Se cambian desde "Planes".');
   console.log(`\n   Además: docente1..8, familia1..${s} y estudiante1..${studentAccounts} @${DOMAIN}.`);
   await M.sequelize.close();
 };

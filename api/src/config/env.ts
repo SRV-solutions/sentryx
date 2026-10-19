@@ -59,8 +59,6 @@ const schema = z.object({
   S3_ENDPOINT: z.string().url().optional(),
   /** Bucket de archivos escolares (materiales, adjuntos). Si falta se usa S3_BUCKET_NAME. */
   S3_FILES_BUCKET: z.string().optional(),
-  /** Cuota de almacenamiento por escuela en MB (configurable por escuela después). */
-  STORAGE_QUOTA_MB: z.coerce.number().default(20480),
   FILE_MAX_MB: z.coerce.number().default(25),
   VIDEO_MAX_MB: z.coerce.number().default(300),
 

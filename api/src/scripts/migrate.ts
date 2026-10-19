@@ -318,6 +318,29 @@ const migrations: Array<{
       await syncRbacCatalog();
     },
   },
+  {
+    // Planes por persona, legajo y recibos de sueldo, calendario de actos, programas y juegos.
+    name: "2026-10-22-plans-staff-events-teaching",
+    up: async () => {
+      for (const model of [
+        M.PlanAssignment, M.PlanRequest, M.StaffPosition, M.PayrollReceipt,
+        M.SchoolEvent, M.EventManager, M.EventPost,
+        M.SubjectProgram, M.ProgramUnit, M.Quiz, M.QuizAssignment, M.QuizAttempt,
+        M.LiveGame, M.LivePlayer, M.LiveAnswer,
+      ])
+        await (model as unknown as { sync: () => Promise<unknown> }).sync();
+      // Nuevos usos de archivos: recibos de sueldo, espacio de actos y programas.
+      await index(`DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_FileAsset_purpose') THEN
+          ALTER TYPE "enum_FileAsset_purpose" ADD VALUE IF NOT EXISTS 'PAYROLL';
+          ALTER TYPE "enum_FileAsset_purpose" ADD VALUE IF NOT EXISTS 'EVENT';
+          ALTER TYPE "enum_FileAsset_purpose" ADD VALUE IF NOT EXISTS 'PROGRAM';
+        END IF; END $$`);
+      await index(`CREATE INDEX IF NOT EXISTS "file_asset_school_uploader" ON "FileAsset" ("schoolId", "uploaderId")`);
+      // Permisos de planes, legajo, recibos, calendario, programas y juegos (y sus vínculos por defecto).
+      await syncRbacCatalog();
+    },
+  },
 ];
 
 const run = async () => {

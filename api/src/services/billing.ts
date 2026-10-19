@@ -2,12 +2,14 @@ import { QueryTypes } from 'sequelize';
 import { AccessPeriod, BillingStatement, School, sequelize } from '../models';
 import { env } from '../config/env';
 import { Category, CATEGORIES, SchoolRole, categoryOf } from '../constants/school';
+import { DEFAULT_PLAN, PLAN_CODES, PlanCode, planPrice, planRank } from '../constants/plans';
 
 /**
  * FACTURACIÓN POR USUARIO ACTIVO
  *
- * Regla: se cobra el precio mensual completo (BILLING_PRICE_ARS) por cada persona que tuvo acceso al
- * colegio AL MENOS UN DÍA del ciclo (mes calendario). Quien se desactiva el día 29 se cobra ese mes.
+ * Regla: se cobra el precio mensual completo DEL PLAN de cada persona que tuvo acceso al colegio AL MENOS
+ * UN DÍA del ciclo (mes calendario). Quien se desactiva el día 29 se cobra ese mes. Si en el mes tuvo
+ * más de un plan (constants/plans.ts), se cobra el más alto.
  *
  * "Tener acceso" = cuenta habilitada (User.isActive) y además alguno de:
  *  - rol de personal activo (UserRole),
@@ -121,6 +123,8 @@ export interface BillingLine {
   /** Fin del acceso si se desactivó y no volvió a activarse dentro del ciclo. */
   deactivatedAt: string | null;
   activeDays: number;
+  /** Plan cobrado: el más alto que tuvo en el ciclo. */
+  plan: PlanCode;
   amount: number;
 }
 
@@ -137,14 +141,31 @@ export interface BillingSummary {
   deactivatedInCycle: number;
   newInCycle: number;
   byCategory: Record<Category, { users: number; amount: number }>;
+  byPlan: Record<PlanCode, { users: number; amount: number; price: number }>;
   total: number;
   lines: BillingLine[];
 }
 
 const DAY = 86_400_000;
 
-const computeLines = async (schoolId: number, cycle: string, unitPrice: number): Promise<BillingLine[]> => {
+/** Plan más alto de cada usuario dentro del ciclo (sin períodos de plan: Básico). */
+const highestPlansInCycle = async (schoolId: number, start: Date, end: Date) => {
+  const rows = (await sequelize.query(
+    `SELECT "userId", plan FROM "PlanAssignment"
+      WHERE "schoolId" = :sid AND "startedAt" < :end AND ("endedAt" IS NULL OR "endedAt" > :start)`,
+    { replacements: { sid: schoolId, start, end }, type: QueryTypes.SELECT }
+  )) as Array<{ userId: number; plan: PlanCode }>;
+  const highest = new Map<number, PlanCode>();
+  for (const row of rows) {
+    const current = highest.get(row.userId);
+    if (!current || planRank(row.plan) > planRank(current)) highest.set(row.userId, row.plan);
+  }
+  return highest;
+};
+
+const computeLines = async (schoolId: number, cycle: string): Promise<BillingLine[]> => {
   const { start, end } = cycleBounds(cycle);
+  const plans = await highestPlansInCycle(schoolId, start, end);
   const periods = (await sequelize.query(
     `SELECT p."userId", p.category, p."startedAt", p."endedAt", u."firstName", u."lastName", u.dni, u.email
        FROM "AccessPeriod" p JOIN "User" u ON u.id = p."userId"
@@ -168,6 +189,7 @@ const computeLines = async (schoolId: number, cycle: string, unitPrice: number):
     }, 0);
     const category = ps.map((p) => p.category).sort((a, b) => rank(a) - rank(b))[0];
     const ended = last.endedAt && new Date(last.endedAt) < end ? new Date(last.endedAt).toISOString() : null;
+    const plan = plans.get(first.userId) ?? DEFAULT_PLAN;
     return {
       userId: first.userId,
       name: `${first.lastName}, ${first.firstName}`,
@@ -176,7 +198,8 @@ const computeLines = async (schoolId: number, cycle: string, unitPrice: number):
       activeFrom: new Date(first.startedAt).toISOString(),
       deactivatedAt: ended,
       activeDays: Math.max(1, Math.ceil(ms / DAY)),
-      amount: unitPrice,
+      plan,
+      amount: planPrice(plan),
     };
   });
 };
@@ -184,9 +207,14 @@ const computeLines = async (schoolId: number, cycle: string, unitPrice: number):
 const summarize = (schoolId: number, cycle: string, unitPrice: number, lines: BillingLine[], status: 'OPEN' | 'CLOSED', closedAt: Date | null, activeNow: number): BillingSummary => {
   const { start, end } = cycleBounds(cycle);
   const byCategory = Object.fromEntries(CATEGORIES.map((c) => [c, { users: 0, amount: 0 }])) as BillingSummary['byCategory'];
+  const byPlan = Object.fromEntries(PLAN_CODES.map((p) => [p, { users: 0, amount: 0, price: planPrice(p) }])) as BillingSummary['byPlan'];
   for (const l of lines) {
     byCategory[l.category].users++;
     byCategory[l.category].amount += l.amount;
+    // Liquidaciones cerradas antes de los planes: todas eran Básico.
+    const plan = l.plan ?? DEFAULT_PLAN;
+    byPlan[plan].users++;
+    byPlan[plan].amount += l.amount;
   }
   return {
     schoolId,
@@ -201,6 +229,7 @@ const summarize = (schoolId: number, cycle: string, unitPrice: number, lines: Bi
     deactivatedInCycle: lines.filter((l) => l.deactivatedAt).length,
     newInCycle: lines.filter((l) => new Date(l.activeFrom) >= start).length,
     byCategory,
+    byPlan,
     total: Math.round(lines.reduce((s, l) => s + l.amount, 0) * 100) / 100,
     lines,
   };
@@ -216,7 +245,7 @@ export const billingFor = async (schoolId: number, cycle: string): Promise<Billi
   if (end.getTime() <= Date.now()) {
     const saved = await BillingStatement.findOne({ where: { schoolId, cycle } });
     if (saved) return summarize(schoolId, cycle, saved.unitPrice, saved.lines as BillingLine[], 'CLOSED', saved.closedAt, activeNow);
-    const lines = await computeLines(schoolId, cycle, env.BILLING_PRICE_ARS);
+    const lines = await computeLines(schoolId, cycle);
     const closedAt = new Date();
     const total = lines.reduce((s, l) => s + l.amount, 0);
     await BillingStatement.findOrCreate({
@@ -226,7 +255,7 @@ export const billingFor = async (schoolId: number, cycle: string): Promise<Billi
     return summarize(schoolId, cycle, env.BILLING_PRICE_ARS, lines, 'CLOSED', closedAt, activeNow);
   }
   await reconcileAccess(schoolId);
-  const lines = await computeLines(schoolId, cycle, env.BILLING_PRICE_ARS);
+  const lines = await computeLines(schoolId, cycle);
   return summarize(schoolId, cycle, env.BILLING_PRICE_ARS, lines, 'OPEN', null, activeNow);
 };
 

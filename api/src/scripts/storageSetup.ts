@@ -10,6 +10,7 @@
  * Con --no-cors no toca la política CORS (por si la administrás desde el panel de Cloudflare).
  */
 import { HeadBucketCommand, PutBucketCorsCommand, GetBucketCorsCommand, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { presignUpload } from '../config/s3';
 import { env } from '../config/env';
 import { s3 } from '../config/s3';
 
@@ -57,6 +58,15 @@ const run = async () => {
   const body = await read.Body?.transformToString();
   await s3.send(new DeleteObjectCommand({ Bucket: env.filesBucket, Key: key }));
   step(body === 'sentryx', 'Subir, leer y borrar un archivo de prueba');
+
+  // Igual que la app: subida con URL firmada (el tamaño va firmado: subir más de lo declarado tiene que fallar).
+  const signed = await presignUpload({ bucket: env.filesBucket, prefix: 'healthcheck', fileName: 'firmado.txt', contentType: 'text/plain', size: 7 });
+  const okPut = await fetch(signed.url, { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: 'sentryx' });
+  const tooBig = await fetch(signed.url, { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: 'sentryx-de-mas' }).catch(() => null);
+  await s3.send(new DeleteObjectCommand({ Bucket: env.filesBucket, Key: signed.key }));
+  step(okPut.ok, 'Subida con URL firmada (como desde el navegador)');
+  step(!tooBig?.ok, 'Rechaza un archivo más grande que el declarado');
+  if (!okPut.ok || tooBig?.ok) process.exitCode = 1;
   console.log('\n✅ Almacenamiento listo: los docentes ya pueden subir materiales y adjuntos.');
 };
 

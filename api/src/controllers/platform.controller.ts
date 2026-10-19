@@ -4,6 +4,7 @@
  * se suspenden y se ve la facturación de todos.
  */
 import { z } from 'zod';
+import { PLAN_CATALOG, DEFAULT_PLAN } from '../constants/plans';
 import { QueryTypes } from 'sequelize';
 import { School, UserRole, sequelize } from '../models';
 import { asyncHandler, notFound, conflict } from '../lib/http';
@@ -25,17 +26,20 @@ export const listSchools = asyncHandler(async (_req, res) => {
       `SELECT s.id, s.name, s.slug, s.cue, s.active, s."createdAt",
               (SELECT json_agg(l.name ORDER BY l.id) FROM "Level" l WHERE l."schoolId" = s.id) AS levels,
               (SELECT COUNT(*)::int FROM "AccessPeriod" p WHERE p."schoolId" = s.id AND p."endedAt" IS NULL) AS "activeUsers",
+              (SELECT COALESCE(SUM(CASE COALESCE(pa.plan, :defaultPlan) ${PLAN_CATALOG.map((p) => `WHEN '${p.code}' THEN ${p.price}`).join(' ')} END), 0)::int
+                 FROM "AccessPeriod" p
+                 LEFT JOIN "PlanAssignment" pa ON pa."schoolId" = p."schoolId" AND pa."userId" = p."userId" AND pa."endedAt" IS NULL
+                WHERE p."schoolId" = s.id AND p."endedAt" IS NULL) AS "estimatedMonthly",
               (SELECT COUNT(*)::int FROM "Student" st WHERE st."schoolId" = s.id AND st.active) AS students,
               (SELECT json_agg(json_build_object('id', u.id, 'name', u."firstName" || ' ' || u."lastName", 'email', u.email, 'lastLogin', u."lastLogin"))
                  FROM "UserRole" m JOIN "User" u ON u.id = m."userId"
                 WHERE m."schoolId" = s.id AND m.role = 'REPRESENTANTE_LEGAL' AND m.active) AS "legalReps"
          FROM "School" s ORDER BY s.name`,
-      { type: QueryTypes.SELECT }
+      { type: QueryTypes.SELECT, replacements: { defaultPlan: DEFAULT_PLAN } }
     )) as Array<Record<string, unknown> & { id: number; activeUsers: number }>;
     res.json(
       rows.map((r) => ({
         ...r,
-        estimatedMonthly: r.activeUsers * env.BILLING_PRICE_ARS,
         legalReps: ((r.legalReps as Array<{ email: string }> | null) ?? []).map((x) => ({ ...x, email: isTechEmail(x.email) ? null : x.email })),
       }))
     );
@@ -84,7 +88,7 @@ export const getPlatformBilling = asyncHandler(async (req, res) => {
     const rows = [];
     for (const s of schools) {
       const b = await billingFor(s.id, cycle);
-      rows.push({ schoolId: s.id, name: s.name, active: s.active, status: b.status, billableUsers: b.billableUsers, activeNow: b.activeNow, byCategory: b.byCategory, total: b.total });
+      rows.push({ schoolId: s.id, name: s.name, active: s.active, status: b.status, billableUsers: b.billableUsers, activeNow: b.activeNow, byCategory: b.byCategory, byPlan: b.byPlan, total: b.total });
     }
     res.json({ cycle, currentCycle: cycleOf(), unitPrice: env.BILLING_PRICE_ARS, schools: rows, billableUsers: rows.reduce((t, r) => t + r.billableUsers, 0), total: rows.reduce((t, r) => t + r.total, 0) });
   });

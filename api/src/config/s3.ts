@@ -26,18 +26,35 @@ const safeName = (name: string) => name.normalize('NFKD').replace(/[^\w.-]+/g, '
  * URL firmada para que el navegador suba el archivo DIRECTO a S3.
  * El servidor nunca recibe el archivo: cero memoria/CPU consumidos aunque sea un video de 1 GB.
  */
-export const presignUpload = async (opts: { bucket: string; prefix: string; fileName: string; contentType: string }) => {
+export const presignUpload = async (opts: { bucket: string; prefix: string; fileName: string; contentType: string; size: number }) => {
   const key = `${opts.prefix}/${randomUUID()}-${safeName(opts.fileName)}`;
+  // El tamaño va firmado: el navegador no puede subir más de lo que declaró (y se descontó del espacio).
   const url = await getSignedUrl(
     s3,
-    new PutObjectCommand({ Bucket: opts.bucket, Key: key, ContentType: opts.contentType }),
-    { expiresIn: 900 }
+    new PutObjectCommand({ Bucket: opts.bucket, Key: key, ContentType: opts.contentType, ContentLength: opts.size }),
+    { expiresIn: 900, signableHeaders: new Set(['content-type', 'content-length']) }
   );
   return { key, url };
 };
 
-export const presignDownload = (bucket: string, key: string, expiresIn = 3600) =>
-  getSignedUrl(s3, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
+/** Se muestran en el navegador solo imágenes, PDF, audio y video; el resto se descarga (nunca se interpreta). */
+const INLINE = /^(image\/(jpeg|png|webp|gif|heic|heif)|application\/pdf|audio\/|video\/)/;
+
+export const presignDownload = (bucket: string, key: string, expiresIn = 3600, file?: { name: string; mimeType: string }) =>
+  getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      ...(file
+        ? {
+            ResponseContentType: file.mimeType,
+            ResponseContentDisposition: `${INLINE.test(file.mimeType) ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+          }
+        : {}),
+    }),
+    { expiresIn }
+  );
 
 export const headObject = (bucket: string, key: string) => s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
 export const deleteObject = (bucket: string, key: string) => s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));

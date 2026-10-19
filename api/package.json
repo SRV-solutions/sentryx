@@ -11,6 +11,8 @@
     "db:migrate:dev": "ts-node --transpile-only src/scripts/migrate.ts",
     "seed:demo": "ts-node --transpile-only src/scripts/seedDemo.ts",
     "seed:demo:prod": "node dist/scripts/seedDemo.js",
+    "demo:content": "ts-node --transpile-only src/scripts/demoContent.ts",
+    "demo:content:prod": "node dist/scripts/demoContent.js",
     "push:keys": "web-push generate-vapid-keys --json",
     "bootstrap": "node dist/scripts/bootstrap.js",
     "superadmin": "node dist/scripts/superadmin.js",
@@ -31,7 +33,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1152.0",
     "@aws-sdk/s3-request-presigner": "^3.1152.0",
-    "bcrypt": "^5.1.1",
+    "bcrypt": "^6.0.0",
     "compression": "^1.8.2",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
@@ -39,7 +41,7 @@
     "express-rate-limit": "^8.7.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.2",
-    "nodemailer": "^7.0.3",
+    "nodemailer": "^10.1.7",
     "pg": "^8.16.0",
     "pg-hstore": "^2.3.4",
     "sequelize": "^6.37.3",
@@ -64,5 +66,8 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "overrides": {
+    "uuid": "^11.1.1"
   }
 }

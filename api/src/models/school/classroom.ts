@@ -9,7 +9,8 @@ import {
 } from 'sequelize';
 import { sequelize } from '../../config/database';
 
-export const FILE_PURPOSES = ['MATERIAL', 'ANNOUNCEMENT', 'MESSAGE', 'OTHER'] as const;
+/** PAYROLL: recibos de sueldo (solo los ve la persona y administración). EVENT y PROGRAM: espacio de un acto y programas. */
+export const FILE_PURPOSES = ['MATERIAL', 'ANNOUNCEMENT', 'MESSAGE', 'OTHER', 'PAYROLL', 'EVENT', 'PROGRAM'] as const;
 export type FilePurpose = (typeof FILE_PURPOSES)[number];
 
 /**

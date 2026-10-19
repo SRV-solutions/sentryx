@@ -22,6 +22,10 @@ import { AuditLog, ActivityLog, SupportReport, DeviceToken, UserAvatar } from '.
 import { FileAsset, ClassroomPost } from './school/classroom';
 import { AccessPeriod, BillingStatement } from './school/billing';
 import { Channel, ChannelMessage, ChannelRead, ChannelMute } from './school/channels';
+import { PlanAssignment, PlanRequest } from './school/plans';
+import { StaffPosition, PayrollReceipt } from './school/staff';
+import { SchoolEvent, EventManager, EventPost } from './school/events';
+import { SubjectProgram, ProgramUnit, Quiz, QuizAssignment, QuizAttempt, LiveGame, LivePlayer, LiveAnswer } from './school/teaching';
 
 let associated = false;
 
@@ -130,6 +134,42 @@ export const associateModels = () => {
   Channel.belongsTo(Division, { foreignKey: 'divisionId' });
   Channel.belongsTo(Subject, { foreignKey: 'subjectId' });
   ChannelMessage.belongsTo(User, { foreignKey: 'senderId', as: 'Sender' });
+
+  // --- Facturación y planes ---
+  AccessPeriod.belongsTo(User, { foreignKey: 'userId', constraints: false });
+  PlanAssignment.belongsTo(User, { foreignKey: 'userId' });
+  PlanRequest.belongsTo(User, { foreignKey: 'userId' });
+
+  // --- Personal: legajo y recibos ---
+  StaffPosition.belongsTo(User, { foreignKey: 'userId' });
+  StaffPosition.belongsTo(Level, { foreignKey: 'levelId', constraints: false });
+  PayrollReceipt.belongsTo(User, { foreignKey: 'userId' });
+  PayrollReceipt.belongsTo(FileAsset, { foreignKey: 'fileId', constraints: false });
+
+  // --- Calendario ---
+  SchoolEvent.hasMany(EventManager, { foreignKey: 'eventId', as: 'Managers' });
+  EventManager.belongsTo(SchoolEvent, { foreignKey: 'eventId' });
+  EventManager.belongsTo(User, { foreignKey: 'userId' });
+  SchoolEvent.hasMany(EventPost, { foreignKey: 'eventId' });
+  EventPost.belongsTo(User, { foreignKey: 'authorId', as: 'Author' });
+
+  // --- Programas y juegos ---
+  SubjectProgram.hasMany(ProgramUnit, { foreignKey: 'programId', as: 'Units' });
+  SubjectProgram.belongsTo(Subject, { foreignKey: 'subjectId' });
+  SubjectProgram.belongsTo(Division, { foreignKey: 'divisionId' });
+  SubjectProgram.belongsTo(User, { foreignKey: 'authorId', as: 'Author' });
+  ProgramUnit.belongsTo(SubjectProgram, { foreignKey: 'programId' });
+  Quiz.belongsTo(Subject, { foreignKey: 'subjectId' });
+  Quiz.belongsTo(ProgramUnit, { foreignKey: 'programUnitId' });
+  Quiz.belongsTo(User, { foreignKey: 'authorId', as: 'Author' });
+  Quiz.hasMany(QuizAssignment, { foreignKey: 'quizId' });
+  QuizAssignment.belongsTo(Quiz, { foreignKey: 'quizId' });
+  QuizAssignment.belongsTo(Division, { foreignKey: 'divisionId' });
+  QuizAssignment.hasMany(QuizAttempt, { foreignKey: 'assignmentId' });
+  QuizAttempt.belongsTo(QuizAssignment, { foreignKey: 'assignmentId' });
+  QuizAttempt.belongsTo(Student, { foreignKey: 'studentId' });
+  LiveGame.hasMany(LivePlayer, { foreignKey: 'gameId' });
+  LivePlayer.belongsTo(LiveGame, { foreignKey: 'gameId' });
 };
 
 associateModels();
@@ -142,4 +182,6 @@ export {
   Attendance, AttendanceRule, Alert, Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage,
   AuditLog, ActivityLog, SupportReport, DeviceToken, UserAvatar, FileAsset, ClassroomPost, AccessPeriod, BillingStatement,
   Channel, ChannelMessage, ChannelRead, ChannelMute,
+  PlanAssignment, PlanRequest, StaffPosition, PayrollReceipt, SchoolEvent, EventManager, EventPost,
+  SubjectProgram, ProgramUnit, Quiz, QuizAssignment, QuizAttempt, LiveGame, LivePlayer, LiveAnswer,
 };

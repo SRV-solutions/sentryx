@@ -27,6 +27,12 @@ export enum Entity {
   ALERT_RULES = 'alert_rules',
   BILLING = 'billing', // facturación del colegio
   AUDIT_LOG = 'audit_log',
+  PLANS = 'plans', // plan de cada persona (define precio, espacio y funciones)
+  STAFF_RECORDS = 'staff_records', // legajo del personal: cargos, horas, turnos
+  PAYROLL = 'payroll', // recibos de sueldo
+  EVENTS = 'events', // calendario institucional, actos y sus encargados
+  SUBJECT_PROGRAMS = 'subject_programs', // programas de las materias
+  QUIZZES = 'quizzes', // juegos de preguntas
   // --- Plataforma (equipo Sentryx) ---
   SCHOOLS = 'schools', // alta, edición y suspensión de colegios
   PLATFORM_BILLING = 'platform_billing',
@@ -72,6 +78,22 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   { entity: Entity.SCHOOL, action: Action.UPDATE, group: 'Institución', description: 'Configurar la institución: niveles, divisiones, materias, períodos y escudo' },
   { entity: Entity.BILLING, action: Action.READ, group: 'Institución', description: 'Ver la facturación del servicio' },
   { entity: Entity.AUDIT_LOG, action: Action.READ, group: 'Institución', description: 'Ver el registro de auditoría' },
+  { entity: Entity.PLANS, action: Action.READ, group: 'Institución', description: 'Ver el plan de cada persona' },
+  { entity: Entity.PLANS, action: Action.UPDATE, group: 'Institución', description: 'Cambiar el plan de docentes y familias' },
+  { entity: Entity.STAFF_RECORDS, action: Action.READ, group: 'Personal', description: 'Ver cargos, horas y turnos del personal' },
+  { entity: Entity.STAFF_RECORDS, action: Action.UPDATE, group: 'Personal', description: 'Cargar cargos, horas y turnos del personal' },
+  { entity: Entity.PAYROLL, action: Action.READ, group: 'Personal', description: 'Ver los recibos de sueldo de todo el personal' },
+  { entity: Entity.PAYROLL, action: Action.CREATE, group: 'Personal', description: 'Subir recibos de sueldo' },
+  { entity: Entity.PAYROLL, action: Action.DELETE, group: 'Personal', description: 'Anular recibos de sueldo' },
+  { entity: Entity.EVENTS, action: Action.READ, group: 'Calendario', description: 'Ver el calendario institucional y participar como encargado de actos' },
+  { entity: Entity.EVENTS, action: Action.CREATE, group: 'Calendario', description: 'Crear actos y eventos, e importar feriados' },
+  { entity: Entity.EVENTS, action: Action.UPDATE, group: 'Calendario', description: 'Editar eventos y designar encargados' },
+  { entity: Entity.EVENTS, action: Action.DELETE, group: 'Calendario', description: 'Eliminar eventos' },
+  { entity: Entity.SUBJECT_PROGRAMS, action: Action.CREATE, group: 'Enseñanza', description: 'Cargar el programa de sus materias' },
+  { entity: Entity.SUBJECT_PROGRAMS, action: Action.READ, group: 'Enseñanza', description: 'Ver los programas de todas las materias de su alcance' },
+  { entity: Entity.SUBJECT_PROGRAMS, action: Action.UPDATE, group: 'Enseñanza', description: 'Editar y aprobar programas de otros docentes' },
+  { entity: Entity.QUIZZES, action: Action.CREATE, group: 'Enseñanza', description: 'Crear juegos de preguntas y lanzarlos en vivo o como tarea' },
+  { entity: Entity.QUIZZES, action: Action.READ, group: 'Enseñanza', description: 'Ver los juegos y resultados de todos los docentes' },
   { entity: Entity.USERS, action: Action.READ, group: 'Personas', description: 'Ver alumnos, familias y personal de su alcance' },
   { entity: Entity.USERS, action: Action.CREATE, group: 'Personas', description: 'Dar de alta personal, alumnos, familias y cuentas' },
   { entity: Entity.USERS, action: Action.UPDATE, group: 'Personas', description: 'Editar personas, blanquear contraseñas y desactivar accesos' },

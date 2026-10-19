@@ -11,6 +11,7 @@ router.post('/files/presign', validate(FilesValidator.createUploadUrl), FilesCon
 router.post('/files/:id/confirm', validate(FilesValidator.confirmUploadedFile), FilesController.confirmUploadedFile);
 router.get('/files', validate(FilesValidator.listFiles), FilesController.listFiles);
 router.get('/files/usage', authorize(Entity.USERS, Action.UPDATE), FilesController.getStorageUsage);
+router.get('/files/my-usage', FilesController.getMyStorageUsage);
 router.get('/files/:id', validate(FilesValidator.getDownloadUrl), FilesController.getDownloadUrl);
 router.delete('/files/:id', validate(FilesValidator.deleteFileById), FilesController.deleteFileById);
 
