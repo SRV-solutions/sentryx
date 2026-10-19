@@ -89,6 +89,11 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
   const mobileMain = nav.length > 5 ? nav.slice(0, 4) : nav;
   const mobileMore = nav.length > 5 ? nav.slice(4) : [];
   const moreBadge = mobileMore.reduce((s, i) => s + badgeFor(i), 0);
+  /**
+   * Un ítem se marca activo también en sus subpáginas (Calendario dentro de un acto), salvo que otro ítem
+   * del menú cuelgue de su ruta: "Colegios" (/plataforma) no debe quedar marcado en /plataforma/facturacion.
+   */
+  const exactOnly = (item: NavItem) => nav.some((other) => other.to !== item.to && other.to.startsWith(`${item.to}/`));
 
   const openNotification = async (n: NotificationRow) => {
     setBellOpen(false);
@@ -152,7 +157,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
             <div key={key}>
               <div className="section truncate">{label}</div>
               {items.map((item) => (
-                <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'active' : '')}>
+                <NavLink key={item.to} to={item.to} end={exactOnly(item)} className={({ isActive }) => (isActive ? 'active' : '')}>
                   <item.icon size={19} />
                   {item.label}
                   {badgeFor(item) > 0 && <span className="count">{badgeFor(item)}</span>}
@@ -210,7 +215,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
 
       <nav className="bottom-nav" aria-label="Navegación">
         {mobileMain.map((item) => (
-          <NavLink key={item.to} to={item.to} className={({ isActive }) => (isActive ? 'active' : '')}>
+          <NavLink key={item.to} to={item.to} end={exactOnly(item)} className={({ isActive }) => (isActive ? 'active' : '')}>
             <item.icon size={22} />
             <span className="truncate" style={{ maxWidth: '100%', padding: '0 2px' }}>{item.label}</span>
             {badgeFor(item) > 0 && <span className="dot" />}
