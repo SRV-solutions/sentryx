@@ -357,6 +357,8 @@ const migrations: Array<{
     // Comunicados con estado (borrador / programado / enviado / archivado), búsqueda y filtros.
     name: "2026-10-20-roles-announcement-status",
     up: async (qi) => {
+      // El modelo Role ya incluye schoolId (roles personalizados): la columna tiene que existir antes de syncRbacCatalog().
+      await addColumnIfMissing(qi, "Role", "schoolId", { type: DataTypes.INTEGER, allowNull: true });
       await syncRbacCatalog();
       await index(`DELETE FROM "RolePermission" rp USING "Role" r, "Permission" p
         WHERE rp."roleId" = r.id AND rp."permissionId" = p.id AND r.code = 'SECRETARIO' AND p.entity = 'report_cards' AND p.action = 'publish'`);
