@@ -7,7 +7,8 @@ import { Op, QueryTypes } from 'sequelize';
 import { User, Division, Level, Subject, TeachingAssignment, School, Student, StudentGuardian, UserRole, sequelize } from '../models';
 import { asyncHandler, pagination, conflict, forbidden, badRequest } from '../lib/http';
 import { invalidateSchoolSession, canSeeDivision, SchoolSession } from '../services/schoolSession';
-import { ROLE_LABELS, SchoolRole, isStaffRole } from '../constants/school';
+import { SchoolRole, isStaffRole } from '../constants/school';
+import { roleLabel, isKnownSchoolRole } from '../services/roleRegistry';
 import { loadPerson, assertCanManagePerson, visibilityOf } from '../services/access';
 import { resetToTemporaryPassword, isTechEmail } from '../services/accounts';
 import { audit } from '../services/audit';
@@ -76,7 +77,7 @@ export const listPeople = asyncHandler(async (req, res) => {
       });
     }
 
-    const roleFilter = role && role in ROLE_LABELS ? role : null;
+    const roleFilter = role && isKnownSchoolRole(role, session.schoolId) ? role : null;
     const rows = (await sequelize.query(
       `SELECT u.id, u."firstName", u."lastName", u.avatar, u."lastLogin", u."mustChangePassword", u."isActive",
               ${contacts ? `u.email, u.phone, u.dni,` : ''}
@@ -101,7 +102,7 @@ export const listPeople = asyncHandler(async (req, res) => {
       data: rows.map(({ total: _t, ...r }) => ({
         ...r,
         email: r.email && isTechEmail(r.email) ? null : r.email,
-        roles: r.roles.map((x) => ({ ...x, roleLabel: ROLE_LABELS[x.role] })),
+        roles: r.roles.map((x) => ({ ...x, roleLabel: roleLabel(x.role) })),
       })),
       pagination: { totalItems: total, currentPage: page, totalPages: Math.ceil(total / limit) },
     });
@@ -170,7 +171,7 @@ export const getPerson = asyncHandler(async (req, res) => {
 
     const roles = person.userRoles
       .filter((m) => isStaffRole(m.role) && (m.active || vis !== 'limited'))
-      .map((m) => ({ membershipId: m.id, role: m.role, roleLabel: ROLE_LABELS[m.role], levelId: m.levelId, title: m.title, active: m.active }));
+      .map((m) => ({ membershipId: m.id, role: m.role, roleLabel: roleLabel(m.role), levelId: m.levelId, title: m.title, active: m.active }));
     const levelNames = new Map(
       (await Level.findAll({ where: { schoolId: session.schoolId }, attributes: ['id', 'name'], raw: true })).map((l) => [l.id, l.name])
     );

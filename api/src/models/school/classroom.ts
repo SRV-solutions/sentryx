@@ -66,13 +66,20 @@ export interface PostLink {
 }
 
 /** Publicación del aula: material de estudio (archivos, videos, links) o tarea con fecha de entrega. */
+export const POST_KINDS = ['MATERIAL', 'TAREA', 'TP', 'EVALUACION'] as const;
+export type PostKind = (typeof POST_KINDS)[number];
+/** Publicaciones con fecha (entrega o examen). */
+export const DATED_KINDS: PostKind[] = ['TAREA', 'TP', 'EVALUACION'];
+export const POST_KIND_LABELS: Record<PostKind, string> = { MATERIAL: 'Material', TAREA: 'Tarea', TP: 'Trabajo práctico', EVALUACION: 'Evaluación' };
+
 export class ClassroomPost extends Model<InferAttributes<ClassroomPost>, InferCreationAttributes<ClassroomPost>> {
   declare id: CreationOptional<number>;
   declare schoolId: ForeignKey<number>;
   declare divisionId: ForeignKey<number>;
   declare subjectId: ForeignKey<number | null>;
   declare authorId: ForeignKey<number>;
-  declare kind: 'MATERIAL' | 'TAREA';
+  /** TAREA: para la casa · TP: trabajo práctico con entrega · EVALUACION: prueba en fecha. */
+  declare kind: PostKind;
   declare title: string;
   declare body: CreationOptional<string>;
   declare links: CreationOptional<PostLink[]>;
@@ -87,7 +94,7 @@ export class ClassroomPost extends Model<InferAttributes<ClassroomPost>, InferCr
 ClassroomPost.init(
   {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
-    kind: { type: DataTypes.ENUM('MATERIAL', 'TAREA'), allowNull: false },
+    kind: { type: DataTypes.ENUM(...POST_KINDS), allowNull: false },
     title: { type: DataTypes.STRING(160), allowNull: false },
     body: { type: DataTypes.TEXT, allowNull: false, defaultValue: '' },
     links: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },

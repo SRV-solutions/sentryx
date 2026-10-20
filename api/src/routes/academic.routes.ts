@@ -12,6 +12,8 @@ const router = Router();
 // Estructura y ciclo lectivo (alcance sobre toda la institución)
 router.post('/structure/defaults', authorize(Entity.SCHOOL, Action.UPDATE), validate(AcademicValidator.createDefaultStructure), AcademicController.createDefaultStructure);
 router.get('/periods/suggested-ranges', authorize(Entity.SCHOOL, Action.UPDATE), validate(AcademicValidator.suggestedRanges), AcademicController.getSuggestedRanges);
+router.post('/periods/summaries', authorize(Entity.SCHOOL, Action.UPDATE), validate(AcademicValidator.summaryPeriods), AcademicController.addSummaryPeriods);
+router.delete('/periods/summaries', authorize(Entity.SCHOOL, Action.UPDATE), validate(AcademicValidator.summaryPeriods), AcademicController.removeSummaryPeriods);
 router.post('/periods/scheme', authorize(Entity.SCHOOL, Action.UPDATE), validate(AcademicValidator.applyGradingScheme), AcademicController.applyGradingScheme);
 router.post('/years', authorize(Entity.SCHOOL, Action.UPDATE), validate(AcademicValidator.createAcademicYear), AcademicController.createAcademicYear);
 

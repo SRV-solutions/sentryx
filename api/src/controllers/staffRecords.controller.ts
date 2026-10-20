@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { Op } from 'sequelize';
 import { StaffPosition, User, UserRole, Level } from '../models';
 import { asyncHandler, badRequest, notFound } from '../lib/http';
-import { NON_STAFF_ROLES, ROLE_LABELS, SchoolRole } from '../constants/roles';
+import { NON_STAFF_ROLES, SchoolRole } from '../constants/roles';
+import { roleLabel } from '../services/roleRegistry';
 import { DEFAULT_PLAN, PlanFeature, featuresOf, planDefinition } from '../constants/plans';
 import { currentPlans } from '../services/plans';
 import { audit } from '../services/audit';
@@ -58,7 +59,7 @@ export const listStaffRecords = asyncHandler(async (req, res) => {
         name: `${user.lastName}, ${user.firstName}`,
         avatar: user.avatar,
         dni: user.dni,
-        roles: roles.map((r) => ROLE_LABELS[r]),
+        roles: roles.map((r) => roleLabel(r)),
         plan: planDefinition(plan).name,
         /** Con su plan, ¿ve su propio legajo y sus recibos? */
         seesOwnRecords: featuresOf(plan).has(PlanFeature.STAFF_RECORDS),

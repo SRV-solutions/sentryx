@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Printer } from 'lucide-react';
 import { apiGet } from '../../lib/api';
@@ -11,7 +11,9 @@ import type { ReportCard } from '../../school/types';
 export default function ReportCardPrintPage() {
   const id = Number(useParams().id);
   const { session } = useSchool();
-  const q = useQuery({ queryKey: ['report-card', id], queryFn: () => apiGet<ReportCard>(`/school/grades/report-card/${id}`) });
+  // ?ciclo= imprime el boletín de un ciclo anterior.
+  const yearId = Number(useSearchParams()[0].get('ciclo')) || null;
+  const q = useQuery({ queryKey: ['report-card', id, yearId], queryFn: () => apiGet<ReportCard>(`/school/grades/report-card/${id}${yearId ? `?yearId=${yearId}` : ''}`) });
   if (q.error) return <ErrorBox error={q.error} />;
   if (!q.data) return <Skeleton count={1} h={300} />;
   const d = q.data;

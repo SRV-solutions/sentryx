@@ -83,7 +83,8 @@ export const buildReportCard = async (opts: {
     if (!subjects.has(g.subjectId as number)) subjects.set(g.subjectId as number, 'Materia');
   });
 
-  const numericPeriodIds = periods.filter((p) => p.kind === 'NUMERIC').map((p) => p.id);
+  const summaryPeriodIds = periods.filter((p) => p.summaryOf).map((p) => p.id);
+  const numericPeriodIds = periods.filter((p) => p.kind === 'NUMERIC' && !p.summaryOf).map((p) => p.id);
   const rows = [...subjects.entries()]
     .sort((a, b) => a[1].localeCompare(b[1], 'es'))
     .map(([subjectId, name]) => {
@@ -99,8 +100,10 @@ export const buildReportCard = async (opts: {
             atRisk: isAtRisk(g, level.settings),
           };
         });
-      const numerics = numericPeriodIds.map((id) => byPeriod[id]?.numericValue).filter((v): v is number => v !== null && v !== undefined);
-      const complete = numericPeriodIds.length > 0 && numerics.length === numericPeriodIds.length;
+      // Con notas de cuatrimestre cargadas, la final anual es su promedio; si no, el de los períodos numéricos.
+      const finalSourceIds = summaryPeriodIds.length ? summaryPeriodIds : numericPeriodIds;
+      const numerics = finalSourceIds.map((id) => byPeriod[id]?.numericValue).filter((v): v is number => v !== null && v !== undefined);
+      const complete = finalSourceIds.length > 0 && numerics.length === finalSourceIds.length;
       const final = complete ? Math.round((numerics.reduce((a, b) => a + b, 0) / numerics.length) * 100) / 100 : null;
       return { subjectId, subject: name, grades: byPeriod, final, finalApproved: final === null ? null : final >= level.settings.passingGrade };
     });
@@ -108,7 +111,7 @@ export const buildReportCard = async (opts: {
   return {
     division: { id: division.id, name: division.name },
     level: { id: level.id, name: level.name, type: level.type, settings: level.settings },
-    periods: visiblePeriods.map((p) => ({ id: p.id, name: p.name, groupName: p.groupName, kind: p.kind, closed: !!p.closedAt, published: publishedIds.has(p.id) })),
+    periods: visiblePeriods.map((p) => ({ id: p.id, name: p.name, groupName: p.groupName, kind: p.kind, closed: !!p.closedAt, published: publishedIds.has(p.id), summaryOf: p.summaryOf ?? null })),
     rows,
   };
 };

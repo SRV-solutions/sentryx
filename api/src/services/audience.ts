@@ -10,11 +10,12 @@ import {
   User,
 } from '../models';
 import type { Audience } from '../models/school/communication';
-import { SchoolSession, canSeeDivision, studentDivisionId } from './schoolSession';
+import { SchoolSession, canSeeDivision, studentDivisionId, divisionWhere } from './schoolSession';
 import { forbidden, badRequest } from '../lib/http';
-import { LEADERSHIP_ROLES, ROLE_LABELS, SchoolRole, NON_STAFF_ROLES } from '../constants/school';
+import { NON_STAFF_ROLES } from '../constants/school';
+import { leadershipRoleCodes, roleLabel } from './roleRegistry';
 import { Entity, Action } from '../constants/permissions';
-import { RoleCode } from '../constants/roles';
+import { RoleCode, PRECEPTOR_ROLES } from '../constants/roles';
 
 /** Verifica que el autor pueda dirigirse a esa audiencia según su rol y alcance. */
 export const assertAudience = async (session: SchoolSession, a: Audience) => {
@@ -41,7 +42,41 @@ export const assertAudience = async (session: SchoolSession, a: Audience) => {
         const div = await studentDivisionId(session, id);
         if (!div || !canSeeDivision(session, div)) throw forbidden('Algún alumno está fuera de tu alcance.');
       }
+      return;
+    case 'GUARDIANS': {
+      if (!a.ids.length) throw badRequest('Elegí al menos una familia.');
+      const reachable = await guardianStudents(session, a.ids);
+      if (a.ids.some((id) => !reachable.has(id))) throw forbidden('Alguna familia está fuera de tu alcance.');
+    }
   }
+};
+
+/**
+ * Para cada familia elegida, sus hijos del colegio con inscripción vigente dentro del alcance del autor.
+ * Devuelve Map<userId, studentIds[]>; una familia sin hijos alcanzables no aparece.
+ */
+const guardianStudents = async (session: SchoolSession, userIds: number[]) => {
+  const out = new Map<number, number[]>();
+  if (!session.academicYearId) return out;
+  const links = await StudentGuardian.findAll({
+    where: { userId: userIds },
+    attributes: ['userId', 'studentId'],
+    include: [
+      {
+        model: Student,
+        attributes: [],
+        where: { schoolId: session.schoolId, active: true },
+        include: [{ model: Enrollment, attributes: [], where: { academicYearId: session.academicYearId, status: 'ACTIVE' }, include: [{ model: Division, attributes: [], where: divisionWhere(session) }] }],
+      },
+    ],
+    raw: true,
+  });
+  for (const l of links) {
+    const list = out.get(l.userId as number) ?? [];
+    list.push(l.studentId as number);
+    out.set(l.userId as number, list);
+  }
+  return out;
 };
 
 /** Alumnos alcanzados por la audiencia (ciclo vigente). */
@@ -73,6 +108,13 @@ const audienceStudents = async (session: SchoolSession, a: Audience) => {
  */
 export const resolveRecipients = async (session: SchoolSession, a: Audience) => {
   const out = new Map<number, number[]>();
+  // Familias elegidas una por una: se les manda aunque tengan "no recibe comunicados" (la elección es explícita).
+  if (a.type === 'GUARDIANS') {
+    const chosen = await guardianStudents(session, a.ids);
+    chosen.forEach((studentIds, userId) => out.set(userId, studentIds));
+    out.delete(session.userId);
+    return out;
+  }
   const students = await audienceStudents(session, a);
 
   if (students.length) {
@@ -121,7 +163,82 @@ export const audienceLabel = async (session: SchoolSession, a: Audience) => {
       const s = await Student.findAll({ where: { id: a.ids, schoolId: session.schoolId }, attributes: ['firstName', 'lastName'] });
       return s.length > 3 ? `${s.length} alumnos` : s.map((x) => `${x.firstName} ${x.lastName}`).join(', ');
     }
+    case 'GUARDIANS': {
+      const u = await User.findAll({ where: { id: a.ids }, attributes: ['firstName', 'lastName'], order: [['lastName', 'ASC']] });
+      return u.length > 3 ? `${u.length} familias` : u.map((x) => `Familia ${x.lastName} (${x.firstName})`).join(', ');
+    }
   }
+};
+
+export interface FamilyRow {
+  userId: number;
+  firstName: string;
+  lastName: string;
+  avatar: string | null;
+  email: string | null;
+  phone: string | null;
+  receivesCommunications: boolean;
+  students: Array<{ id: number; firstName: string; lastName: string; relationship: string; division: { id: number; name: string; gradeYear: number; levelId: number; level: string } | null }>;
+}
+
+/**
+ * Listado completo de familias del alcance del autor (para elegir destinatarios una por una),
+ * con filtros por nivel, grado/año y división y búsqueda por nombre de la familia o del alumno.
+ */
+export const listFamilies = async (session: SchoolSession, f: { q?: string; levelId?: number; gradeYear?: number; divisionId?: number }) => {
+  if (!session.academicYearId) return [] as FamilyRow[];
+  const contact = session.can(Entity.CONTACT_INFO, Action.READ);
+  const links = await StudentGuardian.findAll({
+    attributes: ['userId', 'studentId', 'relationship', 'receivesCommunications'],
+    include: [
+      { model: User, attributes: ['id', 'firstName', 'lastName', 'avatar', 'email', 'phone'], where: { isActive: true } },
+      {
+        model: Student,
+        attributes: ['id', 'firstName', 'lastName'],
+        where: { schoolId: session.schoolId, active: true },
+        include: [
+          {
+            model: Enrollment,
+            attributes: ['id'],
+            where: { academicYearId: session.academicYearId, status: 'ACTIVE', ...(f.divisionId ? { divisionId: f.divisionId } : {}) },
+            include: [
+              {
+                model: Division,
+                attributes: ['id', 'name', 'gradeYear', 'levelId'],
+                where: { ...divisionWhere(session), ...(f.levelId ? { levelId: f.levelId } : {}), ...(f.gradeYear ? { gradeYear: f.gradeYear } : {}) },
+                include: [{ model: Level, attributes: ['name'] }],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const norm = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const q = f.q ? norm(f.q.trim()) : '';
+  const byUser = new Map<number, FamilyRow>();
+  for (const l of links) {
+    const u = (l as StudentGuardian & { User?: User }).User!;
+    const s = (l as StudentGuardian & { Student?: Student & { Enrollments?: Array<Enrollment & { Division?: Division & { Level?: Level } }> } }).Student!;
+    const d = s.Enrollments?.[0]?.Division;
+    const row = byUser.get(u.id) ?? {
+      userId: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      avatar: u.avatar,
+      email: contact ? u.email : null,
+      phone: contact ? u.phone : null,
+      receivesCommunications: true,
+      students: [],
+    };
+    row.receivesCommunications = row.receivesCommunications && l.receivesCommunications;
+    row.students.push({ id: s.id, firstName: s.firstName, lastName: s.lastName, relationship: l.relationship, division: d ? { id: d.id, name: d.name, gradeYear: d.gradeYear, levelId: d.levelId, level: d.Level?.name ?? '' } : null });
+    byUser.set(u.id, row);
+  }
+  let rows = [...byUser.values()];
+  if (q) rows = rows.filter((r) => norm(`${r.firstName} ${r.lastName} ${r.email ?? ''}`).includes(q) || r.students.some((s) => norm(`${s.firstName} ${s.lastName}`).includes(q)));
+  rows.sort((a, b) => a.lastName.localeCompare(b.lastName, 'es') || a.firstName.localeCompare(b.firstName, 'es'));
+  return rows;
 };
 
 export interface Contact {
@@ -152,7 +269,7 @@ export const contactsForGuardian = async (session: SchoolSession, studentId: num
       where: {
         schoolId: session.schoolId,
         active: true,
-        role: { [Op.in]: [...LEADERSHIP_ROLES, RoleCode.PRECEPTOR, 'SECRETARIO'] },
+        role: { [Op.in]: [...(await leadershipRoleCodes(session.schoolId)), ...PRECEPTOR_ROLES, 'SECRETARIO'] },
         [Op.or]: [{ levelId: null }, { levelId: division!.levelId }],
       },
       include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'avatar'], where: { isActive: true } }],
@@ -163,7 +280,7 @@ export const contactsForGuardian = async (session: SchoolSession, studentId: num
   for (const m of staff) {
     if (m.role === RoleCode.PRECEPTOR && m.divisionIds?.length && !m.divisionIds.includes(divisionId)) continue;
     const u = (m as UserRole & { User?: User }).User!;
-    map.set(u.id, { userId: u.id, name: `${u.firstName} ${u.lastName}`, role: ROLE_LABELS[m.role as SchoolRole], detail: m.title, avatar: u.avatar });
+    map.set(u.id, { userId: u.id, name: `${u.firstName} ${u.lastName}`, role: roleLabel(m.role), detail: m.title, avatar: u.avatar });
   }
   for (const t of teachers) {
     const u = (t as TeachingAssignment & { Teacher?: User }).Teacher!;

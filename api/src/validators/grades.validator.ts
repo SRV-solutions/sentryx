@@ -29,7 +29,7 @@ export const getGradeSheet = { query: sheetQuery };
 export const saveGradeSheet = { body: saveBody };
 
 /** GET /report-card/:id */
-export const getReportCard = { params: idParam };
+export const getReportCard = { params: idParam, query: z.object({ yearId: z.coerce.number().int().optional() }) };
 
 /** GET /division-status/:id */
 export const getDivisionStatus = { params: idParam };

@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, CheckCheck, Paperclip, Send, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CheckCheck, Paperclip, Send, AlertTriangle, Pencil, Trash2, Archive, ArchiveRestore, Clock } from 'lucide-react';
+import { StatusBadge, type AnnouncementStatus } from './AnnouncementsPage';
 import { apiGet, apiSend } from '../../lib/api';
 import { Avatar, Badge, Card, ErrorBox, Skeleton, Tabs, fmtDate, fullName, useToast, timeAgo } from '../../ui';
 import type { AttachmentRef, PersonLite } from '../../school/types';
@@ -18,6 +19,13 @@ interface Detail {
   attachments: AttachmentRef[];
   myReceipt: { readAt: string | null; ackAt: string | null } | null;
   stats: { total: number; read: number; ack: number } | null;
+  status: AnnouncementStatus;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  recipientCount: number;
+  /** Autor o quien ve las estadísticas: puede archivar. */
+  canManage: boolean;
+  isAuthor: boolean;
 }
 
 interface Recipient {
@@ -89,6 +97,57 @@ const RecipientsPanel = ({ id, requiresAck }: { id: number; requiresAck: boolean
   );
 };
 
+/** Acciones del autor sobre borradores/programados y archivado de enviados. */
+const ManageBar = ({ a }: { a: Detail }) => {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const navigate = useNavigate();
+  const refresh = () => {
+    qc.invalidateQueries({ queryKey: ['announcement', a.id] });
+    qc.invalidateQueries({ queryKey: ['announcements'] });
+  };
+  const act = useMutation({
+    mutationFn: (action: 'send' | 'archive' | 'unarchive' | 'delete') =>
+      action === 'delete' ? apiSend('DELETE', `/school/announcements/${a.id}`) : apiSend('POST', `/school/announcements/${a.id}/${action}`),
+    onSuccess: (_r, action) => {
+      toast(action === 'send' ? 'Comunicado enviado' : action === 'archive' ? 'Comunicado archivado' : action === 'unarchive' ? 'Comunicado restaurado' : 'Borrador eliminado');
+      if (action === 'delete') {
+        qc.invalidateQueries({ queryKey: ['announcements'] });
+        navigate('/comunicados', { replace: true });
+      } else refresh();
+    },
+    onError: (e: Error) => toast(e.message, true),
+  });
+  const pending = a.status === 'DRAFT' || a.status === 'SCHEDULED';
+  if (pending && !a.isAuthor) return null;
+  return (
+    <Card>
+      <div className="stack">
+        <div className="row wrap" style={{ gap: 8 }}>
+          <StatusBadge status={a.status} scheduledAt={a.scheduledAt} />
+          <span className="small muted">
+            {a.status === 'DRAFT' && `Todavía no se envió. Llegaría a ${a.recipientCount} destinatarios.`}
+            {a.status === 'SCHEDULED' && a.scheduledAt && `Se envía solo el ${fmtDate(a.scheduledAt, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })} a ${a.recipientCount} destinatarios.`}
+            {a.status === 'ARCHIVED' && 'Ya no aparece en la bandeja de las familias (sigue accesible con el filtro "Archivados").'}
+            {a.status === 'SENT' && a.sentAt && `Enviado el ${fmtDate(a.sentAt, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}.`}
+          </span>
+        </div>
+        <div className="row wrap" style={{ gap: 8 }}>
+          {pending && (
+            <>
+              <button className="btn btn-sm btn-accent" onClick={() => confirm(`¿Enviar ahora a ${a.recipientCount} destinatarios?`) && act.mutate('send')} disabled={act.isPending}><Send size={14} /> Enviar ahora</button>
+              <Link to={`/comunicados/${a.id}/editar`} className="btn btn-sm btn-ghost"><Pencil size={14} /> Editar</Link>
+              <button className="btn btn-sm btn-ghost" onClick={() => confirm('¿Eliminar este borrador? No se puede deshacer.') && act.mutate('delete')} disabled={act.isPending}><Trash2 size={14} /> Eliminar</button>
+            </>
+          )}
+          {a.status === 'SENT' && <button className="btn btn-sm btn-ghost" onClick={() => act.mutate('archive')} disabled={act.isPending}><Archive size={14} /> Archivar</button>}
+          {a.status === 'ARCHIVED' && <button className="btn btn-sm btn-ghost" onClick={() => act.mutate('unarchive')} disabled={act.isPending}><ArchiveRestore size={14} /> Restaurar</button>}
+        </div>
+      </div>
+    </Card>
+  );
+};
+
 export default function AnnouncementDetailPage() {
   const id = Number(useParams().id);
   const qc = useQueryClient();
@@ -122,8 +181,10 @@ export default function AnnouncementDetailPage() {
       {q.isLoading && <Skeleton count={2} h={120} />}
       {a && (
         <>
+          {a.canManage && <div className="no-print"><ManageBar a={a} /></div>}
           <article className="card card-pad stack">
             <div className="row wrap" style={{ gap: 6 }}>
+              {a.status !== 'SENT' && <StatusBadge status={a.status} scheduledAt={a.scheduledAt} />}
               {a.priority === 'URGENT' && <Badge tone="danger"><AlertTriangle size={12} /> Urgente</Badge>}
               <Badge>Para: {a.audienceLabel}</Badge>
             </div>
@@ -132,7 +193,7 @@ export default function AnnouncementDetailPage() {
               <Avatar name={fullName(a.Author)} src={a.Author?.avatar} size="sm" />
               <div className="small">
                 <b>{fullName(a.Author)}</b>
-                <div className="xs muted">{fmtDate(a.createdAt, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</div>
+                <div className="xs muted">{a.status === 'SCHEDULED' ? <><Clock size={12} /> programado</> : fmtDate(a.sentAt ?? a.createdAt, { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}</div>
               </div>
             </div>
             <div style={{ whiteSpace: 'pre-wrap', fontSize: 16, lineHeight: 1.6 }}>

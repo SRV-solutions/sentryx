@@ -25,6 +25,8 @@ export class GradingPeriod extends Model<InferAttributes<GradingPeriod>, InferCr
   declare endDate: string | null;
   /** Cerrado: los docentes ya no pueden modificar notas. */
   declare closedAt: Date | null;
+  /** Nota de cierre de un grupo (ej: "Nota 1º Cuatrimestre" para los bimestres del 1º Cuatrimestre): sus fechas se superponen con las de sus bimestres a propósito. */
+  declare summaryOf: CreationOptional<string | null>;
 }
 
 GradingPeriod.init(
@@ -37,6 +39,7 @@ GradingPeriod.init(
     startDate: { type: DataTypes.DATEONLY, allowNull: true },
     endDate: { type: DataTypes.DATEONLY, allowNull: true },
     closedAt: { type: DataTypes.DATE, allowNull: true },
+    summaryOf: { type: DataTypes.STRING(60), allowNull: true },
   },
   {
     sequelize,

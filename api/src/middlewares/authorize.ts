@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Entity, Action, PERMISSION_CATALOG, permissionKey } from '../constants/permissions';
-import { Category, CATEGORY_LABELS, ROLE_CATEGORY } from '../constants/roles';
+import { Category, CATEGORY_LABELS } from '../constants/roles';
+import { roleCategory } from '../services/roleRegistry';
 import { platformRolesOfRequest } from './authenticate';
 import { permissionsForRoles } from '../services/rbac';
 import { forbidden } from '../lib/http';
@@ -38,7 +39,7 @@ export const authorize = (entity: Entity, action: Action) => {
 export const requireCategory =
   (...categories: Category[]) =>
   (req: Request, _res: Response, next: NextFunction) => {
-    const own = new Set(req.schoolSession?.roles.map((role) => ROLE_CATEGORY[role]) ?? []);
+    const own = new Set(req.schoolSession?.roles.map((role) => roleCategory(role)) ?? []);
     if (categories.some((category) => own.has(category))) return next();
     next(forbidden(`Sección exclusiva de: ${categories.map((c) => CATEGORY_LABELS[c]).join(', ')}.`));
   };

@@ -4,18 +4,18 @@ import type { PermissionKey } from './permissions';
 export type LevelType = 'INICIAL' | 'PRIMARIO' | 'SECUNDARIO';
 export type SchoolRole =
   | 'REPRESENTANTE_LEGAL' | 'DIRECTOR' | 'VICEDIRECTOR' | 'RECTOR' | 'SECRETARIO'
-  | 'PRECEPTOR' | 'ADMINISTRACION' | 'DOCENTE' | 'TUTOR' | 'ESTUDIANTE';
+  | 'COORDINADOR' | 'PRECEPTOR' | 'JEFE_PRECEPTORES' | 'ADMINISTRACION' | 'DOCENTE' | 'TUTOR' | 'ESTUDIANTE';
 export type Category = 'DIRECTIVO' | 'DOCENTE' | 'FAMILIA' | 'ESTUDIANTE';
 export const CATEGORY_LABELS: Record<Category, string> = { DIRECTIVO: 'Directivo / Administrativo', DOCENTE: 'Docente', FAMILIA: 'Familia', ESTUDIANTE: 'Estudiante' };
 export const isStaffRole = (r: SchoolRole) => r !== 'TUTOR' && r !== 'ESTUDIANTE';
 export type PeriodKind = 'CONCEPTUAL' | 'NUMERIC' | 'NARRATIVE';
 export type AttendanceStatus = 'PRESENTE' | 'AUSENTE' | 'TARDE' | 'RETIRO';
 export type Severity = 'INFO' | 'WARNING' | 'CRITICAL';
-export type AudienceType = 'SCHOOL' | 'LEVEL' | 'DIVISION' | 'STUDENTS' | 'STAFF';
+export type AudienceType = 'SCHOOL' | 'LEVEL' | 'DIVISION' | 'STUDENTS' | 'GUARDIANS' | 'STAFF';
 
 export const ROLE_LABELS: Record<SchoolRole, string> = {
   REPRESENTANTE_LEGAL: 'Representante Legal', DIRECTOR: 'Dirección', VICEDIRECTOR: 'Vicedirección', RECTOR: 'Rectoría',
-  SECRETARIO: 'Secretaría', PRECEPTOR: 'Preceptoría', ADMINISTRACION: 'Administración', DOCENTE: 'Docente', TUTOR: 'Familia', ESTUDIANTE: 'Estudiante',
+  SECRETARIO: 'Secretaría', COORDINADOR: 'Coordinación pedagógica', PRECEPTOR: 'Preceptoría', JEFE_PRECEPTORES: 'Jefatura de preceptores', ADMINISTRACION: 'Administración', DOCENTE: 'Docente', TUTOR: 'Familia', ESTUDIANTE: 'Estudiante',
 };
 
 export const ATTENDANCE_LABELS: Record<AttendanceStatus, string> = { PRESENTE: 'Presente', AUSENTE: 'Ausente', TARDE: 'Tarde', RETIRO: 'Retiro ant.' };
@@ -46,7 +46,9 @@ export interface SchoolSession {
   self: { studentId: number; divisionId: number | null } | null;
   hasChannels: boolean;
   /** Roles de personal que puede otorgar (calculado por el servidor según la jerarquía). */
-  grantableRoles: SchoolRole[];
+  /** Códigos del catálogo o de roles personalizados del colegio. */
+  grantableRoles: string[];
+  canManageRoles?: boolean;
   /** Plan de la persona (ver school/plans.ts). */
   plan: { code: import('./plans').PlanCode; name: string; storageGb: number; features: import('./plans').PlanFeature[] };
 }
@@ -63,7 +65,7 @@ export interface Level { id: number; type: LevelType; name: string; settings: Le
 export interface Division { id: number; name: string; levelId: number; gradeYear?: number; shift?: string | null; studentCount?: string | number; TeachingAssignments?: Assignment[] }
 export interface Subject { id: number; name: string; levelId: number; code?: string | null; gradeYear?: number | null }
 export interface Assignment { id: number; divisionId: number; subjectId: number; teacherId: number; Teacher?: PersonLite }
-export interface Period { id: number; name: string; groupName: string | null; kind: PeriodKind; order?: number; levelId?: number; closed?: boolean; closedAt?: string | null; published?: boolean; startDate?: string | null; endDate?: string | null }
+export interface Period { id: number; name: string; groupName: string | null; kind: PeriodKind; order?: number; levelId?: number; closed?: boolean; closedAt?: string | null; published?: boolean; startDate?: string | null; endDate?: string | null; /** Nota de cierre del grupo (ej: "1º Cuatrimestre"). */ summaryOf?: string | null }
 export interface PersonLite { id: number; firstName: string; lastName: string; avatar?: string | null; photoUrl?: string | null }
 
 export interface Structure { levels: Level[]; years: Array<{ id: number; year: number; isCurrent: boolean }>; divisions: Division[]; subjects: Subject[]; periods: Period[] }

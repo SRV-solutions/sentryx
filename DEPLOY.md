@@ -140,7 +140,8 @@ Todo queda instalado directo en Ubuntu: Node 22, PostgreSQL, Caddy (HTTPS autom�
 
 ## 4. Push y email
 
-- **Push:** `cd api && npm run push:keys` en tu PC; pegá las claves en el `.env`. En iPhone, la familia tiene que agregar Sentryx a la pantalla de inicio.
+- **Push (web):** `cd api && npm run push:keys` en tu PC; pegá las claves en el `.env`. En iPhone, la familia tiene que agregar Sentryx a la pantalla de inicio.
+- **App móvil (Expo):** ver `mobile/README.md`. En la API hace falta `CLIENT_APP_KEYS` (una clave de 24+ caracteres; la misma va en `EXPO_PUBLIC_CLIENT_KEY` de la app). Las push de la app salen por el servicio de Expo, sin claves VAPID. Las migraciones `2026-10-20-docente-attendance-update` y `2026-10-20-roles-announcement-status` (se aplican solas con `npm run db:migrate`) habilitan a las docentes a tomar asistencia, crean los roles Coordinación pedagógica y Jefatura de preceptores, quitan a Secretaría la publicación de boletines y agregan los estados de comunicado. La migración `2026-10-21-custom-roles-tp-summaries` agrega roles personalizados (`Role.schoolId`, permiso `roles:manage`), TP/evaluaciones en el aula y la nota de cuatrimestre.
 - **Email:** solo se manda a quien no tiene push activo, o en comunicados urgentes o que piden confirmación (además de altas y recupero de contraseña). Así el volumen es bajo.
 
 ### Remitente `sentryx@wearesrv.com`

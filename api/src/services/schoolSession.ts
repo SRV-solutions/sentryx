@@ -1,7 +1,8 @@
 import { Op } from 'sequelize';
 import { UserRole, AcademicYear, Division, TeachingAssignment, StudentGuardian, Student, Enrollment, School, Level, PlanAssignment } from '../models';
 import { PlanCode, PlanFeature, DEFAULT_PLAN, featuresOf } from '../constants/plans';
-import { RoleCode, SchoolRole, Category, isStaffRole, categoryOf, SCHOOL_WIDE_ROLES } from '../constants/roles';
+import { RoleCode, SchoolRole, Category, isStaffRole } from '../constants/roles';
+import { loadRoles, isSchoolWideRole, categoryOfRoles } from './roleRegistry';
 import { Entity, Action, PermissionKey, permissionKey } from '../constants/permissions';
 import { permissionsForRoles } from './rbac';
 import { forbidden } from '../lib/http';
@@ -63,6 +64,7 @@ export const currentAcademicYear = async (schoolId: number) =>
   (await AcademicYear.findOne({ where: { schoolId }, order: [['year', 'DESC']] }));
 
 const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: boolean): Promise<SchoolSession> => {
+  await loadRoles();
   const [userRoles, academicYear, guardianLinks, planAssignment] = await Promise.all([
     UserRole.findAll({ where: { userId, schoolId, active: true } }),
     currentAcademicYear(schoolId),
@@ -86,7 +88,7 @@ const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: 
     superAdmin ||
     userRoles.some(
       (userRole) =>
-        SCHOOL_WIDE_ROLES.includes(userRole.role as SchoolRole) ||
+        isSchoolWideRole(userRole.role) ||
         (userRole.role !== RoleCode.DOCENTE && isStaffRole(userRole.role as SchoolRole) && !userRole.levelId && !userRole.divisionIds?.length)
     );
 
@@ -159,7 +161,7 @@ const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: 
     permissions,
     can: withPermissionCheck(permissions),
     isStaff: roles.some(isStaffRole),
-    category: categoryOf(roles),
+    category: categoryOfRoles(roles),
     self,
     isGuardian: childIds.length > 0,
     scope: { all: hasWholeSchoolScope, levelIds: assignedLevelIds, divisionIds },

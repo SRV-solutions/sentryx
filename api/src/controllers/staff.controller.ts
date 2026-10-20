@@ -3,7 +3,8 @@ import { Op } from 'sequelize';
 import { UserRole, User, Level } from '../models';
 import { asyncHandler, notFound, badRequest, forbidden } from '../lib/http';
 import { invalidateSchoolSession } from '../services/schoolSession';
-import { ROLE_LABELS, NON_STAFF_ROLES, RoleCode, isStaffRole } from '../constants/roles';
+import { NON_STAFF_ROLES, RoleCode, isStaffRole } from '../constants/roles';
+import { roleLabel } from '../services/roleRegistry';
 import { sendWelcome } from '../services/accounts';
 import { assertCanGrant, userAttrsFor } from '../services/access';
 import { touchAccess } from '../services/billing';
@@ -22,7 +23,7 @@ export const listStaff = asyncHandler(async (req, res) => {
     ],
     order: [[User, 'lastName', 'ASC']],
   });
-  res.json(userRoles.map((userRole) => ({ ...userRole.toJSON(), roleLabel: ROLE_LABELS[userRole.role] })));
+  res.json(userRoles.map((userRole) => ({ ...userRole.toJSON(), roleLabel: roleLabel(userRole.role) })));
 });
 
 // POST /staff
@@ -58,7 +59,7 @@ export const importStaff = asyncHandler(async (req, res) => {
       continue;
     }
     try {
-      const role = parseRole(parsed.data.role);
+      const role = parseRole(parsed.data.role, session.schoolId);
       if (!role) throw badRequest(`Rol "${parsed.data.role}" desconocido (usá Docente, Preceptoría, Secretaría, Dirección…).`);
       const levelId = await findLevelId(session.schoolId, parsed.data.level);
       const { user, tempPassword } = await grantStaffRole(session, { ...parsed.data, role, levelId, title: parsed.data.title ?? null });

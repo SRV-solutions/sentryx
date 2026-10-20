@@ -29,6 +29,7 @@ export enum Entity {
   AUDIT_LOG = 'audit_log',
   PLANS = 'plans', // plan de cada persona (define precio, espacio y funciones)
   STAFF_RECORDS = 'staff_records', // legajo del personal: cargos, horas, turnos
+  ROLES = 'roles', // roles personalizados del colegio
   PAYROLL = 'payroll', // recibos de sueldo
   EVENTS = 'events', // calendario institucional, actos y sus encargados
   SUBJECT_PROGRAMS = 'subject_programs', // programas de las materias
@@ -82,6 +83,7 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   { entity: Entity.PLANS, action: Action.UPDATE, group: 'Institución', description: 'Cambiar el plan de docentes y familias' },
   { entity: Entity.STAFF_RECORDS, action: Action.READ, group: 'Personal', description: 'Ver cargos, horas y turnos del personal' },
   { entity: Entity.STAFF_RECORDS, action: Action.UPDATE, group: 'Personal', description: 'Cargar cargos, horas y turnos del personal' },
+  { entity: Entity.ROLES, action: Action.MANAGE, group: 'Personal', description: 'Crear y editar roles personalizados del colegio' },
   { entity: Entity.PAYROLL, action: Action.READ, group: 'Personal', description: 'Ver los recibos de sueldo de todo el personal' },
   { entity: Entity.PAYROLL, action: Action.CREATE, group: 'Personal', description: 'Subir recibos de sueldo' },
   { entity: Entity.PAYROLL, action: Action.DELETE, group: 'Personal', description: 'Anular recibos de sueldo' },

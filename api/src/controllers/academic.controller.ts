@@ -2,8 +2,9 @@
  * Configuración académica y recorrido de los alumnos (routes/academic.routes.ts):
  * estructura por defecto, esquema de evaluación, ciclo nuevo, cambio de curso, bajas y promoción anual.
  */
-import { AcademicYear, Level } from '../models';
-import { asyncHandler, badRequest, notFound } from '../lib/http';
+import { AcademicYear, Level, GradingPeriod, Grade } from '../models';
+import { Op } from 'sequelize';
+import { asyncHandler, badRequest, notFound, forbidden } from '../lib/http';
 import { invalidateSchoolSession } from '../services/schoolSession';
 import { createDefaultStructure as buildDefaultStructure, applyGradingScheme as applyScheme, suggestRanges, copyDivisionsToYear, GradingScheme } from '../services/academicSetup';
 import { ensurePeriods } from '../services/schoolSetup';
@@ -42,6 +43,69 @@ export const applyGradingScheme = asyncHandler(async (req, res) => {
   const summary = await applyScheme(session.schoolId, academicYearId ?? requireCurrentYear(session.academicYearId), scheme, ranges, levelIds);
   await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'GradingPeriod', action: 'apply-scheme', after: { scheme, ranges, summary } });
   res.json({ scheme, summary });
+});
+
+/**
+ * Nota de cuatrimestre: un período numérico de cierre por cada grupo (ej: "1º Cuatrimestre") del nivel,
+ * ubicado después de sus bimestres. Sus fechas abarcan el grupo entero (se superponen a propósito).
+ */
+// POST /periods/summaries { levelId, academicYearId? }
+export const addSummaryPeriods = asyncHandler(async (req, res) => {
+  const session = req.schoolSession!;
+  const { levelId, academicYearId } = req.body as { levelId: number; academicYearId?: number };
+  const year = academicYearId ?? requireCurrentYear(session.academicYearId);
+  if (!session.scope.all && !session.scope.levelIds.includes(levelId)) throw forbidden('Ese nivel está fuera de tu alcance.');
+  const periods = await GradingPeriod.findAll({ where: { schoolId: session.schoolId, levelId, academicYearId: year }, order: [['order', 'ASC']] });
+  const groups = [...new Set(periods.filter((p) => p.groupName && !p.summaryOf).map((p) => p.groupName as string))];
+  if (!groups.length) throw badRequest('Este nivel no tiene cuatrimestres (los períodos no están agrupados).');
+  const created: string[] = [];
+  await sequelize.transaction(async (transaction) => {
+    for (const group of groups) {
+      if (periods.some((p) => p.summaryOf === group)) continue;
+      const members = periods.filter((p) => p.groupName === group && !p.summaryOf);
+      const last = members[members.length - 1];
+      // Deja lugar justo después del último bimestre del grupo (y refleja el corrimiento en memoria para el próximo grupo).
+      const after = last.order;
+      await GradingPeriod.increment('order', { by: 1, where: { schoolId: session.schoolId, levelId, academicYearId: year, order: { [Op.gt]: after } }, transaction });
+      periods.forEach((p) => {
+        if (p.order > after) p.order += 1;
+      });
+      await GradingPeriod.create(
+        {
+          schoolId: session.schoolId,
+          levelId,
+          academicYearId: year,
+          name: `Nota ${group}`,
+          groupName: group,
+          kind: 'NUMERIC',
+          order: last.order + 1,
+          startDate: members.map((m) => m.startDate).filter(Boolean).sort()[0] ?? null,
+          endDate: members.map((m) => m.endDate).filter(Boolean).sort().reverse()[0] ?? null,
+          closedAt: null,
+          summaryOf: group,
+        },
+        { transaction }
+      );
+      created.push(group);
+    }
+  });
+  await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'GradingPeriod', action: 'add-summaries', after: { levelId, created } });
+  res.status(201).json({ created });
+});
+
+// DELETE /periods/summaries { levelId, academicYearId? } — solo si todavía no tienen notas.
+export const removeSummaryPeriods = asyncHandler(async (req, res) => {
+  const session = req.schoolSession!;
+  const { levelId, academicYearId } = req.body as { levelId: number; academicYearId?: number };
+  const year = academicYearId ?? requireCurrentYear(session.academicYearId);
+  if (!session.scope.all && !session.scope.levelIds.includes(levelId)) throw forbidden('Ese nivel está fuera de tu alcance.');
+  const summaries = await GradingPeriod.findAll({ where: { schoolId: session.schoolId, levelId, academicYearId: year, summaryOf: { [Op.ne]: null } } });
+  if (!summaries.length) return res.json({ removed: 0 });
+  const withGrades = await Grade.count({ where: { periodId: summaries.map((p) => p.id) } });
+  if (withGrades) throw badRequest('Ya hay notas de cuatrimestre cargadas: no se pueden quitar.');
+  await GradingPeriod.destroy({ where: { id: summaries.map((p) => p.id) } });
+  await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'GradingPeriod', action: 'remove-summaries', before: { levelId, removed: summaries.length } });
+  res.json({ removed: summaries.length });
 });
 
 // POST /years — ciclo lectivo nuevo, con períodos y (opcional) los cursos del actual

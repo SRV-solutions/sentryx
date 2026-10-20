@@ -2,7 +2,8 @@ import { Op } from 'sequelize';
 import { UserRole, StudentGuardian, Student, Enrollment, ThreadParticipant, Thread, TeachingAssignment, Division, User } from '../models';
 import { SchoolSession, canSeeDivision } from './schoolSession';
 import { forbidden, badRequest, notFound } from '../lib/http';
-import { RoleCode, SchoolRole, ROLE_LABELS, ROLE_RANK, isStaffRole, highestRank } from '../constants/roles';
+import { RoleCode, SchoolRole, isStaffRole } from '../constants/roles';
+import { roleLabel, roleRank, highestRankOf } from './roleRegistry';
 import { platformRolesOf } from './rbac';
 import { Entity, Action } from '../constants/permissions';
 
@@ -13,15 +14,15 @@ import { Entity, Action } from '../constants/permissions';
 
 /** Representante Legal o superadmin: administran a cualquiera del colegio. */
 const isTopAuthority = (session: SchoolSession) => session.superAdmin || session.roles.includes(RoleCode.REPRESENTANTE_LEGAL);
-const ownRank = (session: SchoolSession) => (session.superAdmin ? 1000 : highestRank(session.roles.filter(isStaffRole)));
+const ownRank = (session: SchoolSession) => (session.superAdmin ? 1000 : highestRankOf(session.roles.filter(isStaffRole)));
 
 /** ¿Puede otorgar (o modificar) un rol de personal en ese nivel/divisiones? */
 export const assertCanGrant = (session: SchoolSession, role: SchoolRole, levelId: number | null, divisionIds: number[] = []) => {
   if (!session.can(Entity.USERS, Action.UPDATE)) throw forbidden();
   if (role === RoleCode.TUTOR) throw badRequest('Las familias se vinculan desde la ficha del alumno.');
   if (role === RoleCode.ESTUDIANTE) throw badRequest('Las cuentas de estudiantes se crean desde la ficha del alumno.');
-  if (!isTopAuthority(session) && ROLE_RANK[role] >= ownRank(session)) {
-    throw forbidden(`No podés otorgar el rol ${ROLE_LABELS[role]}: solo roles de menor jerarquía que el tuyo.`);
+  if (!isTopAuthority(session) && roleRank(role) >= ownRank(session)) {
+    throw forbidden(`No podés otorgar el rol ${roleLabel(role)}: solo roles de menor jerarquía que el tuyo.`);
   }
   if (!session.schoolWide) {
     // Ej: la Rectora de Secundario administra personal de Secundario, no de toda la institución.
@@ -73,7 +74,7 @@ export const assertCanManagePerson = async (session: SchoolSession, person: Pers
   if ((await platformRolesOf(person.user.id)).includes(RoleCode.SUPERADMIN)) throw forbidden('Esa cuenta es del equipo de Sentryx.');
 
   if (person.staffRoles.length) {
-    if (!isTopAuthority(session) && highestRank(person.staffRoles) >= ownRank(session)) {
+    if (!isTopAuthority(session) && highestRankOf(person.staffRoles) >= ownRank(session)) {
       throw forbidden('Solo podés administrar cuentas de personal de menor jerarquía que la tuya.');
     }
     if (!session.schoolWide && !isTopAuthority(session)) {

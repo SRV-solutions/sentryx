@@ -2,11 +2,12 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, UserPlus } from 'lucide-react';
 import { apiGet, apiSend } from '../../../lib/api';
 import { useSchool } from '../../../school/SchoolContext';
 import { Badge, Field, Sheet, Skeleton, useToast, Avatar } from '../../../ui';
 import { ROLE_LABELS, type SchoolRole, type Structure } from '../../../school/types';
+import type { CatalogRole } from '../../../school/CustomRolesEditor';
 import { CredentialsSheet, type Credential } from '../../../school/CredentialsSheet';
 import { ResetPasswordButton } from '../../../school/PersonProfile';
 import { useAuth } from '../../../context/AuthContext';
@@ -15,7 +16,7 @@ import { StaffImportButton } from './StaffImport';
 export interface StaffRow {
   id: number;
   userId: number;
-  role: SchoolRole;
+  role: string;
   roleLabel: string;
   levelId: number | null;
   divisionIds: number[];
@@ -35,9 +36,12 @@ export const StaffTab = () => {
   const [formError, setFormError] = useState('');
   const staff = useQuery({ queryKey: ['staff'], queryFn: () => apiGet<StaffRow[]>('/school/staff') });
   const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure') });
-  const [form, setForm] = useState<null | { firstName: string; lastName: string; email: string; dni: string; role: SchoolRole; levelId: number | ''; divisionIds: number[]; title: string }>(null);
+  // Nombres de los roles (catálogo + personalizados del colegio).
+  const catalog = useQuery({ queryKey: ['role-catalog'], queryFn: () => apiGet<{ roles: CatalogRole[] }>('/school/roles'), staleTime: 5 * 60_000 });
+  const labelOf = (code: string) => catalog.data?.roles.find((r) => r.code === code)?.name ?? ROLE_LABELS[code as SchoolRole] ?? code;
+  const [form, setForm] = useState<null | { firstName: string; lastName: string; email: string; dni: string; role: string; levelId: number | ''; divisionIds: number[]; title: string; existing?: string }>(null);
   const [creds, setCreds] = useState<Credential[]>([]);
-  const [roleFilter, setRoleFilter] = useState<SchoolRole | ''>('');
+  const [roleFilter, setRoleFilter] = useState<string>('');
 
   const create = useMutation({
     mutationFn: () => apiSend<{ tempPassword: string | null; user: { firstName: string; lastName: string } }>('POST', '/school/staff', {
@@ -50,7 +54,7 @@ export const StaffTab = () => {
     onSuccess: (r) => {
       toast('Personal agregado');
       if (r.tempPassword) setCreds([{ name: `${r.user.firstName} ${r.user.lastName}`, login: form!.dni || form!.email, tempPassword: r.tempPassword, email: form!.email || null }]);
-      else toast('La persona ya tenía cuenta: se le agregó el rol y conserva su contraseña.');
+      else toast(`${r.user.firstName} ${r.user.lastName} ya tenía cuenta: se le sumó el rol y conserva su contraseña.`);
       setForm(null);
       qc.invalidateQueries({ queryKey: ['staff'] });
     },
@@ -63,15 +67,17 @@ export const StaffTab = () => {
   });
 
   const submit = (e: FormEvent) => (e.preventDefault(), create.mutate());
-  const roles = Array.from(new Set(staff.data?.map((m) => m.role) ?? [])) as SchoolRole[];
+  const roles = Array.from(new Set(staff.data?.map((m) => m.role) ?? []));
+  /** Sumar otro rol a alguien que ya está (ej: la secretaria que también es preceptora). */
+  const addRoleTo = (m: StaffRow) => (setFormError(''), setForm({ firstName: m.User.firstName, lastName: m.User.lastName, email: m.User.email && !m.User.email.endsWith('@sin-email.local') ? m.User.email : '', dni: m.User.dni ?? '', role: grantable.find((r) => r !== m.role) ?? grantable[0], levelId: '', divisionIds: [], title: '', existing: `${m.User.firstName} ${m.User.lastName}` }));
   const list = staff.data?.filter((m) => !roleFilter || m.role === roleFilter) ?? [];
 
   return (
     <div className="stack">
       <div className="row-between wrap">
-        <select className="select" style={{ maxWidth: 240 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value as SchoolRole | '')}>
+        <select className="select" style={{ maxWidth: 240 }} value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
           <option value="">Todos los roles</option>
-          {roles.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+          {roles.map((r) => <option key={r} value={r}>{labelOf(r)}</option>)}
         </select>
         <div className="row" style={{ gap: 8 }}>
           {grantable.length > 0 && <StaffImportButton />}
@@ -93,6 +99,7 @@ export const StaffTab = () => {
             {grantable.includes(m.role) && m.userId !== user?.userData.id && (
               <div className="row wrap" style={{ gap: 4 }}>
                 {m.active && <ResetPasswordButton userId={m.userId} name={`${m.User.firstName} ${m.User.lastName}`} />}
+                {m.active && grantable.length > 1 && <button className="btn btn-sm btn-ghost" title="Sumarle otro rol (ej: Secretaría + Preceptoría)" onClick={() => addRoleTo(m)}><UserPlus size={14} /> Otro rol</button>}
                 <button className="btn btn-sm btn-ghost" onClick={() => toggle.mutate(m)}>{m.active ? 'Desactivar' : 'Activar'}</button>
               </div>
             )}
@@ -100,9 +107,10 @@ export const StaffTab = () => {
         ))}
       </div>
 
-      <Sheet open={!!form} onClose={() => setForm(null)} title="Agregar personal">
+      <Sheet open={!!form} onClose={() => setForm(null)} title={form?.existing ? `Otro rol para ${form.existing}` : 'Agregar personal'}>
         {form && (
           <form className="stack" onSubmit={submit}>
+            {form.existing && <div className="alert alert-info small">Una persona puede tener varios roles a la vez (ej: Secretaría y Preceptoría, o Dirección y Docente): sus permisos se suman. Conserva su misma cuenta y contraseña.</div>}
             <div className="grid grid-2">
               <Field label="Nombre"><input className="input" required value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} /></Field>
               <Field label="Apellido"><input className="input" required value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} /></Field>
@@ -110,8 +118,8 @@ export const StaffTab = () => {
             <Field label="Email" hint="Recibe acceso por email. Si no tiene, ingresa con DNI."><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="DNI"><input className="input" inputMode="numeric" value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value })} /></Field>
             <Field label="Rol">
-              <select className="select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as SchoolRole })}>
-                {grantable.map((r) => <option key={r} value={r}>{ROLE_LABELS[r]}</option>)}
+              <select className="select" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
+                {grantable.map((r) => <option key={r} value={r}>{labelOf(r)}</option>)}
               </select>
             </Field>
             {form.role !== 'DOCENTE' && (

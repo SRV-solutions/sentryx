@@ -8,6 +8,7 @@ import { validate } from '../lib/http';
 const router = Router();
 
 router.get('/classrooms', ClassroomsController.listClassrooms);
+router.get('/classrooms/agenda', validate(ClassroomsValidator.agenda), ClassroomsController.getAgenda);
 router.get('/classrooms/:id', validate(ClassroomsValidator.getClassroom), ClassroomsController.getClassroom);
 router.get('/classrooms/:id/posts', validate(ClassroomsValidator.listPosts), ClassroomsController.listPosts);
 router.post('/classrooms/:id/posts', authorize(Entity.CLASSROOM_POSTS, Action.CREATE), validate(ClassroomsValidator.createPost), ClassroomsController.createPost);

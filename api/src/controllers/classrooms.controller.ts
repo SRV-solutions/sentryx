@@ -9,6 +9,8 @@ import { signFiles } from '../services/files';
 import { notify } from '../services/notifications';
 import { Entity, Action } from '../constants/permissions';
 import { postBody } from '../validators/classrooms.validator';
+import { DATED_KINDS, POST_KIND_LABELS } from '../models/school/classroom';
+import { divisionWhere } from '../services/schoolSession';
 
 /** Personal con alcance sobre la división o familia de un alumno del aula. */
 const classroomAccess = async (session: SchoolSession, divisionId: number) => {
@@ -142,6 +144,39 @@ export const listPosts = asyncHandler(async (req, res) => {
     });
   });
 
+/**
+ * Agenda: evaluaciones, TP y tareas con fecha en los próximos días. Personal: sus cursos (alcance);
+ * familias: los cursos de sus hijos; estudiantes: su curso.
+ */
+// GET /classrooms/agenda?days=&divisionId=
+export const getAgenda = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const { days, divisionId } = req.query as unknown as { days: number; divisionId?: number };
+    if (!session.academicYearId) return res.json([]);
+    let divisionIds: number[];
+    if (session.isStaff) {
+      divisionIds = (await Division.findAll({ where: { ...divisionWhere(session), academicYearId: session.academicYearId }, attributes: ['id'], raw: true })).map((d) => d.id);
+    } else {
+      const studentIds = session.self ? [session.self.studentId, ...session.childIds] : session.childIds;
+      divisionIds = (await Enrollment.findAll({ where: { studentId: studentIds, academicYearId: session.academicYearId, status: 'ACTIVE' }, attributes: ['divisionId'], raw: true })).map((e) => e.divisionId as number);
+    }
+    if (divisionId) divisionIds = divisionIds.filter((id) => id === divisionId);
+    if (!divisionIds.length) return res.json([]);
+    const from = new Date().toISOString().slice(0, 10);
+    const to = new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+    const posts = await ClassroomPost.findAll({
+      where: { divisionId: divisionIds, kind: DATED_KINDS, dueDate: { [Op.gte]: from, [Op.lte]: to } },
+      include: [
+        { model: Division, attributes: ['id', 'name'] },
+        { model: Subject, attributes: ['id', 'name'] },
+      ],
+      attributes: ['id', 'kind', 'title', 'dueDate', 'divisionId', 'subjectId'],
+      order: [['dueDate', 'ASC'], ['kind', 'ASC']],
+      limit: 200,
+    });
+    res.json(posts.map((p) => ({ id: p.id, kind: p.kind, kindLabel: POST_KIND_LABELS[p.kind], title: p.title, dueDate: p.dueDate, division: (p as ClassroomPost & { Division?: Division }).Division, subject: (p as ClassroomPost & { Subject?: Subject | null }).Subject ?? null })));
+  });
+
 // POST /classrooms/:id/posts
 export const createPost = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
@@ -163,7 +198,7 @@ export const createPost = asyncHandler(async (req, res) => {
       body: input.body,
       links: input.links,
       fileIds: input.fileIds,
-      dueDate: input.kind === 'TAREA' ? input.dueDate ?? null : null,
+      dueDate: DATED_KINDS.includes(input.kind) ? input.dueDate ?? null : null,
       pinned: input.pinned,
     });
 
@@ -179,7 +214,7 @@ export const createPost = asyncHandler(async (req, res) => {
       const subject = input.subjectId ? (await Subject.findByPk(input.subjectId, { attributes: ['name'] }))?.name : null;
       notify({
         userIds: guardians.map((g) => g.userId),
-        title: `${input.kind === 'TAREA' ? 'Nueva tarea' : 'Nuevo material'} · ${division.name}${subject ? ` · ${subject}` : ''}`,
+        title: `${input.kind === 'MATERIAL' ? 'Nuevo material' : input.kind === 'TAREA' ? 'Nueva tarea' : `${POST_KIND_LABELS[input.kind]}${input.dueDate ? ` · ${new Date(`${input.dueDate}T12:00:00`).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })}` : ''}`} · ${division.name}${subject ? ` · ${subject}` : ''}`,
         message: input.title,
         type: 'classroom',
         link: `/aulas/${division.id}`,

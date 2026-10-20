@@ -61,6 +61,9 @@ export const withdrawStudent = {
 /** POST /students/:id/reactivate */
 export const reactivateStudent = { params: idParam, body: z.object({ divisionId: z.number().int() }) };
 
+/** POST/DELETE /periods/summaries — nota de cuatrimestre por grupo de períodos. */
+export const summaryPeriods = { body: z.object({ levelId: z.number().int(), academicYearId: z.number().int().optional() }) };
+
 /** GET /promotions/plan */
 export const promotionPlan = { query: z.object({ targetYearId: z.coerce.number().int() }) };
 

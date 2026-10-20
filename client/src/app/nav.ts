@@ -1,6 +1,6 @@
 import {
   Home, Megaphone, MessageCircle, ClipboardCheck, BookOpenCheck, BellRing, GraduationCap,
-  Settings, Baby, School, FolderOpen, Contact, Hash, Receipt, FileText, Building2, LifeBuoy, ShieldCheck, CalendarDays, BookOpen, Gamepad2, IdCard, Briefcase, Gem,
+  Settings, Baby, School, FolderOpen, Contact, Hash, Receipt, FileText, Building2, LifeBuoy, ShieldCheck, CalendarDays, BookOpen, Gamepad2, IdCard, Briefcase, Gem, BarChart3, CircleHelp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { SchoolSession } from '../school/types';
@@ -46,6 +46,7 @@ export const buildNav = (opts: {
     items.push({ to: '/mensajes', label: 'Mensajes', icon: MessageCircle, badge: 'threads', section: 'school' });
     if (session.hasChannels) items.push({ to: '/canales', label: 'Canales', icon: Hash, badge: 'channels', section: 'school' });
     if (can(Entity.ALERTS, Action.READ)) items.push({ to: '/alertas', label: 'Alertas', icon: BellRing, section: 'school' });
+    if (session.isStaff && can(Entity.ATTENDANCE, Action.READ) && can(Entity.GRADES, Action.READ)) items.push({ to: '/estadisticas', label: 'Estadísticas', icon: BarChart3, section: 'school' });
     if (can(Entity.USERS, Action.READ)) items.push({ to: '/alumnos', label: 'Alumnos', icon: GraduationCap, section: 'school' });
     if (can(Entity.USERS, Action.READ)) items.push({ to: '/personas', label: 'Personas', icon: Contact, section: 'school' });
     if (session.isStaff && (session.teaching.length || can(Entity.ANNOUNCEMENTS, Action.CREATE))) items.push({ to: '/archivos', label: 'Archivos', icon: FolderOpen, section: 'school' });
@@ -58,6 +59,7 @@ export const buildNav = (opts: {
     if (can(Entity.STAFF_RECORDS, Action.READ) || can(Entity.PAYROLL, Action.READ)) items.push({ to: '/personal', label: 'Personal', icon: Briefcase, section: 'school' });
     if (can(Entity.PLANS, Action.READ)) items.push({ to: '/planes', label: 'Planes', icon: Gem, section: 'school' });
     if (can(Entity.BILLING, Action.READ)) items.push({ to: '/facturacion', label: 'Facturación', icon: Receipt, section: 'school' });
+    items.push({ to: '/ayuda', label: 'Ayuda', icon: CircleHelp, section: 'school' });
   }
   if (isSuperAdmin) {
     // Equipo de Sentryx: alta de colegios y facturación de todos.

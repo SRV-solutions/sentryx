@@ -1,6 +1,6 @@
 /** Controlador de grades: la lógica de cada ruta de routes/grades.routes.ts. */
 import { z } from 'zod';
-import { Grade, GradingPeriod, Subject, Level, Division, Enrollment, Student, TeachingAssignment, ReportCardPublication, StudentGuardian, sequelize } from '../models';
+import { Grade, GradingPeriod, Subject, Level, Division, Enrollment, Student, TeachingAssignment, ReportCardPublication, StudentGuardian, AcademicYear, sequelize } from '../models';
 import { asyncHandler, notFound, forbidden, badRequest } from '../lib/http';
 import { assertDivision, teaches, assertStudentAccess, divisionWhere, SchoolSession } from '../services/schoolSession';
 import { normalizeEntry, isEmpty, buildReportCard, completionFor, isAtRisk } from '../services/grades';
@@ -82,7 +82,7 @@ export const getGradeSheet = asyncHandler(async (req, res) => {
       division: { id: division.id, name: division.name },
       subject: { id: subject.id, name: subject.name },
       level: { id: division.Level!.id, name: division.Level!.name, type: division.Level!.type, settings: division.Level!.settings },
-      periods: periods.map((p) => ({ id: p.id, name: p.name, groupName: p.groupName, kind: p.kind, closed: !!p.closedAt, published: published.has(p.id) })),
+      periods: periods.map((p) => ({ id: p.id, name: p.name, groupName: p.groupName, kind: p.kind, closed: !!p.closedAt, published: published.has(p.id), summaryOf: p.summaryOf ?? null })),
       students: enrollments.map((e) => e.Student),
       grades: grades.map((g) => ({
         studentId: g.studentId,
@@ -164,13 +164,18 @@ export const getReportCard = asyncHandler(async (req, res) => {
     const studentId = Number(req.params.id);
     const { asGuardian } = await assertStudentAccess(session, studentId);
     if (!asGuardian && !session.can(Entity.GRADES, Action.READ) && !session.can(Entity.GRADES, Action.UPDATE)) throw forbidden();
-    if (!session.academicYearId) throw notFound('No hay ciclo lectivo activo.');
+    // ?yearId= permite ver boletines de ciclos anteriores (el alumno conserva su historial al pasar de grado).
+    const { yearId } = req.query as unknown as { yearId?: number };
+    const year = yearId ? await AcademicYear.findOne({ where: { id: yearId, schoolId: session.schoolId }, attributes: ['id', 'year'] }) : null;
+    if (yearId && !year) throw notFound('Ese ciclo lectivo no existe.');
+    const academicYearId = year?.id ?? session.academicYearId;
+    if (!academicYearId) throw notFound('No hay ciclo lectivo activo.');
     const student = await Student.findByPk(studentId, { attributes: ['id', 'firstName', 'lastName', 'dni'] });
 
     const onlyPublished = asGuardian || !session.can(Entity.GRADES, Action.READ);
-    const report = await buildReportCard({ studentId, academicYearId: session.academicYearId, onlyPublished });
-    if (!report) throw notFound('El alumno no está inscripto en el ciclo actual.');
-    res.json({ student, ...report });
+    const report = await buildReportCard({ studentId, academicYearId, onlyPublished });
+    if (!report) throw notFound(year ? `El alumno no estuvo inscripto en el ciclo ${year.year}.` : 'El alumno no está inscripto en el ciclo actual.');
+    res.json({ student, academicYearId, ...report });
   });
 
 /** Estado académico de una división: alumnos con materias en riesgo (para docentes y conducción). */

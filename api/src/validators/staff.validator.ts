@@ -1,12 +1,13 @@
 /** Validaciones (zod) de las rutas de staff. */
 import { z } from 'zod';
 import { idParam } from '../lib/http';
-import { SCHOOL_ROLES, isStaffRole } from '../constants/roles';
+import { isStaffRole } from '../constants/roles';
 import { person } from './person.validator';
 
 export const staffBody = z.object({
   ...person,
-  role: z.enum(SCHOOL_ROLES).refine(isStaffRole, 'Las familias y estudiantes se cargan desde la ficha del alumno.'),
+  // Código del catálogo o de un rol personalizado del colegio (se valida contra el registro al otorgarlo).
+  role: z.string().trim().min(2).max(40).refine((r) => isStaffRole(r as never), 'Las familias y estudiantes se cargan desde la ficha del alumno.'),
   levelId: z.number().int().nullish(),
   divisionIds: z.array(z.number().int()).default([]),
   title: z.string().max(80).nullish(),

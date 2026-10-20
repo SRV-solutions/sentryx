@@ -6,7 +6,7 @@ import { apiGet, apiSend } from '../../../lib/api';
 import { Card, ErrorBox, Skeleton, useToast, Chips } from '../../../ui';
 import { type Structure, type Level, type PeriodKind } from '../../../school/types';
 import type { StaffRow } from './StaffTab';
-import { DefaultStructureCard, GradingSchemeCard, EditDivisionButton } from './AcademicSetupCards';
+import { DefaultStructureCard, GradingSchemeCard, EditDivisionButton, SummaryPeriodsCard } from './AcademicSetupCards';
 
 export const StructureTab = () => {
   const qc = useQueryClient();
@@ -40,6 +40,7 @@ export const StructureTab = () => {
     <div className="stack-lg">
       <DefaultStructureCard structure={s.data} />
       <GradingSchemeCard structure={s.data} />
+      <SummaryPeriodsCard structure={s.data} />
       <Chips value={level.id} onChange={setLevelId} items={s.data.levels.map((l) => ({ value: l.id, label: l.name }))} />
 
       <Card>

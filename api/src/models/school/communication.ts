@@ -27,6 +27,9 @@ export interface Audience {
   includeStaff?: boolean;
 }
 
+export const ANNOUNCEMENT_STATUSES = ['DRAFT', 'SCHEDULED', 'SENT', 'ARCHIVED'] as const;
+export type AnnouncementStatus = (typeof ANNOUNCEMENT_STATUSES)[number];
+
 export class Announcement extends Model<InferAttributes<Announcement>, InferCreationAttributes<Announcement>> {
   declare id: CreationOptional<number>;
   declare schoolId: ForeignKey<number>;
@@ -40,6 +43,11 @@ export class Announcement extends Model<InferAttributes<Announcement>, InferCrea
   declare requiresAck: CreationOptional<boolean>;
   declare priority: CreationOptional<'NORMAL' | 'URGENT'>;
   declare recipientCount: CreationOptional<number>;
+  /** Borrador (solo lo ve el autor), programado (se envía solo), enviado o archivado (sale de la bandeja). */
+  declare status: CreationOptional<AnnouncementStatus>;
+  declare scheduledAt: CreationOptional<Date | null>;
+  declare sentAt: CreationOptional<Date | null>;
+  declare archivedAt: CreationOptional<Date | null>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
 }
@@ -55,10 +63,14 @@ Announcement.init(
     requiresAck: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     priority: { type: DataTypes.ENUM('NORMAL', 'URGENT'), allowNull: false, defaultValue: 'NORMAL' },
     recipientCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    status: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'SENT' },
+    scheduledAt: { type: DataTypes.DATE, allowNull: true },
+    sentAt: { type: DataTypes.DATE, allowNull: true },
+    archivedAt: { type: DataTypes.DATE, allowNull: true },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
   },
-  { sequelize, modelName: 'Announcement', tableName: 'Announcement', indexes: [{ fields: ['schoolId', 'createdAt'] }] }
+  { sequelize, modelName: 'Announcement', tableName: 'Announcement', indexes: [{ fields: ['schoolId', 'createdAt'] }, { fields: ['status', 'scheduledAt'] }] }
 );
 
 /** Destinatario materializado: permite bandeja por usuario y "quién leyó / quién confirmó" en una consulta. */

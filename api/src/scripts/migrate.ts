@@ -6,7 +6,7 @@
 import { DataTypes, QueryInterface } from "sequelize";
 import * as M from "../models";
 import { reconcileAccess } from "../services/billing";
-import { syncRbacCatalog, grantPlatformRole } from "../services/rbac";
+import { syncRbacCatalog, grantPlatformRole, invalidateRbacCache } from "../services/rbac";
 import { RoleCode } from "../constants/roles";
 
 const { sequelize } = M;
@@ -339,6 +339,55 @@ const migrations: Array<{
       await index(`CREATE INDEX IF NOT EXISTS "file_asset_school_uploader" ON "FileAsset" ("schoolId", "uploaderId")`);
       // Permisos de planes, legajo, recibos, calendario, programas y juegos (y sus vínculos por defecto).
       await syncRbacCatalog();
+    },
+  },
+  {
+    // App móvil: las docentes toman asistencia de sus cursos (antes solo Preceptoría).
+    name: "2026-10-20-docente-attendance-update",
+    up: async () => {
+      await index(`INSERT INTO "RolePermission" ("roleId", "permissionId")
+        SELECT r.id, p.id FROM "Role" r, "Permission" p
+        WHERE r.code = 'DOCENTE' AND p.entity = 'attendance' AND p.action = 'update'
+          AND NOT EXISTS (SELECT 1 FROM "RolePermission" rp WHERE rp."roleId" = r.id AND rp."permissionId" = p.id)`);
+      invalidateRbacCache();
+    },
+  },
+  {
+    // Roles nuevos (Coordinación pedagógica, Jefatura de preceptores); Secretaría deja de publicar boletines.
+    // Comunicados con estado (borrador / programado / enviado / archivado), búsqueda y filtros.
+    name: "2026-10-20-roles-announcement-status",
+    up: async (qi) => {
+      await syncRbacCatalog();
+      await index(`DELETE FROM "RolePermission" rp USING "Role" r, "Permission" p
+        WHERE rp."roleId" = r.id AND rp."permissionId" = p.id AND r.code = 'SECRETARIO' AND p.entity = 'report_cards' AND p.action = 'publish'`);
+      invalidateRbacCache();
+      await addColumnIfMissing(qi, "Announcement", "status", { type: DataTypes.STRING(12), allowNull: false, defaultValue: "SENT" });
+      await addColumnIfMissing(qi, "Announcement", "scheduledAt", { type: DataTypes.DATE, allowNull: true });
+      await addColumnIfMissing(qi, "Announcement", "sentAt", { type: DataTypes.DATE, allowNull: true });
+      await addColumnIfMissing(qi, "Announcement", "archivedAt", { type: DataTypes.DATE, allowNull: true });
+      await index(`UPDATE "Announcement" SET "sentAt" = "createdAt" WHERE "sentAt" IS NULL AND status = 'SENT'`);
+      await index(`CREATE INDEX IF NOT EXISTS "announcement_status_scheduled" ON "Announcement" ("status", "scheduledAt")`);
+    },
+  },
+  {
+    // Roles personalizados por colegio (Role.schoolId) + permiso roles:manage; TP y evaluaciones en el aula;
+    // nota de cuatrimestre (GradingPeriod.summaryOf).
+    name: "2026-10-21-custom-roles-tp-summaries",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "Role", "schoolId", { type: DataTypes.INTEGER, allowNull: true });
+      await syncRbacCatalog();
+      // Quién crea roles personalizados: la conducción (explícito, por si el permiso ya existía en la base).
+      await index(`INSERT INTO "RolePermission" ("roleId", "permissionId")
+        SELECT r.id, p.id FROM "Role" r, "Permission" p
+        WHERE r.code IN ('REPRESENTANTE_LEGAL', 'DIRECTOR', 'RECTOR', 'VICEDIRECTOR') AND p.entity = 'roles' AND p.action = 'manage'
+          AND NOT EXISTS (SELECT 1 FROM "RolePermission" rp WHERE rp."roleId" = r.id AND rp."permissionId" = p.id)`);
+      invalidateRbacCache();
+      await index(`DO $$ BEGIN
+        IF EXISTS (SELECT 1 FROM pg_type WHERE typname = 'enum_ClassroomPost_kind') THEN
+          ALTER TYPE "enum_ClassroomPost_kind" ADD VALUE IF NOT EXISTS 'TP';
+          ALTER TYPE "enum_ClassroomPost_kind" ADD VALUE IF NOT EXISTS 'EVALUACION';
+        END IF; END $$`);
+      await addColumnIfMissing(qi, "GradingPeriod", "summaryOf", { type: DataTypes.STRING(60), allowNull: true });
     },
   },
 ];

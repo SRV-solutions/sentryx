@@ -126,6 +126,13 @@ export default function GradeSheetPage() {
   };
 
   const set = (studentId: number, patch: Partial<Draft>) => setDrafts((prev) => ({ ...prev, [studentId]: { ...(prev[studentId] ?? empty), ...patch } }));
+  /** Sugerencia para la nota de cuatrimestre: promedio de las notas numéricas de los períodos de ese grupo. */
+  const suggested = (studentId: number) => {
+    if (!d || !period?.summaryOf) return null;
+    const ids = d.periods.filter((p) => p.groupName === period.summaryOf && !p.summaryOf && p.kind === 'NUMERIC').map((p) => p.id);
+    const values = d.grades.filter((g) => g.studentId === studentId && ids.includes(g.periodId) && g.numericValue !== null).map((g) => g.numericValue as number);
+    return values.length ? Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 100) / 100 : null;
+  };
 
   if (q.error) return <ErrorBox error={q.error} />;
   if (!d || !period) return <Skeleton count={6} h={56} />;
@@ -155,10 +162,12 @@ export default function GradeSheetPage() {
       <div className="row wrap" style={{ gap: 6 }}>
         <Badge tone="info">{period.kind === 'NUMERIC' ? `Numérica ${s.numericMin}–${s.numericMax} · aprueba con ${s.passingGrade}` : period.kind === 'CONCEPTUAL' ? 'Valoración conceptual' : 'Informe narrativo'}</Badge>
         {period.groupName && <Badge>{period.groupName}</Badge>}
+        {period.summaryOf && <Badge tone="warn">Nota de cuatrimestre: cierra {period.summaryOf}</Badge>}
         {period.closed && <Badge tone="warn"><Lock size={12} /> Cerrado</Badge>}
         {period.published && <Badge tone="ok">Publicado a familias</Badge>}
       </div>
 
+      {period.summaryOf && <div className="alert alert-info small">Es la nota de cierre del {period.summaryOf}: la carga la docente (no se calcula sola). Entre paréntesis se sugiere el promedio de las notas numéricas de ese cuatrimestre. La final anual es el promedio de las notas de cuatrimestre.</div>}
       {!d.canEdit && <div className="alert alert-info small">Vista de solo lectura: no dictás esta materia.</div>}
       {d.canEdit && period.closed && !d.canEditClosed && <div className="alert alert-warn small">El período está cerrado. Si necesitás corregir una nota, pedile a la dirección que lo reabra.</div>}
 
@@ -193,6 +202,7 @@ export default function GradeSheetPage() {
               <div className="grow" style={{ minWidth: 120 }}>
                 <div className="h3 truncate">{st.lastName}, {st.firstName}</div>
                 {v.observation && <div className="xs muted truncate">📝 {v.observation}</div>}
+                {period.summaryOf && suggested(st.id) !== null && <div className="xs muted">(promedio {period.summaryOf}: {suggested(st.id)})</div>}
               </div>
               {period.kind === 'NUMERIC' && (
                 <input

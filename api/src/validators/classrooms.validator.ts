@@ -1,9 +1,10 @@
 /** Validaciones (zod) de las rutas de classrooms. */
 import { z } from 'zod';
 import { idParam } from '../lib/http';
+import { POST_KINDS } from '../models/school/classroom';
 
 export const postBody = z.object({
-  kind: z.enum(['MATERIAL', 'TAREA']).default('MATERIAL'),
+  kind: z.enum(POST_KINDS).default('MATERIAL'),
   subjectId: z.number().int().nullish(),
   title: z.string().trim().min(2).max(160),
   body: z.string().trim().max(20000).default(''),
@@ -14,13 +15,16 @@ export const postBody = z.object({
   notifyFamilies: z.boolean().default(true),
 });
 
+/** GET /classrooms/agenda — próximas evaluaciones, TP y tareas del alcance. */
+export const agenda = { query: z.object({ days: z.coerce.number().int().min(1).max(120).default(30), divisionId: z.coerce.number().int().optional() }) };
+
 /** GET /classrooms/:id */
 export const getClassroom = { params: idParam };
 
 /** GET /classrooms/:id/posts */
 export const listPosts = {
     params: idParam,
-    query: z.object({ subjectId: z.coerce.number().int().optional(), kind: z.enum(['MATERIAL', 'TAREA']).optional(), before: z.coerce.number().int().optional() }),
+    query: z.object({ subjectId: z.coerce.number().int().optional(), kind: z.enum(POST_KINDS).optional(), before: z.coerce.number().int().optional() }),
   };
 
 /** POST /classrooms/:id/posts */

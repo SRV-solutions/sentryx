@@ -4,8 +4,8 @@ import { asyncHandler, badRequest } from '../lib/http';
 import { userSchools, SchoolSession } from '../services/schoolSession';
 import { roleCatalogForDisplay } from '../services/rbac';
 import { isStorageConfigured } from '../services/files';
-import { grantableRoles } from '../constants/roles';
-import { ROLE_LABELS, CATEGORY_LABELS, isStaffRole } from '../constants/school';
+import { CATEGORY_LABELS, isStaffRole } from '../constants/school';
+import { roleLabel, grantableRoleCodes } from '../services/roleRegistry';
 import { audit } from '../services/audit';
 import { publicSchool, resolveLogo, isImageAsset } from '../services/branding';
 import { isSuperAdmin } from '../middlewares/authenticate';
@@ -44,7 +44,7 @@ export const getSession = asyncHandler(async (req, res) => {
       activeLevelId: session.activeLevelId,
       academicYearId: session.academicYearId,
       roles: session.roles,
-      roleLabels: session.roles.map((r) => ROLE_LABELS[r]),
+      roleLabels: session.roles.map((r) => roleLabel(r)),
       permissions: [...session.permissions],
       isStaff: session.isStaff,
       isGuardian: session.isGuardian,
@@ -59,14 +59,16 @@ export const getSession = asyncHandler(async (req, res) => {
       plan: { code: session.plan, name: planDefinition(session.plan).name, storageGb: planDefinition(session.plan).storageGb, features: [...featuresOf(session.plan)] },
       /** Funciones que dependen de la configuración del servidor (la app oculta lo que no está disponible). */
       features: { fileUploads: isStorageConfigured() },
-      grantableRoles: session.can(Entity.USERS, Action.UPDATE) ? grantableRoles(session.roles, session.superAdmin) : [],
+      grantableRoles: session.can(Entity.USERS, Action.UPDATE) ? grantableRoleCodes(session) : [],
+      canManageRoles: session.can(Entity.ROLES, Action.MANAGE),
     });
   });
 
 /** Catálogo de roles y permisos (matriz "Roles y permisos" de Administración). */
 // GET /roles
-export const getRoleCatalog = asyncHandler(async (_req, res) => {
-    res.json(await roleCatalogForDisplay());
+export const getRoleCatalog = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    res.json({ ...(await roleCatalogForDisplay(session.schoolId)), canManage: session.can(Entity.ROLES, Action.MANAGE) });
   });
 
 // ----- Datos institucionales -----

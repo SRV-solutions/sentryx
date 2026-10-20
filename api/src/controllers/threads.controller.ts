@@ -4,7 +4,8 @@ import { Op, QueryTypes } from 'sequelize';
 import { Thread, ThreadParticipant, ThreadMessage, Student, User, UserRole, sequelize } from '../models';
 import { asyncHandler, notFound, forbidden, badRequest } from '../lib/http';
 import { assertStudentAccess, SchoolSession } from '../services/schoolSession';
-import { ROLE_LABELS, NON_STAFF_ROLES } from '../constants/school';
+import { NON_STAFF_ROLES } from '../constants/school';
+import { roleLabel } from '../services/roleRegistry';
 import { contactsForGuardian, contactsForStudent, guardiansOf } from '../services/audience';
 import { notify } from '../services/notifications';
 import { emitToUsers } from '../services/realtime';
@@ -19,7 +20,7 @@ const roleLabelFor = async (session: SchoolSession, userId: number, studentId: n
     if (g) return `Familia · ${g.detail ?? ''}`.trim();
   }
   const m = await UserRole.findOne({ where: { userId, schoolId: session.schoolId, active: true, role: { [Op.notIn]: NON_STAFF_ROLES } } });
-  return m ? ROLE_LABELS[m.role] : 'Familia';
+  return m ? roleLabel(m.role) : 'Familia';
 };
 
 const participantOf = async (session: SchoolSession, threadId: number) => {
@@ -184,10 +185,10 @@ export const addParticipant = asyncHandler(async (req, res) => {
     if (!member) throw badRequest('Solo se puede sumar personal de la institución.');
     await ThreadParticipant.findOrCreate({
       where: { threadId: p.threadId, userId: req.body.userId },
-      defaults: { threadId: p.threadId as number, userId: req.body.userId, roleLabel: ROLE_LABELS[member.role], lastReadAt: null },
+      defaults: { threadId: p.threadId as number, userId: req.body.userId, roleLabel: roleLabel(member.role), lastReadAt: null },
     });
     const me = await User.findByPk(session.userId, { attributes: ['firstName', 'lastName'] });
-    await ThreadMessage.create({ threadId: p.threadId as number, senderId: session.userId, body: `ℹ️ ${me?.firstName} ${me?.lastName} sumó a ${ROLE_LABELS[member.role]} a la conversación.`, attachments: [] });
+    await ThreadMessage.create({ threadId: p.threadId as number, senderId: session.userId, body: `ℹ️ ${me?.firstName} ${me?.lastName} sumó a ${roleLabel(member.role)} a la conversación.`, attachments: [] });
     notify({ userIds: [req.body.userId], title: 'Te sumaron a una conversación', message: p.Thread!.subject, type: 'message', link: `/mensajes/${p.threadId}` });
     res.status(201).json({ ok: true });
   });

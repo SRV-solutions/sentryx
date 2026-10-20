@@ -22,9 +22,12 @@ interface Classroom {
 }
 
 interface SignedFile { id: number; name: string; size: number; mimeType: string; url: string }
+type PostKind = 'MATERIAL' | 'TAREA' | 'TP' | 'EVALUACION';
+const KIND_LABELS: Record<PostKind, string> = { MATERIAL: 'Material', TAREA: 'Tarea', TP: 'Trabajo práctico', EVALUACION: 'Evaluación' };
+
 interface Post {
   id: number;
-  kind: 'MATERIAL' | 'TAREA';
+  kind: PostKind;
   title: string;
   body: string;
   links: Array<{ url: string; title?: string }>;
@@ -36,6 +39,8 @@ interface Post {
   Author: PersonLite;
   canEdit: boolean;
 }
+
+export interface AgendaItem { id: number; kind: PostKind; kindLabel: string; title: string; dueDate: string; division: { id: number; name: string }; subject: { id: number; name: string } | null }
 
 interface AnnouncementRow {
   id: number;
@@ -85,7 +90,9 @@ const PostCard = ({ p, onDelete }: { p: Post; onDelete: () => void }) => (
       )}
     </div>
     <div className="row wrap" style={{ gap: 6 }}>
-      {p.kind === 'TAREA' ? <Badge tone="warn"><CalendarClock size={12} /> Tarea{p.dueDate && ` · entrega ${fmtDate(p.dueDate, { weekday: 'short', day: 'numeric', month: 'short' })}`}</Badge> : <Badge tone="info">Material</Badge>}
+      {p.kind === 'MATERIAL' ? <Badge tone="info">Material</Badge> : (
+        <Badge tone={p.kind === 'EVALUACION' ? 'danger' : 'warn'}><CalendarClock size={12} /> {KIND_LABELS[p.kind]}{p.dueDate && ` · ${p.kind === 'EVALUACION' ? 'el' : 'entrega'} ${fmtDate(p.dueDate, { weekday: 'short', day: 'numeric', month: 'short' })}`}</Badge>
+      )}
     </div>
     <h3 className="h2">{p.title}</h3>
     {p.body && <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.55 }}>{p.body}</p>}
@@ -110,7 +117,7 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
   const toast = useToast();
   const mySubjects = room.subjects.filter((s) => s.mine);
   const options = mySubjects.length ? mySubjects : room.subjects;
-  const [kind, setKind] = useState<'MATERIAL' | 'TAREA'>('MATERIAL');
+  const [kind, setKind] = useState<PostKind>('MATERIAL');
   const [subjectId, setSubjectId] = useState<number | ''>(options[0]?.subject.id ?? '');
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -142,7 +149,7 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
         subjectId: subjectId || null,
         title,
         body,
-        dueDate: kind === 'TAREA' && dueDate ? dueDate : null,
+        dueDate: kind !== 'MATERIAL' && dueDate ? dueDate : null,
         links: links.map((url) => ({ url })),
         fileIds: files.map((f) => f.fileId),
         notifyFamilies: notify,
@@ -174,7 +181,7 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
   return (
     <Sheet open onClose={onClose} title={`Publicar en ${room.division.name}`}>
       <form className="stack" onSubmit={submit}>
-        <Tabs value={kind} onChange={setKind} items={[{ value: 'MATERIAL', label: 'Material' }, { value: 'TAREA', label: 'Tarea' }]} />
+        <Tabs value={kind} onChange={setKind} items={[{ value: 'MATERIAL', label: 'Material' }, { value: 'TAREA', label: 'Tarea' }, { value: 'TP', label: 'TP' }, { value: 'EVALUACION', label: 'Evaluación' }]} />
         {options.length > 0 && (
           <Field label="Materia">
             <select className="select" value={subjectId} onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : '')}>
@@ -183,9 +190,9 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
             </select>
           </Field>
         )}
-        <Field label="Título"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160} required placeholder={kind === 'TAREA' ? 'Ej: TP Nº 2 — Fracciones' : 'Ej: Apunte de la clase del martes'} /></Field>
+        <Field label="Título"><input className="input" value={title} onChange={(e) => setTitle(e.target.value)} maxLength={160} required placeholder={kind === 'TP' ? 'Ej: TP Nº 2 — Fracciones' : kind === 'EVALUACION' ? 'Ej: Evaluación de la unidad 3' : kind === 'TAREA' ? 'Ej: Ejercicios 1 a 10 de la página 40' : 'Ej: Apunte de la clase del martes'} /></Field>
         <Field label="Descripción"><textarea className="textarea" value={body} onChange={(e) => setBody(e.target.value)} maxLength={20000} /></Field>
-        {kind === 'TAREA' && <Field label="Fecha de entrega"><input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></Field>}
+        {kind !== 'MATERIAL' && <Field label={kind === 'EVALUACION' ? 'Fecha de la evaluación' : 'Fecha de entrega'} hint="Aparece en la agenda del curso y en el inicio de las familias."><input className="input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} required={kind === 'EVALUACION'} /></Field>}
 
         <div className="stack" style={{ gap: 8 }}>
           {links.map((l) => (
@@ -222,6 +229,24 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
   );
 };
 
+/** Próximas evaluaciones, TP y tareas del curso. */
+const Agenda = ({ divisionId }: { divisionId: number }) => {
+  const q = useQuery({ queryKey: ['classroom-agenda', divisionId], queryFn: () => apiGet<AgendaItem[]>(`/school/classrooms/agenda?days=60&divisionId=${divisionId}`) });
+  if (!q.data?.length) return null;
+  return (
+    <section className="card card-pad stack" style={{ gap: 8 }}>
+      <div className="h3 row" style={{ gap: 6 }}><CalendarClock size={16} /> Agenda del curso</div>
+      {q.data.map((a) => (
+        <div key={a.id} className="row small" style={{ gap: 10 }}>
+          <Badge tone={a.kind === 'EVALUACION' ? 'danger' : a.kind === 'TP' ? 'warn' : undefined}>{a.kindLabel}</Badge>
+          <span className="grow truncate">{a.title}{a.subject ? <span className="muted"> · {a.subject.name}</span> : null}</span>
+          <span className="xs muted" style={{ whiteSpace: 'nowrap' }}>{fmtDate(a.dueDate, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+        </div>
+      ))}
+    </section>
+  );
+};
+
 const Wall = ({ room }: { room: Classroom }) => {
   const qc = useQueryClient();
   const toast = useToast();
@@ -246,9 +271,10 @@ const Wall = ({ room }: { room: Classroom }) => {
       {room.subjects.length > 1 && (
         <Chips value={subjectId} onChange={setSubjectId} items={[{ value: 0, label: 'Todas' }, ...[...new Map(room.subjects.map((s) => [s.subject.id, s.subject])).values()].map((s) => ({ value: s.id, label: s.name }))]} />
       )}
+      <Agenda divisionId={room.division.id} />
       {room.canPost && (
         <button className="card card-pad row" style={{ cursor: 'pointer', textAlign: 'left', color: 'var(--text-3)' }} onClick={() => setComposing(true)}>
-          <Plus size={18} /> Compartí material, un video o una tarea…
+          <Plus size={18} /> Compartí material, una tarea, un TP o una evaluación…
         </button>
       )}
       {q.isLoading && <Skeleton count={3} h={140} />}

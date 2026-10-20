@@ -1,11 +1,12 @@
 /** Controlador de announcements: la lógica de cada ruta de routes/announcements.routes.ts. */
 import { z } from 'zod';
-import { QueryTypes } from 'sequelize';
+import { QueryTypes, Op } from 'sequelize';
 import { Announcement, AnnouncementRecipient, Student, User, Level, Division, FileAsset, sequelize } from '../models';
-import type { Attachment } from '../models/school/communication';
+import type { Attachment, AnnouncementStatus } from '../models/school/communication';
+import { dispatchAnnouncement } from '../services/announcementDispatch';
 import { asyncHandler, notFound, forbidden, badRequest, pagination } from '../lib/http';
 import { divisionWhere, SchoolSession } from '../services/schoolSession';
-import { assertAudience, resolveRecipients, audienceLabel } from '../services/audience';
+import { assertAudience, resolveRecipients, audienceLabel, listFamilies as familiesInScope } from '../services/audience';
 import { notify } from '../services/notifications';
 import { presignDownload } from '../config/s3';
 import { signFiles } from '../services/files';
@@ -63,64 +64,120 @@ export const listAudiences = asyncHandler(async (req, res) => {
     const [levels, divisions] = await Promise.all([
       Level.findAll({ where: { schoolId: session.schoolId, ...(session.scope.all ? {} : { id: session.scope.levelIds }) }, attributes: ['id', 'name', 'type'] }),
       session.academicYearId
-        ? Division.findAll({ where: { ...divisionWhere(session), academicYearId: session.academicYearId }, attributes: ['id', 'name', 'levelId'], order: [['levelId', 'ASC'], ['gradeYear', 'ASC'], ['name', 'ASC']] })
+        ? Division.findAll({ where: { ...divisionWhere(session), academicYearId: session.academicYearId }, attributes: ['id', 'name', 'levelId', 'gradeYear'], order: [['levelId', 'ASC'], ['gradeYear', 'ASC'], ['name', 'ASC']] })
         : [],
     ]);
     res.json({ schoolWide: session.can(Entity.ANNOUNCEMENTS, Action.CREATE_SCHOOL_WIDE), levels, divisions });
   });
 
-// POST /announcements
+// GET /announcements/families — listado completo de familias del alcance, con filtros, para elegir una por una.
+export const listFamilies = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const { page, limit, q, levelId, gradeYear, divisionId, ids } = req.query as unknown as { page: number; limit: number; q?: string; levelId?: number; gradeYear?: number; divisionId?: number; ids?: boolean };
+    const rows = await familiesInScope(session, { q, levelId, gradeYear, divisionId });
+    if (ids) return res.json({ ids: rows.map((r) => r.userId), total: rows.length });
+    res.json({ data: rows.slice((page - 1) * limit, page * limit), pagination: { totalItems: rows.length, currentPage: page, totalPages: Math.ceil(rows.length / limit) } });
+  });
+
+/** Datos comunes (alta y edición de borradores/programados). */
+const announcementFields = async (session: SchoolSession, input: z.infer<typeof announcementBody>) => {
+  await assertAudience(session, input.audience);
+  const recipients = await resolveRecipients(session, input.audience);
+  if (!recipients.size) throw badRequest('La audiencia elegida no tiene destinatarios.');
+  return {
+    title: input.title,
+    body: input.body,
+    audience: input.audience,
+    audienceLabel: (await audienceLabel(session, input.audience)) ?? '',
+    requiresAck: input.requiresAck,
+    priority: input.priority,
+    attachments: await toAttachments(session, input.attachments),
+    recipientCount: recipients.size,
+    // "send" nace como borrador y pasa a SENT en dispatchAnnouncement (mismo camino que un programado).
+    status: (input.mode === 'schedule' ? 'SCHEDULED' : 'DRAFT') as AnnouncementStatus,
+    scheduledAt: input.mode === 'schedule' ? new Date(input.scheduledAt!) : null,
+  };
+};
+
+/** Borrador o programado del propio autor (lo único que se puede editar, enviar o eliminar). */
+const ownPending = async (session: SchoolSession, id: string | number) => {
+  const a = await Announcement.findOne({ where: { id, schoolId: session.schoolId } });
+  if (!a) throw notFound();
+  if (a.authorId !== session.userId) throw forbidden('Solo el autor puede modificar este comunicado.');
+  if (a.status !== 'DRAFT' && a.status !== 'SCHEDULED') throw badRequest('Este comunicado ya fue enviado.');
+  return a;
+};
+
+// POST /announcements — mode: send (ahora) · draft (guardar) · schedule (enviar en scheduledAt)
 export const createAnnouncement = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
     const input = req.body as z.infer<typeof announcementBody>;
-    await assertAudience(session, input.audience);
-    const recipients = await resolveRecipients(session, input.audience);
-    if (!recipients.size) throw badRequest('La audiencia elegida no tiene destinatarios.');
-
-    const announcement = await sequelize.transaction(async (transaction) => {
-      const a = await Announcement.create(
-        {
-          schoolId: session.schoolId,
-          authorId: session.userId,
-          title: input.title,
-          body: input.body,
-          audience: input.audience,
-          audienceLabel: (await audienceLabel(session, input.audience)) ?? '',
-          requiresAck: input.requiresAck,
-          priority: input.priority,
-          attachments: await toAttachments(session, input.attachments),
-          recipientCount: recipients.size,
-        },
-        { transaction }
-      );
-
-      await AnnouncementRecipient.bulkCreate(
-        [...recipients.entries()].map(([userId, studentIds]) => ({ announcementId: a.id, userId, studentIds, readAt: null, ackAt: null })),
-        { transaction }
-      );
-      return a;
-    });
-
-    notify({
-      userIds: [...recipients.keys()],
-      title: `${input.priority === 'URGENT' ? '🔴 ' : ''}${input.title}`,
-      message: input.body.slice(0, 160),
-      type: 'announcement',
-      link: `/comunicados/${announcement.id}`,
-      email: input.priority === 'URGENT' || input.requiresAck ? 'fallback' : 'never',
-    });
-    res.status(201).json(announcement);
+    const a = await Announcement.create({ schoolId: session.schoolId, authorId: session.userId, ...(await announcementFields(session, input)) });
+    if (input.mode === 'send') await dispatchAnnouncement(a, session);
+    res.status(201).json(await a.reload());
   });
 
-// GET /announcements
+// PUT /announcements/:id — edita un borrador/programado; con mode=send lo envía.
+export const updateAnnouncement = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const input = req.body as z.infer<typeof announcementBody>;
+    const a = await ownPending(session, req.params.id);
+    await a.update(await announcementFields(session, input));
+    if (input.mode === 'send') await dispatchAnnouncement(a, session);
+    res.json(await a.reload());
+  });
+
+// POST /announcements/:id/send — envía ya un borrador o programado.
+export const sendAnnouncement = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const a = await ownPending(session, req.params.id);
+    await dispatchAnnouncement(a, session);
+    res.json(await a.reload());
+  });
+
+// DELETE /announcements/:id — solo borradores y programados.
+export const deleteAnnouncement = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const a = await ownPending(session, req.params.id);
+    await a.destroy();
+    res.status(204).end();
+  });
+
+/** Archivar: sale de la bandeja de todos (sigue accesible con el filtro "Archivados"). Autor o quien ve sus estadísticas. */
+// POST /announcements/:id/archive · /unarchive
+export const archiveAnnouncement = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const a = await Announcement.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
+    if (!a) throw notFound();
+    if (!canSeeStats(session, a)) throw forbidden();
+    const archive = !req.path.endsWith('/unarchive');
+    if (archive && a.status !== 'SENT') throw badRequest('Solo se archivan comunicados enviados.');
+    if (!archive && a.status !== 'ARCHIVED') throw badRequest('Este comunicado no está archivado.');
+    await a.update(archive ? { status: 'ARCHIVED', archivedAt: new Date() } : { status: 'SENT', archivedAt: null });
+    res.json(a);
+  });
+
+const escapeLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
+
+// GET /announcements — bandeja (recibidos) o enviados, con búsqueda y filtros.
 export const listAnnouncements = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
-    const { page, limit, box, unread } = req.query as unknown as z.infer<typeof boxQuery>;
+    const { page, limit, box, unread, q, priority, pendingAck, attachments, archived, status, from, to } = req.query as unknown as z.infer<typeof boxQuery>;
     const author = { model: User, as: 'Author', attributes: ['id', 'firstName', 'lastName', 'avatar'] };
+    const text = q ? `%${escapeLike(q)}%` : null;
+    const dateColumn = box === 'sent' ? 'createdAt' : 'sentAt';
+    const announcementWhere: Record<string | symbol, unknown> = {
+      schoolId: session.schoolId,
+      ...(text ? { [Op.or]: [{ title: { [Op.iLike]: text } }, { body: { [Op.iLike]: text } }] } : {}),
+      ...(priority ? { priority } : {}),
+      ...(pendingAck ? { requiresAck: true } : {}),
+      ...(attachments ? { [Op.and]: [sequelize.where(sequelize.fn('jsonb_array_length', sequelize.col('Announcement.attachments')), { [Op.gt]: 0 })] } : {}),
+      ...(from || to ? { [dateColumn]: { ...(from ? { [Op.gte]: new Date(`${from}T00:00:00`) } : {}), ...(to ? { [Op.lte]: new Date(`${to}T23:59:59.999`) } : {}) } } : {}),
+    };
 
     if (box === 'sent') {
       const { rows, count } = await Announcement.findAndCountAll({
-        where: { schoolId: session.schoolId, authorId: session.userId },
+        where: { ...announcementWhere, authorId: session.userId, ...(status ? { status } : {}) },
         attributes: {
           exclude: ['body'],
           include: [
@@ -129,7 +186,8 @@ export const listAnnouncements = asyncHandler(async (req, res) => {
           ],
         },
         include: [author],
-        order: [['createdAt', 'DESC']],
+        // Programados primero (por hora de envío), después el resto del más nuevo al más viejo.
+        order: [[sequelize.literal(`CASE WHEN "Announcement"."status" = 'SCHEDULED' THEN 0 ELSE 1 END`), 'ASC'], ['scheduledAt', 'ASC'], ['createdAt', 'DESC']],
         limit,
         offset: (page - 1) * limit,
       });
@@ -137,9 +195,9 @@ export const listAnnouncements = asyncHandler(async (req, res) => {
     }
 
     const { rows, count } = await AnnouncementRecipient.findAndCountAll({
-      where: { userId: session.userId, ...(unread ? { readAt: null } : {}) },
-      include: [{ model: Announcement, where: { schoolId: session.schoolId }, include: [author] }],
-      order: [[Announcement, 'createdAt', 'DESC']],
+      where: { userId: session.userId, ...(unread ? { readAt: null } : {}), ...(pendingAck ? { ackAt: null } : {}) },
+      include: [{ model: Announcement, where: { ...announcementWhere, status: archived ? 'ARCHIVED' : 'SENT' }, include: [author] }],
+      order: [[Announcement, 'sentAt', 'DESC'], [Announcement, 'createdAt', 'DESC']],
       limit,
       offset: (page - 1) * limit,
     });
@@ -158,7 +216,8 @@ export const listAnnouncements = asyncHandler(async (req, res) => {
           requiresAck: a.requiresAck,
           audienceLabel: a.audienceLabel,
           hasAttachments: a.attachments.length > 0,
-          createdAt: a.createdAt,
+          createdAt: a.sentAt ?? a.createdAt,
+          status: a.status,
           author: (a as Announcement & { Author?: User }).Author,
           readAt: r.readAt,
           ackAt: r.ackAt,
@@ -174,7 +233,7 @@ export const countUnread = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
     const count = await AnnouncementRecipient.count({
       where: { userId: session.userId, readAt: null },
-      include: [{ model: Announcement, where: { schoolId: session.schoolId }, attributes: [] }],
+      include: [{ model: Announcement, where: { schoolId: session.schoolId, status: 'SENT' }, attributes: [] }],
     });
     res.json({ count });
   });
@@ -194,7 +253,7 @@ export const getAnnouncement = asyncHandler(async (req, res) => {
     if (recipient && !recipient.readAt) await recipient.update({ readAt: new Date() });
 
     let summary = null;
-    if (stats) {
+    if (stats && (a.status === 'SENT' || a.status === 'ARCHIVED')) {
       const [row] = (await sequelize.query(
         `SELECT COUNT(*)::int total, COUNT("readAt")::int read, COUNT("ackAt")::int ack FROM "AnnouncementRecipient" WHERE "announcementId" = :id`,
         { replacements: { id: a.id }, type: QueryTypes.SELECT }
@@ -206,6 +265,8 @@ export const getAnnouncement = asyncHandler(async (req, res) => {
       attachments: await signAttachments(a.attachments),
       myReceipt: recipient ? { readAt: recipient.readAt, ackAt: recipient.ackAt } : null,
       stats: summary,
+      canManage: stats,
+      isAuthor: a.authorId === session.userId,
     });
   });
 

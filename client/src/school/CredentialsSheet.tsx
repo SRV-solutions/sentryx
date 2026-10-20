@@ -1,8 +1,17 @@
-import { Download, Printer, Copy } from 'lucide-react';
+import { Download, Printer, Copy, LogIn } from 'lucide-react';
 import { downloadText, csvRow } from '../lib/csv';
 import { Sheet, useToast } from '../ui';
 
 export type Credential = { name: string; login: string; tempPassword: string; email: string | null; student?: string };
+
+/**
+ * Abre el login en otra pestaña con usuario y contraseña ya cargados (van en el fragmento #…, que nunca
+ * viaja al servidor). Sirve para probar el acceso en el momento o para entregar el celular a la persona.
+ */
+const openLogin = (c: Credential) => {
+  const hash = new URLSearchParams({ u: c.login, p: c.tempPassword, n: c.name }).toString();
+  window.open(`${window.location.origin}/login#${hash}`, '_blank', 'noopener');
+};
 
 /** Muestra UNA vez las contraseñas temporales generadas (altas o blanqueos) para imprimir o dictar. */
 export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generadas' }: { items: Credential[]; onClose: () => void; title?: string }) => {
@@ -17,12 +26,13 @@ export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generad
         <div className="alert alert-warn small">
           <div>
             Se muestran <b>una sola vez</b>. {items.some((i) => i.email) ? 'Quienes tienen email ya las recibieron; al resto' : 'Entregáselas'} en mano o impresas. Al ingresar se les pide elegir una contraseña propia.
+            <div style={{ marginTop: 4 }}><b>Probar ingreso</b> abre el login con los datos cargados: ojo, al entrar con esa cuenta se cierra tu sesión en este navegador.</div>
           </div>
         </div>
         <div className="table-wrap">
           <table className="table">
             <thead>
-              <tr><th>Nombre</th>{items.some((i) => i.student) && <th>Alumno</th>}<th>Usuario</th><th>Contraseña</th><th>Email</th></tr>
+              <tr><th>Nombre</th>{items.some((i) => i.student) && <th>Alumno</th>}<th>Usuario</th><th>Contraseña</th><th>Email</th><th /></tr>
             </thead>
             <tbody>
               {items.map((c, i) => (
@@ -32,6 +42,11 @@ export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generad
                   <td>{c.login}</td>
                   <td><code style={{ fontSize: 15, fontWeight: 700 }}>{c.tempPassword}</code></td>
                   <td className="xs muted">{c.email ? 'Enviado ✓' : 'Sin email'}</td>
+                  <td>
+                    <button type="button" className="btn btn-sm btn-ghost" title="Abre el ingreso en otra pestaña con estos datos ya cargados" onClick={() => openLogin(c)}>
+                      <LogIn size={14} /> Probar ingreso
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

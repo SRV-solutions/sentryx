@@ -68,8 +68,8 @@ export const ReportCardView = ({ data }: { data: ReportCard }) => {
             <tr>
               <th className="sticky-col">Materia</th>
               {data.periods.map((p) => (
-                <th key={p.id} title={p.kind === 'CONCEPTUAL' ? 'Conceptual' : 'Numérica'}>
-                  {p.name.replace('Bimestre', 'Bim.').replace('Trimestre', 'Trim.')}
+                <th key={p.id} title={p.summaryOf ? `Nota de cierre del ${p.summaryOf}` : p.kind === 'CONCEPTUAL' ? 'Conceptual' : 'Numérica'} style={p.summaryOf ? { background: 'var(--surface-2)' } : undefined}>
+                  {p.summaryOf ? 'Nota cuatr.' : p.name.replace('Bimestre', 'Bim.').replace('Trimestre', 'Trim.')}
                 </th>
               ))}
               {hasFinal && <th>Final</th>}
@@ -92,7 +92,7 @@ export const ReportCardView = ({ data }: { data: ReportCard }) => {
       </div>
       <p className="xs muted">
         {data.level.type === 'SECUNDARIO'
-          ? `Bimestres 1 y 3: valoración conceptual. Bimestres 2 y 4: nota numérica (${data.level.settings.numericMin} a ${data.level.settings.numericMax}). Aprobación: ${data.level.settings.passingGrade}. Final = promedio de las notas numéricas.`
+          ? `Bimestres 1 y 3: valoración conceptual. Bimestres 2 y 4: nota numérica (${data.level.settings.numericMin} a ${data.level.settings.numericMax}). Aprobación: ${data.level.settings.passingGrade}. ${data.periods.some((p) => p.summaryOf) ? 'Nota cuatr. = nota de cierre de cada cuatrimestre; Final = promedio de las dos.' : 'Final = promedio de las notas numéricas.'}`
           : `Escala: ${data.level.settings.conceptualScale.join(' · ')}.`}{' '}
         En rojo: valoraciones por debajo de lo esperado.
       </p>

@@ -25,6 +25,8 @@ const GradeSheetPage = lazy(() => import('./pages/school/GradeSheetPage'));
 const DivisionStatusPage = lazy(() => import('./pages/school/DivisionStatusPage'));
 const AttendancePage = lazy(() => import('./pages/school/AttendancePage'));
 const AlertsPage = lazy(() => import('./pages/school/AlertsPage'));
+const StatsPage = lazy(() => import('./pages/school/StatsPage'));
+const HelpPage = lazy(() => import('./pages/school/HelpPage'));
 const AdminPage = lazy(() => import('./pages/school/AdminPage'));
 const ReportCardPrintPage = lazy(() => import('./pages/school/ReportCardPrintPage'));
 const ClassroomsPage = lazy(() => import('./pages/school/ClassroomsPage'));
@@ -119,6 +121,7 @@ export default function App() {
             <Route path="/inicio" element={<HomePage />} />
             <Route path="/comunicados" element={<AnnouncementsPage />} />
             <Route path="/comunicados/nuevo" element={<Need perm={[Entity.ANNOUNCEMENTS, Action.CREATE]}><AnnouncementComposePage /></Need>} />
+            <Route path="/comunicados/:id/editar" element={<Need perm={[Entity.ANNOUNCEMENTS, Action.CREATE]}><AnnouncementComposePage /></Need>} />
             <Route path="/comunicados/:id" element={<AnnouncementDetailPage />} />
             <Route path="/mensajes" element={<ThreadsPage />} />
             <Route path="/mensajes/nuevo" element={<NewThreadPage />} />
@@ -135,6 +138,8 @@ export default function App() {
             <Route path="/materias" element={<Need any={[[Entity.GRADES, Action.UPDATE], [Entity.GRADES, Action.READ]]}><SubjectsPage /></Need>} />
             <Route path="/materias/:divisionId/:subjectId" element={<Need any={[[Entity.GRADES, Action.UPDATE], [Entity.GRADES, Action.READ]]}><GradeSheetPage /></Need>} />
             <Route path="/asistencia" element={<Need perm={[Entity.ATTENDANCE, Action.UPDATE]}><AttendancePage /></Need>} />
+            <Route path="/estadisticas" element={<Need any={[[Entity.ATTENDANCE, Action.READ], [Entity.GRADES, Action.READ]]}><StatsPage /></Need>} />
+            <Route path="/ayuda" element={<HelpPage />} />
             <Route path="/alertas" element={<Need perm={[Entity.ALERTS, Action.READ]}><AlertsPage /></Need>} />
             <Route path="/admin" element={<Need any={[[Entity.SCHOOL, Action.UPDATE], [Entity.USERS, Action.UPDATE]]}><AdminPage /></Need>} />
             <Route path="/personas" element={<Need perm={[Entity.USERS, Action.READ]}><PeoplePage /></Need>} />

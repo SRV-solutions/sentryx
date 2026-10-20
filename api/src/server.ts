@@ -9,6 +9,7 @@ import { setIO } from './services/realtime';
 import { syncRbacCatalog } from './services/rbac';
 import { cleanupPendingUploads } from './services/files';
 import { reconcileAllSchools } from './services/billing';
+import { sendDueAnnouncements } from './services/announcementDispatch';
 
 const start = async () => {
   await sequelize.authenticate();
@@ -44,6 +45,8 @@ const start = async () => {
   setInterval(() => cleanupPendingUploads().catch((err) => console.error('[files] cleanup', err)), 3600_000).unref();
   // Red de seguridad de facturación: sincroniza los períodos de acceso aunque algún cambio no lo haya hecho.
   setInterval(() => reconcileAllSchools().catch((err) => console.error('[billing] reconcile', err)), 3600_000).unref();
+  // Comunicados programados: se envían solos cuando llega su hora.
+  setInterval(() => sendDueAnnouncements().catch((err) => console.error('[announcements] scheduled', err)), 60_000).unref();
 
   server.listen(env.PORT, env.HOST, () => console.log(`🚀 Sentryx API en ${env.HOST}:${env.PORT}`));
 

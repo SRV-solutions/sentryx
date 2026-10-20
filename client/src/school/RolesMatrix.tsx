@@ -5,13 +5,15 @@ import { apiGet } from '../lib/api';
 import { Badge, Card, ErrorBox, Skeleton } from '../ui';
 import { CATEGORY_LABELS, type Category, type SchoolRole } from './types';
 import type { PermissionKey } from './permissions';
+import { CustomRolesEditor, type CatalogRole } from './CustomRolesEditor';
 
 interface RoleCatalog {
   permissions: Array<{ key: PermissionKey; entity: string; action: string; group: string; description: string }>;
-  roles: Array<{ code: SchoolRole; name: string; category: Category; rank: number; schoolWide: boolean; description: string; permissions: PermissionKey[] }>;
+  roles: Array<{ code: SchoolRole; name: string; category: Category; rank: number; schoolWide: boolean; leadership?: boolean; description: string; custom?: boolean; permissions: PermissionKey[] }>;
+  canManage?: boolean;
 }
 
-const SHORT_NAMES: Partial<Record<SchoolRole, string>> = { REPRESENTANTE_LEGAL: 'Rep. Legal', VICEDIRECTOR: 'Vicedir.', ADMINISTRACION: 'Admin.', PRECEPTOR: 'Precep.', SECRETARIO: 'Secret.' };
+const SHORT_NAMES: Partial<Record<SchoolRole, string>> = { REPRESENTANTE_LEGAL: 'Rep. Legal', VICEDIRECTOR: 'Vicedir.', ADMINISTRACION: 'Admin.', PRECEPTOR: 'Precep.', SECRETARIO: 'Secret.', COORDINADOR: 'Coord.', JEFE_PRECEPTORES: 'Jef. prec.' };
 const CATEGORY_ORDER: Category[] = ['DIRECTIVO', 'DOCENTE', 'FAMILIA', 'ESTUDIANTE'];
 
 /**
@@ -22,7 +24,7 @@ export const RolesMatrix = () => {
   const catalog = useQuery({ queryKey: ['role-catalog'], queryFn: () => apiGet<RoleCatalog>('/school/roles'), staleTime: 5 * 60_000 });
   if (catalog.error) return <ErrorBox error={catalog.error} />;
   if (!catalog.data) return <Skeleton count={3} h={120} />;
-  const { roles, permissions } = catalog.data;
+  const { roles, permissions, canManage } = catalog.data;
   const groups = [...new Set(permissions.map((p) => p.group))];
   const rolesWithPermissions = roles.filter((r) => r.permissions.length);
 
@@ -45,7 +47,7 @@ export const RolesMatrix = () => {
                   <div className="stack" style={{ gap: 6 }}>
                     <div className="row-between">
                       <b>{role.name}</b>
-                      {role.schoolWide && <Badge tone="info">Toda la institución</Badge>}
+                      <span className="row" style={{ gap: 4 }}>{role.custom && <Badge tone="warn">Personalizado</Badge>}{role.schoolWide && <Badge tone="info">Toda la institución</Badge>}</span>
                     </div>
                     <span className="xs muted">{role.description}</span>
                     <span className="xs">{role.permissions.length ? `${role.permissions.length} permisos` : 'Sin permisos administrativos'}</span>
@@ -57,6 +59,8 @@ export const RolesMatrix = () => {
         );
       })}
 
+      {canManage && <CustomRolesEditor roles={roles as unknown as CatalogRole[]} permissions={permissions} />}
+
       <section className="stack" style={{ gap: 8 }}>
         <h2 className="h3">Matriz de permisos</h2>
         <div className="table-wrap card">
@@ -65,7 +69,7 @@ export const RolesMatrix = () => {
               <tr>
                 <th style={{ minWidth: 220 }}>Permiso</th>
                 {rolesWithPermissions.map((role) => (
-                  <th key={role.code} style={{ textAlign: 'center', whiteSpace: 'nowrap' }} title={role.name}>{SHORT_NAMES[role.code] ?? role.name}</th>
+                  <th key={role.code} style={{ textAlign: 'center', whiteSpace: 'nowrap' }} title={role.name}>{SHORT_NAMES[role.code] ?? (role.name.length > 12 ? `${role.name.slice(0, 11)}.` : role.name)}</th>
                 ))}
               </tr>
             </thead>

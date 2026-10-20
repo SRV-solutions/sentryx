@@ -14,6 +14,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Datos precargados desde "Probar ingreso" (hoja de credenciales): vienen en el #fragmento y se borran al leerlos.
+  const [prefilled, setPrefilled] = useState<string | null>(null);
+  useEffect(() => {
+    const hash = window.location.hash.replace(/^#/, '');
+    if (!hash) return;
+    const h = new URLSearchParams(hash);
+    if (!h.get('u')) return;
+    setIdentifier(h.get('u') ?? '');
+    setPassword(h.get('p') ?? '');
+    setPrefilled(h.get('n') || h.get('u'));
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, []);
   // Login con la identidad del colegio: /c/:slug (link que cada colegio comparte con sus familias).
   const { slug } = useParams();
   const [school, setSchool] = useState<{ id: number; name: string; logoUrl: string | null } | null>(null);
@@ -92,6 +104,7 @@ export default function LoginPage() {
               <label htmlFor="pw">Contraseña</label>
               <PasswordInput id="pw" value={password} onChange={setPassword} required />
             </div>
+            {prefilled && <div className="alert alert-info small">Datos cargados para probar el ingreso de <b>{prefilled}</b>. Al entrar, en este navegador queda abierta esa sesión (se cierra la tuya).</div>}
             {error && <div className="alert alert-danger">{error}</div>}
             <button className="btn btn-accent btn-block" disabled={loading || !identifier || !password}>
               {loading ? 'Ingresando…' : 'Ingresar'}

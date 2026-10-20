@@ -158,6 +158,39 @@ export const GradingSchemeCard = ({ structure }: { structure: Structure }) => {
 };
 
 /** Editar (o eliminar, si nunca tuvo alumnos) un curso. */
+/**
+ * Nota de cuatrimestre: agrega a cada cuatrimestre del nivel una nota de cierre (numérica) que carga la
+ * docente, además de las de los bimestres. Sus fechas abarcan el cuatrimestre entero: se superponen a propósito.
+ */
+export const SummaryPeriodsCard = ({ structure }: { structure: Structure }) => {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const levels = structure.levels.filter((l) => structure.periods.some((p) => p.levelId === l.id && p.groupName));
+  const act = useMutation({
+    mutationFn: ({ levelId, remove }: { levelId: number; remove: boolean }) => apiSend(remove ? 'DELETE' : 'POST', '/school/periods/summaries', { levelId }),
+    onSuccess: (_r, v) => (toast(v.remove ? 'Notas de cuatrimestre quitadas' : 'Notas de cuatrimestre agregadas: ya aparecen en la planilla y el boletín'), qc.invalidateQueries({ queryKey: ['structure'] })),
+    onError: (e: Error) => toast(e.message, true),
+  });
+  if (!levels.length) return null;
+  return (
+    <section className="card card-pad stack">
+      <div>
+        <h2 className="h3">Nota de cuatrimestre</h2>
+        <p className="small muted">Además de las notas de cada bimestre, una nota de cierre por cuatrimestre (1º y 2º) que carga la docente. La final anual pasa a ser el promedio de esas dos. Las fechas se superponen con las de los bimestres: es normal.</p>
+      </div>
+      {levels.map((l) => {
+        const has = structure.periods.some((p) => p.levelId === l.id && p.summaryOf);
+        return (
+          <div key={l.id} className="row-between wrap">
+            <span className="small"><b>{l.name}</b> · {has ? 'con nota de cuatrimestre' : 'solo bimestres'}</span>
+            <button className={`btn btn-sm ${has ? 'btn-ghost' : ''}`} disabled={act.isPending} onClick={() => act.mutate({ levelId: l.id, remove: has })}>{has ? 'Quitar' : 'Agregar'}</button>
+          </div>
+        );
+      })}
+    </section>
+  );
+};
+
 export const EditDivisionButton = ({ division }: { division: Division }) => {
   const qc = useQueryClient();
   const toast = useToast();

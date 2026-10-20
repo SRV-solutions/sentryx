@@ -1,7 +1,7 @@
 /** Controlador de students: la lógica de cada ruta de routes/students.routes.ts. */
 import { z } from 'zod';
 import { Op, WhereOptions } from 'sequelize';
-import { UserRole, User, Level, Student, Enrollment, StudentGuardian, Division, School, sequelize } from '../models';
+import { UserRole, User, Level, Student, Enrollment, StudentGuardian, Division, School, AcademicYear, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, pagination } from '../lib/http';
 import { invalidateSchoolSession, assertStudentAccess, assertDivision, SchoolSession, studentDivisionId, canSeeDivision } from '../services/schoolSession';
 import { findOrCreatePerson, sendWelcome, isTechEmail } from '../services/accounts';
@@ -206,6 +206,22 @@ export const getStudent = asyncHandler(async (req, res) => {
     });
     if (!student) throw notFound();
     const json = student.toJSON() as unknown as Record<string, unknown>;
+
+    // Trayectoria: todos los ciclos en los que estuvo inscripto (el boletín de cada uno se conserva).
+    const history = await Enrollment.findAll({
+      where: { studentId: id },
+      attributes: ['id', 'status', 'academicYearId'],
+      include: [
+        { model: AcademicYear, attributes: ['id', 'year'] },
+        { model: Division, attributes: ['id', 'name'], include: [{ model: Level, attributes: ['id', 'name', 'type'] }] },
+      ],
+      order: [[AcademicYear, 'year', 'DESC']],
+    });
+    json.history = history.map((e) => {
+      const year = (e as Enrollment & { AcademicYear?: { id: number; year: number } }).AcademicYear;
+      const division = (e as Enrollment & { Division?: { id: number; name: string; Level?: { id: number; name: string; type: string } } }).Division;
+      return { academicYearId: year?.id ?? e.academicYearId, year: year?.year, status: e.status, division: division ? { id: division.id, name: division.name, level: division.Level?.name ?? null } : null };
+    });
 
     if (asGuardian) delete json.notes;
     delete json.userId;

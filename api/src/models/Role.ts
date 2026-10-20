@@ -17,6 +17,8 @@ export class Role extends Model<InferAttributes<Role>, InferCreationAttributes<R
   declare schoolWide: boolean;
   declare leadership: boolean;
   declare description: string;
+  /** Rol personalizado de un colegio (null = del catálogo, vale para todos). */
+  declare schoolId: CreationOptional<number | null>;
   declare Permissions?: NonAttribute<Permission[]>;
 }
 
@@ -31,6 +33,7 @@ Role.init(
     schoolWide: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     leadership: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     description: { type: DataTypes.STRING(300), allowNull: false, defaultValue: '' },
+    schoolId: { type: DataTypes.INTEGER, allowNull: true },
   },
   { sequelize, modelName: 'Role', tableName: 'Role', timestamps: false }
 );

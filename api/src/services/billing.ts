@@ -1,7 +1,8 @@
 import { QueryTypes } from 'sequelize';
 import { AccessPeriod, BillingStatement, School, sequelize } from '../models';
 import { env } from '../config/env';
-import { Category, CATEGORIES, SchoolRole, categoryOf } from '../constants/school';
+import { Category, CATEGORIES } from '../constants/school';
+import { categoryOfRoles } from './roleRegistry';
 import { DEFAULT_PLAN, PLAN_CODES, PlanCode, planPrice, planRank } from '../constants/plans';
 
 /**
@@ -67,7 +68,7 @@ export const reconcileAccess = async (schoolId: number, opts: { userIds?: number
   let closed = 0;
   for (const a of current) {
     seen.add(a.userId);
-    const category = categoryOf(a.roles as SchoolRole[]) ?? 'FAMILIA';
+    const category = categoryOfRoles(a.roles as string[]) ?? 'FAMILIA';
     const p = openBy.get(a.userId);
     if (!p) {
       await AccessPeriod.create({ schoolId, userId: a.userId, category, startedAt: opts.backfill ? new Date(a.since) : now, endedAt: null });

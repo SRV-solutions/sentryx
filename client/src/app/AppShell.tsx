@@ -10,6 +10,7 @@ import { apiGet, apiSend } from '../lib/api';
 import { buildNav, NavItem } from './nav';
 import { Sheet, timeAgo, Empty, useToast, Avatar } from '../ui';
 import { ReportProblemSheet } from '../school/ReportProblem';
+import { GlobalSearch } from './GlobalSearch';
 
 const SRV_LOGO = 'https://wearesrv.com/srv-logo-96.webp';
 
@@ -198,6 +199,8 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
             <img src={SRV_LOGO} alt="" width={26} height={26} className="hide-desktop" />
           )}
           <div className="topbar-title hide-mobile">{title ?? (levelName ? `${session?.school.name} · ${levelName}` : session?.school.name) ?? 'Sentryx'}</div>
+          <div className="hide-mobile" style={{ flex: '0 1 420px', minWidth: 0 }}><GlobalSearch /></div>
+          <div className="hide-desktop" style={{ flex: '0 1 160px', minWidth: 0 }}><GlobalSearch compact /></div>
           <button className="icon-btn" onClick={toggleTheme} aria-label={darkMode ? 'Modo claro' : 'Modo oscuro'}>
             {darkMode ? <Sun size={20} /> : <Moon size={20} />}
           </button>

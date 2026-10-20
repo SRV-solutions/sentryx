@@ -52,6 +52,8 @@ interface StudentDetail {
   leaveNotes?: string | null;
   account?: { eligible: boolean; exists: boolean; active: boolean; userId: number | null; login: string | null; lastLogin: string | null; mustChangePassword: boolean | null };
   Enrollments?: Array<{ Division?: { id: number; name: string; Level?: { name: string; type: string } } }>;
+  /** Trayectoria: un registro por ciclo lectivo (el más nuevo primero). */
+  history?: Array<{ academicYearId: number; year: number; status: string; division: { id: number; name: string; level: string | null } | null }>;
   Guardians?: Array<{ id: number; relationship: string; isPrimary: boolean; canPickUp: boolean; User: { id: number; firstName: string; lastName: string; avatar?: string | null; email?: string; phone?: string | null; dni?: string | null } }>;
 }
 
@@ -214,10 +216,19 @@ export default function StudentPage() {
   const { hasFeature } = usePlan();
 
   const student = useQuery({ queryKey: ['student', id], queryFn: () => apiGet<StudentDetail>(`/school/students/${id}`) });
-  const report = useQuery({ queryKey: ['report-card', id], queryFn: () => apiGet<ReportCard>(`/school/grades/report-card/${id}`), enabled: tab === 'grades' });
+  // Boletín por ciclo: por defecto el actual; el alumno conserva los de años anteriores.
+  const [yearId, setYearId] = useState<number | null>(null);
+  const report = useQuery({
+    queryKey: ['report-card', id, yearId],
+    queryFn: () => apiGet<ReportCard>(`/school/grades/report-card/${id}${yearId ? `?yearId=${yearId}` : ''}`),
+    enabled: tab === 'grades',
+    retry: false,
+  });
 
   const s = student.data;
   const division = s?.Enrollments?.[0]?.Division;
+  const years = s?.history ?? [];
+  const currentYearId = session?.academicYearId ?? null;
 
   return (
     <div className="stack-lg">
@@ -245,13 +256,25 @@ export default function StudentPage() {
 
       {tab === 'grades' && (
         <>
+          {years.length > 1 && (
+            <div className="chips no-print" style={{ flexWrap: 'wrap' }}>
+              {years.map((h) => {
+                const active = (yearId ?? currentYearId) === h.academicYearId;
+                return (
+                  <button type="button" key={h.academicYearId} className={`chip ${active ? 'active' : ''}`} onClick={() => setYearId(h.academicYearId === currentYearId ? null : h.academicYearId)}>
+                    {h.year}{h.division ? ` · ${h.division.name}` : ''}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {report.isLoading && <Skeleton count={1} h={240} />}
           {report.error && <ErrorBox error={report.error} />}
           {report.data && (
             <>
               <div className="row-between no-print">
                 <span className="small muted">{isGuardian || !can(Entity.GRADES, Action.READ) ? 'Se muestran los períodos publicados por la escuela.' : 'Vista del personal: incluye períodos sin publicar.'}</span>
-                <Link to={`/boletin/${id}`} className="btn btn-sm btn-ghost"><Printer size={16} /> Imprimir</Link>
+                <Link to={`/boletin/${id}${yearId ? `?ciclo=${yearId}` : ''}`} className="btn btn-sm btn-ghost"><Printer size={16} /> Imprimir</Link>
               </div>
               <ReportCardView data={report.data} />
             </>
@@ -270,6 +293,22 @@ export default function StudentPage() {
             </div>
           </Card>
           {manage && s.account && <StudentAccountCard studentId={id} name={`${s.firstName} ${s.lastName}`} account={s.account} />}
+          {years.length > 0 && (
+            <>
+              <h2 className="h2">Trayectoria</h2>
+              <div className="card list" style={{ overflow: 'hidden' }}>
+                {years.map((h) => (
+                  <div key={h.academicYearId} className="list-item">
+                    <div className="grow">
+                      <div className="h3">{h.year} · {h.division ? `${h.division.name}${h.division.level ? ` · ${h.division.level}` : ''}` : 'Sin curso'}</div>
+                    </div>
+                    <Badge tone={h.status === 'ACTIVE' ? 'ok' : h.status === 'COMPLETED' ? 'info' : undefined}>{h.status === 'ACTIVE' ? 'En curso' : h.status === 'COMPLETED' ? 'Cursado' : h.status === 'WITHDRAWN' ? 'Baja' : h.status}</Badge>
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => (setYearId(h.academicYearId === currentYearId ? null : h.academicYearId), setTab('grades'))}>Ver boletín</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
           <div className="row-between">
             <h2 className="h2">Familia</h2>
             {manage && <button className="btn btn-sm" onClick={() => setAdding(true)}><UserPlus size={16} /> Agregar familiar</button>}

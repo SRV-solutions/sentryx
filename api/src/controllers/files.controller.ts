@@ -11,12 +11,12 @@ import { currentPlans } from '../services/plans';
 import { audit } from '../services/audit';
 import { Entity, Action } from '../constants/permissions';
 import { listQuery } from '../validators/files.validator';
-import { RoleCode } from '../constants/roles';
+import { RoleCode, PRECEPTOR_ROLES } from '../constants/roles';
 
 /** ¿Puede publicar material en esa división? Docente que la dicta o personal con alcance y permiso de publicar. */
 export const canPostInDivision = (session: SchoolSession, divisionId: number, subjectId?: number | null) => {
   if (session.teaching.some((t) => t.divisionId === divisionId && (!subjectId || t.subjectId === subjectId))) return true;
-  const leadsOrPrecepts = session.can(Entity.GRADES, Action.UPDATE_ANY) || session.roles.includes(RoleCode.PRECEPTOR);
+  const leadsOrPrecepts = session.can(Entity.GRADES, Action.UPDATE_ANY) || session.roles.some((r) => PRECEPTOR_ROLES.includes(r));
   return leadsOrPrecepts && canSeeDivision(session, divisionId);
 };
 

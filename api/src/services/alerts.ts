@@ -11,8 +11,8 @@ import {
   AcademicYear,
 } from '../models';
 import { notify } from './notifications';
-import { LEADERSHIP_ROLES } from '../constants/school';
-import { RoleCode } from '../constants/roles';
+import { leadershipRoleCodes } from './roleRegistry';
+import { RoleCode, PRECEPTOR_ROLES } from '../constants/roles';
 
 type Record_ = { studentId: number; date: string; status: string; value: number; justified: boolean };
 
@@ -53,7 +53,7 @@ const staffToNotify = async (schoolId: number, levelId: number, divisionId: numb
     where: {
       schoolId,
       active: true,
-      role: { [Op.in]: [RoleCode.PRECEPTOR, ...LEADERSHIP_ROLES] },
+      role: { [Op.in]: [...PRECEPTOR_ROLES, ...(await leadershipRoleCodes(schoolId))] },
       [Op.or]: [{ levelId: null }, { levelId }],
     },
     attributes: ['userId', 'role', 'divisionIds'],

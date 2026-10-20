@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Megaphone, MessageCircle, BellRing, ClipboardCheck, BookOpenCheck, ChevronRight, BellPlus, CheckCircle2, Hash, FileText, School } from 'lucide-react';
+import { Megaphone, MessageCircle, BellRing, ClipboardCheck, BookOpenCheck, ChevronRight, BellPlus, CheckCircle2, Hash, FileText, School, CalendarClock } from 'lucide-react';
+import type { AgendaItem } from './ClassroomPage';
 import { apiGet } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { useAuth } from '../../context/AuthContext';
@@ -94,6 +95,8 @@ export default function HomePage() {
   const { user } = useAuth();
   const q = useQuery({ queryKey: ['dashboard'], queryFn: () => apiGet<Dashboard>('/school/dashboard'), refetchInterval: 60_000 });
   const d = q.data;
+  // Evaluaciones, TP y tareas con fecha en los próximos 14 días (familias: de sus hijos; docentes: de sus cursos).
+  const agenda = useQuery({ queryKey: ['agenda-home'], queryFn: () => apiGet<AgendaItem[]>('/school/classrooms/agenda?days=14'), enabled: !!session, staleTime: 60_000 });
 
   return (
     <div className="stack-lg">
@@ -135,6 +138,24 @@ export default function HomePage() {
             )}
             {!!d.mySubjects && <Stat to="/materias" icon={<BookOpenCheck size={18} />} value={d.mySubjects} label="Materias a cargo" />}
           </div>
+
+          {!!agenda.data?.length && (
+            <section className="stack">
+              <h2 className="h2">Próximas evaluaciones y entregas</h2>
+              <div className="card list" style={{ overflow: 'hidden' }}>
+                {agenda.data.slice(0, 8).map((a) => (
+                  <Link key={a.id} to={`/aulas/${a.division.id}`} className="list-item" style={{ color: 'inherit' }}>
+                    <CalendarClock size={18} style={{ color: a.kind === 'EVALUACION' ? 'var(--danger)' : 'var(--accent)' }} />
+                    <div className="grow" style={{ minWidth: 0 }}>
+                      <div className="h3 truncate">{a.title}</div>
+                      <div className="xs muted">{a.kindLabel} · {a.division.name}{a.subject ? ` · ${a.subject.name}` : ''}</div>
+                    </div>
+                    <Badge tone={a.kind === 'EVALUACION' ? 'danger' : 'warn'}>{fmtDate(a.dueDate, { weekday: 'short', day: 'numeric', month: 'short' })}</Badge>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {d.children && d.children.length > 0 && (
             <section className="stack">

@@ -30,7 +30,8 @@ export type AlertRuleType = (typeof ALERT_RULE_TYPES)[number];
 export const SEVERITIES = ['INFO', 'WARNING', 'CRITICAL'] as const;
 export type Severity = (typeof SEVERITIES)[number];
 
-export const AUDIENCE_TYPES = ['SCHOOL', 'LEVEL', 'DIVISION', 'STUDENTS', 'STAFF'] as const;
+/** GUARDIANS: familias elegidas una por una (ids = userId de cada madre/padre/tutor). */
+export const AUDIENCE_TYPES = ['SCHOOL', 'LEVEL', 'DIVISION', 'STUDENTS', 'GUARDIANS', 'STAFF'] as const;
 export type AudienceType = (typeof AUDIENCE_TYPES)[number];
 
 export interface LevelSettings {

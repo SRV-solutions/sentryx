@@ -64,17 +64,20 @@ router.patch('/people/:id', authorize(Entity.USERS, Action.UPDATE), validate(Peo
 
 - El catálogo de `constants/` es la configuración **por defecto**: al arrancar se crean los roles y permisos que falten. Si se ajusta un vínculo rol↔permiso directo en la base, se respeta (los permisos se recargan cada 5 minutos).
 - **Rol de plataforma:** `SUPERADMIN` (equipo Sentryx). Da de alta colegios y ve la facturación de todos: `npm run superadmin -- --email ...`.
-- **Roles de colegio:** una persona puede tener varios, en uno o varios colegios (ej: Docente en uno y Familia en otro).
+- **Roles de colegio:** una persona puede tener varios, en uno o varios colegios (ej: Docente en uno y Familia en otro). **Dentro del mismo colegio también** (Secretaría + Preceptoría, Dirección + Docente, superadmin + Docente): los permisos se suman y el alcance es la unión. Desde *Administración → Personal*, botón **Otro rol** en la persona.
+- **Roles personalizados** (*Administración → Roles y permisos → Nuevo rol*): la conducción (RL, Dirección, Rectoría, Vicedirección; permiso `roles:manage`) arma un rol tildando acciones concretas del catálogo. Reglas: solo permisos que quien lo crea ya tiene, jerarquía siempre menor a la propia, y no se elimina mientras alguien lo tenga. Viven en `Role.schoolId` y se comportan como los del catálogo (`services/roleRegistry.ts`).
 
 | Categoría | Rol | Alcance | Puede |
 |---|---|---|---|
 | Directivo | Representante Legal | Toda la escuela | Todo, incluida la facturación |
 | Directivo | Dirección / Rectoría | Su nivel (o toda la escuela) | Todo menos facturación; la estructura solo si su alcance es toda la escuela |
 | Directivo | Vicedirección | Su nivel | Todo menos estructura y facturación |
-| Directivo | Secretaría | Toda la escuela | Personas, comunicados, boletines, lectura de notas y asistencia |
+| Directivo | Coordinación pedagógica | Su nivel | Como Vicedirección, pero sin publicar boletines |
+| Directivo | Secretaría | Toda la escuela | Personas, comunicados, lectura de notas y asistencia (no publica boletines) |
 | Directivo | Administración | Toda la escuela | Personas y comunicados |
+| Directivo | Jefatura de preceptores | Su nivel (todas las divisiones) | Lo mismo que Preceptoría, sin límite de divisiones |
 | Directivo | Preceptoría | Su nivel o sus divisiones | Asistencia, alertas, comunicados, aulas, moderar canales |
-| Docente | Docente | Sus divisiones/materias | Notas y material de SUS materias, comunicados a sus cursos, mensajes |
+| Docente | Docente | Sus divisiones/materias | Notas y material de SUS materias, asistencia de sus cursos, comunicados a sus cursos, mensajes |
 | Familia | Familia | Solo sus hijos | Notas publicadas, asistencia, comunicados, mensajes con la escuela |
 | Estudiante | Estudiante (Secundario) | Su curso | Boletín publicado, aulas, canales del curso, mensajes con sus docentes |
 
@@ -103,7 +106,11 @@ Reglas que se aplican en el backend:
 - **Primario**: 3 trimestres, escala conceptual (Sobresaliente → Insuficiente).
 - **Inicial**: informes narrativos.
 
-Las familias ven un período **solo cuando la escuela publica el boletín** de esa división.
+**Nota de cuatrimestre (Secundario):** desde *Administración → Estructura → Nota de cuatrimestre* se agrega a cada cuatrimestre un período numérico de cierre ("Nota 1º Cuatrimestre") que carga la docente además de los bimestres; sus fechas abarcan el cuatrimestre entero (se superponen a propósito, no afecta nada). Con ellas, la **final anual = promedio de las dos notas de cuatrimestre**; sin ellas, el de las numéricas. La planilla sugiere el promedio de los bimestres entre paréntesis. Se pueden quitar mientras no tengan notas.
+
+Las familias ven un período **solo cuando la escuela publica el boletín** de esa división. Publicar es decisión de la **conducción** (Representante Legal, Dirección, Rectoría, Vicedirección); Secretaría y Coordinación leen notas pero no publican.
+
+**Boletines de años anteriores:** al pasar de grado, las notas quedan atadas al curso de ese año y no se tocan. En la ficha del alumno (web y app) hay un selector de ciclo y la **Trayectoria** (año → curso); `GET /school/grades/report-card/:id?yearId=` devuelve el boletín de ese ciclo, siempre con la misma regla de publicación.
 
 ## Alertas de asistencia
 
@@ -128,6 +135,7 @@ Se evalúan solas al tomar o justificar asistencia y avisan a preceptoría y con
 - **Estructura por defecto** (*Administración → Estructura*): en un colegio nuevo, crea de una vez las salas de 3, 4 y 5, los grados (6 o 7) y los años (5 o 6), con secciones, turno y materias habituales. No duplica lo que ya existe. Después cada curso se edita o elimina (si nunca tuvo alumnos) a mano.
 - **Períodos de evaluación:** esquema **trimestral** o **bimestral** con fechas desde/hasta, aplicado a todos los niveles o a los elegidos. Si un nivel ya tiene notas, solo se actualizan nombres y fechas.
 - **Personal por CSV** (*Administración → Personal → Importar CSV*): columnas `nombre;apellido;email;dni;telefono;rol;nivel;cargo`. Procesa fila por fila e informa los errores con su número de fila.
+- **Credenciales:** al dar de alta a una persona (o blanquear su contraseña) se muestran una sola vez, con *Imprimir*, *Copiar*, *Descargar* y **Probar ingreso**, que abre el login en otra pestaña con usuario y contraseña ya cargados (van en el `#fragmento` de la URL: no llegan al servidor). Al entrar así se cierra la sesión propia en ese navegador.
 - **Cambio de curso** (ficha del alumno o selección múltiple en *Alumnos*): dentro del mismo ciclo, sin perder notas ni asistencia.
 - **Baja con motivo** (cambio de colegio, egreso, mudanza, abandono u otro), con fecha y observaciones. Se conserva todo el historial; la familia deja de verlo y su cuenta de estudiante se desactiva. Se puede **reincorporar**. Los dados de baja se ven con el filtro *Dados de baja*.
 - **Promoción anual** (*Administración → Ciclo lectivo*):
@@ -160,6 +168,25 @@ Cada persona del colegio tiene un plan. La Representante Legal los cambia desde 
 
 - **Reportar un problema:** en el menú y en *Mi perfil*. Va asociado al usuario, con la pantalla y los últimos errores técnicos. Se ve el estado y la respuesta en *Mis reportes*.
 - **Auditoría** (*Administración → Auditoría* y *Plataforma → Auditoría*): acción, usuario, IP, fecha y hora, cambios con antes/después e ingresos (también los fallidos).
+
+## Aula: tareas, TP y evaluaciones
+
+En el muro de cada curso, además de materiales y tareas, el docente (o la conducción) publica **trabajos prácticos** y **evaluaciones** con fecha. Aparecen en la **agenda del curso** y en el **inicio** de las familias y docentes ("Próximas evaluaciones y entregas", 14 días). Un docente solo puede publicar, cargar notas, asignar juegos y programas **en sus propias materias y cursos** (`TeachingAssignment`); en cualquier otro curso la API responde 403.
+
+## Estadísticas por curso
+
+*Estadísticas* (quien ve asistencia **y** notas: conducción, coordinación, preceptoría, secretaría): por cada curso del alcance, asistencia %, inasistencias, llegadas tarde, retiros, promedio y alertas; y el detalle con gráfico por mes, alumnos con más faltas y promedio por materia y período (en Primario, distribución de la escala conceptual; en Inicial no hay promedios). API: `GET /school/stats/overview?levelId=` y `GET /school/stats/division/:id`.
+
+## Buscador y ayuda
+
+Barra superior (o **Ctrl+K**): escribís cómo lo dirías ("notas", "faltas", "boletín", "pasar de grado") y aparece un desplegable con las pantallas que corresponden (solo las que esa persona puede usar) y, para el personal, alumnos y personas por nombre. La página *Ayuda* (`/ayuda`) es el índice completo por sección. El índice vive en `client/src/school/helpIndex.ts`.
+
+## Comunicados
+
+- **Estados:** *Borrador* (solo lo ve el autor), *Programado* (se envía solo a la fecha y hora elegidas; el servidor revisa cada minuto), *Enviado* y *Archivado* (sale de la bandeja de todos, sigue accesible con el filtro *Archivados*). Borradores y programados se editan, se envían ya o se eliminan; los enviados no se editan.
+- **Búsqueda y filtros** (web y app): texto en título o cuerpo, *Sin leer*, *Pendientes de confirmar*, *Urgentes*, *Con adjuntos*, *Archivados* y rango de fechas. En *Enviados*, también por estado.
+- **¿Para quién?** Divisiones, nivel, toda la escuela, solo personal, o **Familias (elegir)**: el listado completo de las familias del alcance del autor (madre/padre/tutor con sus hijos, curso y contacto), con búsqueda por familia o alumno y filtros por nivel, grado/año y división; se eligen una por una o con *Seleccionar las filtradas* (ej.: "todo 3º año"). A una familia elegida a mano se le envía aunque tenga marcado *no recibe comunicados*. **Administración** tiene este listado completo con los contactos; una docente solo ve las familias de sus cursos y sin contactos.
+- Al abrir un comunicado queda como leído; los que piden confirmación muestran el botón "Confirmo que lo leí".
 
 ## Aulas
 

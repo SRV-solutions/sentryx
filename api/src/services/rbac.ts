@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 import { Role, Permission, RolePermission, UserRole } from '../models';
 import { ROLE_CATALOG, RoleCode, RoleScope } from '../constants/roles';
 import { PERMISSION_CATALOG, PermissionKey, permissionKey } from '../constants/permissions';
+import { invalidateRoleRegistry } from './roleRegistry';
 
 /**
  * ROLES Y PERMISOS EN LA BASE
@@ -84,7 +85,7 @@ export const syncRbacCatalog = async () => {
       leadership: definition.leadership,
       description: definition.description,
     };
-    const [role, created] = await Role.findOrCreate({ where: { code: definition.code }, defaults: attributes });
+    const [role, created] = await Role.findOrCreate({ where: { code: definition.code }, defaults: { ...attributes, schoolId: null } });
     if (!created) await role.update(attributes);
     const defaults = definition.defaultPermissions
       .map(([entity, action]) => permissionKey(entity, action))
@@ -97,12 +98,13 @@ export const syncRbacCatalog = async () => {
     }
   }
   invalidateRbacCache();
+  invalidateRoleRegistry();
 };
 
 /** Catálogo para la matriz "Roles y permisos" de la app (lee la base: muestra lo que realmente se aplica). */
-export const roleCatalogForDisplay = async () => {
+export const roleCatalogForDisplay = async (schoolId: number) => {
   const roles = await Role.findAll({
-    where: { scope: RoleScope.SCHOOL },
+    where: { scope: RoleScope.SCHOOL, [Op.or]: [{ schoolId: null }, { schoolId }] },
     include: [{ model: Permission, attributes: ['entity', 'action'], through: { attributes: [] } }],
     order: [['rank', 'DESC'], ['name', 'ASC']],
   });
@@ -114,7 +116,9 @@ export const roleCatalogForDisplay = async () => {
       category: role.category,
       rank: role.rank,
       schoolWide: role.schoolWide,
+      leadership: role.leadership,
       description: role.description,
+      custom: role.schoolId != null,
       permissions: (role.Permissions ?? []).map((p) => permissionKey(p.entity, p.action)),
     })),
   };

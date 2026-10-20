@@ -24,6 +24,8 @@ export const RoleCode = {
   RECTOR: 'RECTOR',
   SECRETARIO: 'SECRETARIO',
   PRECEPTOR: 'PRECEPTOR',
+  COORDINADOR: 'COORDINADOR',
+  JEFE_PRECEPTORES: 'JEFE_PRECEPTORES',
   ADMINISTRACION: 'ADMINISTRACION',
   DOCENTE: 'DOCENTE',
   TUTOR: 'TUTOR',
@@ -70,6 +72,7 @@ const schoolPermissionsExcept = (...excluded: PermissionPair[]): PermissionPair[
 
 const ALL_SCHOOL_PERMISSIONS: PermissionPair[] = [
   [Entity.SCHOOL, Action.UPDATE],
+  [Entity.ROLES, Action.MANAGE],
   [Entity.BILLING, Action.READ],
   [Entity.AUDIT_LOG, Action.READ],
   [Entity.USERS, Action.READ],
@@ -151,13 +154,19 @@ export const ROLE_CATALOG: RoleDefinition[] = [
     defaultPermissions: schoolPermissionsExcept(...LEGAL_REP_ONLY, [Entity.SCHOOL, Action.UPDATE], [Entity.EVENTS, Action.DELETE]),
   },
   {
+    code: RoleCode.COORDINADOR, name: 'Coordinación pedagógica', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 65, schoolWide: false, leadership: true,
+    description: 'Acompaña lo pedagógico de su nivel: notas, aulas, programas y seguimiento. No publica boletines ni toca la estructura.',
+    defaultPermissions: schoolPermissionsExcept(...LEGAL_REP_ONLY, [Entity.SCHOOL, Action.UPDATE], [Entity.EVENTS, Action.DELETE], [Entity.REPORT_CARDS, Action.PUBLISH], [Entity.ROLES, Action.MANAGE]),
+  },
+  {
     code: RoleCode.SECRETARIO, name: 'Secretaría', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 60, schoolWide: true, leadership: false,
     description: 'Legajos, altas y comunicación institucional.',
     defaultPermissions: [
       [Entity.USERS, Action.READ], [Entity.USERS, Action.CREATE], [Entity.USERS, Action.UPDATE], [Entity.CONTACT_INFO, Action.READ],
       [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.CREATE_SCHOOL_WIDE], [Entity.ANNOUNCEMENTS, Action.READ_STATS],
       [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
-      [Entity.GRADES, Action.READ], [Entity.REPORT_CARDS, Action.PUBLISH], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ],
+      // Lee notas pero NO publica boletines: eso lo decide la conducción (Dirección, Rectoría, Vicedirección).
+      [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ],
       [Entity.PLANS, Action.READ], [Entity.STAFF_RECORDS, Action.READ], [Entity.STAFF_RECORDS, Action.UPDATE],
       [Entity.EVENTS, Action.READ], [Entity.EVENTS, Action.CREATE], [Entity.EVENTS, Action.UPDATE], [Entity.EVENTS, Action.DELETE],
       [Entity.SUBJECT_PROGRAMS, Action.READ],
@@ -188,11 +197,25 @@ export const ROLE_CATALOG: RoleDefinition[] = [
     ],
   },
   {
+    code: RoleCode.JEFE_PRECEPTORES, name: 'Jefatura de preceptores', scope: RoleScope.SCHOOL, category: 'DIRECTIVO', rank: 45, schoolWide: false, leadership: false,
+    description: 'Coordina a preceptoría: asistencia, alertas y seguimiento de TODAS las divisiones de su nivel.',
+    defaultPermissions: [
+      [Entity.USERS, Action.READ], [Entity.CONTACT_INFO, Action.READ],
+      [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.READ_STATS], [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
+      [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE],
+      [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ATTENDANCE, Action.UPDATE],
+      [Entity.ALERTS, Action.READ], [Entity.ALERTS, Action.UPDATE],
+      [Entity.EVENTS, Action.READ], [Entity.QUIZZES, Action.CREATE],
+    ],
+  },
+  {
     code: RoleCode.DOCENTE, name: 'Docente', scope: RoleScope.SCHOOL, category: 'DOCENTE', rank: 30, schoolWide: false, leadership: false,
-    description: 'Carga notas y publica material SOLO en sus materias; no ve contactos de las familias.',
+    description: 'Carga notas, toma asistencia y publica material SOLO en sus cursos; no ve contactos de las familias.',
     defaultPermissions: [
       [Entity.USERS, Action.READ], [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
-      [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE], [Entity.GRADES, Action.UPDATE], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ],
+      [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE], [Entity.GRADES, Action.UPDATE],
+      // Las maestras de grado/sala toman la asistencia de su curso (desde la web o el celular); el alcance sigue siendo solo sus divisiones.
+      [Entity.ATTENDANCE, Action.READ], [Entity.ATTENDANCE, Action.UPDATE], [Entity.ALERTS, Action.READ],
       [Entity.EVENTS, Action.READ], [Entity.SUBJECT_PROGRAMS, Action.CREATE], [Entity.QUIZZES, Action.CREATE],
     ],
   },
@@ -220,6 +243,8 @@ export const ROLE_RANK = Object.fromEntries(ROLE_CATALOG.map((r) => [r.code, r.r
 export const SCHOOL_WIDE_ROLES = SCHOOL_ROLE_DEFINITIONS.filter((r) => r.schoolWide).map((r) => r.code as SchoolRole);
 export const LEADERSHIP_ROLES = SCHOOL_ROLE_DEFINITIONS.filter((r) => r.leadership).map((r) => r.code as SchoolRole);
 export const NON_STAFF_ROLES: SchoolRole[] = [RoleCode.TUTOR, RoleCode.ESTUDIANTE];
+/** Roles de preceptoría: reciben alertas de asistencia y son contacto de las familias de sus divisiones. */
+export const PRECEPTOR_ROLES: SchoolRole[] = [RoleCode.PRECEPTOR, RoleCode.JEFE_PRECEPTORES];
 export const STAFF_ROLES = SCHOOL_ROLES.filter((r) => !NON_STAFF_ROLES.includes(r));
 
 /** Personal de la institución (no familia, no estudiante, no rol de plataforma). */

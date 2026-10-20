@@ -360,3 +360,14 @@ body { overflow-wrap: break-word; }
 }
 /* Las tablas anchas se desplazan dentro de su recuadro, sin mover la página. */
 .table-wrap { -webkit-overflow-scrolling: touch; }
+
+/* Buscador global (barra superior, Ctrl+K) */
+.gsearch { position: relative; width: 100%; }
+.gsearch-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.gsearch-input { min-height: 38px; padding-left: 32px; font-size: 14px; width: 100%; }
+.gsearch-compact .gsearch-input { min-height: 34px; font-size: 13px; }
+.gsearch-menu { position: absolute; top: calc(100% + 6px); left: 0; right: 0; min-width: 280px; z-index: 60; padding: 4px; max-height: 70vh; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.gsearch-compact .gsearch-menu { left: auto; right: 0; width: min(92vw, 420px); }
+.gsearch-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border: 0; background: none; color: inherit; border-radius: 10px; cursor: pointer; font: inherit; }
+.gsearch-item.active, .gsearch-item:hover { background: var(--surface-2); }
+.gsearch-title { font-weight: 700; font-size: 14px; }
