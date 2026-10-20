@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, PutObjectCommand, GetObjectCommand, HeadObjectCommand, DeleteObjectCommand, ListObjectsV2Command, DeleteObjectsCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { randomUUID } from 'crypto';
 import { env } from './env';
@@ -58,3 +58,19 @@ export const presignDownload = (bucket: string, key: string, expiresIn = 3600, f
 
 export const headObject = (bucket: string, key: string) => s3.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
 export const deleteObject = (bucket: string, key: string) => s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+
+/** Borra todos los objetos bajo una carpeta (ej: schools/12/). Devuelve cuántos borró. */
+export const deletePrefix = async (bucket: string, prefix: string) => {
+  let deleted = 0;
+  let token: string | undefined;
+  do {
+    const page = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token, MaxKeys: 1000 }));
+    const keys = (page.Contents ?? []).map((o) => ({ Key: o.Key! }));
+    if (keys.length) {
+      await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys, Quiet: true } }));
+      deleted += keys.length;
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined;
+  } while (token);
+  return deleted;
+};

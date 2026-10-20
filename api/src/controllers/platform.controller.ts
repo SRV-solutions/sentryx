@@ -4,6 +4,7 @@
  * se suspenden y se ve la facturación de todos.
  */
 import { z } from 'zod';
+import { deletionSummary, deleteSchoolPermanently } from '../services/schoolDeletion';
 import { PLAN_CATALOG, DEFAULT_PLAN } from '../constants/plans';
 import { QueryTypes } from 'sequelize';
 import { School, UserRole, sequelize } from '../models';
@@ -92,3 +93,16 @@ export const getPlatformBilling = asyncHandler(async (req, res) => {
     }
     res.json({ cycle, currentCycle: cycleOf(), unitPrice: env.BILLING_PRICE_ARS, schools: rows, billableUsers: rows.reduce((t, r) => t + r.billableUsers, 0), total: rows.reduce((t, r) => t + r.total, 0) });
   });
+
+/** Qué se borraría al eliminar un colegio (se muestra antes de confirmar). */
+// GET /schools/:id/deletion
+export const getDeletionSummary = asyncHandler(async (req, res) => {
+  res.json(await deletionSummary(Number(req.params.id)));
+});
+
+/** Eliminación definitiva: el colegio tiene que estar suspendido y se confirma con su identificador. */
+// DELETE /schools/:id
+export const deleteSchool = asyncHandler(async (req, res) => {
+  const result = await deleteSchoolPermanently({ schoolId: Number(req.params.id), confirmSlug: (req.body as { confirm: string }).confirm, deletedById: req.user!.id });
+  res.json(result);
+});

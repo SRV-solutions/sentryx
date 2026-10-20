@@ -125,7 +125,7 @@ export const ROLE_CATALOG: RoleDefinition[] = [
     code: RoleCode.SUPERADMIN, name: 'Superadmin Sentryx', scope: RoleScope.PLATFORM, category: null, rank: 1000, schoolWide: true, leadership: false,
     description: 'Equipo de Sentryx: alta de colegios, soporte y facturación de la plataforma.',
     defaultPermissions: [
-      [Entity.SCHOOLS, Action.READ], [Entity.SCHOOLS, Action.CREATE], [Entity.SCHOOLS, Action.UPDATE],
+      [Entity.SCHOOLS, Action.READ], [Entity.SCHOOLS, Action.CREATE], [Entity.SCHOOLS, Action.UPDATE], [Entity.SCHOOLS, Action.DELETE],
       [Entity.PLATFORM_BILLING, Action.READ], [Entity.NOTIFICATIONS, Action.BROADCAST],
       [Entity.SUPPORT_REPORTS, Action.READ], [Entity.SUPPORT_REPORTS, Action.UPDATE], [Entity.PLATFORM_AUDIT, Action.READ],
     ],

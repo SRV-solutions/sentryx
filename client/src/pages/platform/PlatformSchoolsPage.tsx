@@ -1,7 +1,7 @@
 import { FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Building2, Copy, ExternalLink, Users, GraduationCap } from 'lucide-react';
+import { Plus, Building2, Copy, ExternalLink, Users, GraduationCap, Trash2, AlertTriangle } from 'lucide-react';
 import { apiGet, apiSend, setSchoolId } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Badge, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, useToast, fmtDate } from '../../ui';
@@ -78,6 +78,69 @@ const NewSchoolSheet = ({ onClose, onCreated }: { onClose: () => void; onCreated
   );
 };
 
+interface DeletionSummary {
+  school: { id: number; name: string; slug: string; active: boolean };
+  students: number;
+  people: number;
+  accountsDeleted: number;
+  accountsKept: number;
+  files: number;
+  bytes: number;
+  announcements: number;
+  messages: number;
+  closedStatements: number;
+  billedTotal: number;
+}
+
+const size = (bytes: number) => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} GB` : `${Math.round(bytes / 1024 ** 2)} MB`);
+
+/** Eliminación definitiva: muestra todo lo que se borra y pide escribir el identificador del colegio. */
+const DeleteSchoolSheet = ({ school, onClose }: { school: SchoolRow; onClose: () => void }) => {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [confirm, setConfirm] = useState('');
+  const summary = useQuery({ queryKey: ['school-deletion', school.id], queryFn: () => apiGet<DeletionSummary>(`/platform/schools/${school.id}/deletion`) });
+  const remove = useMutation({
+    mutationFn: () => apiSend<{ storageError: string | null }>('DELETE', `/platform/schools/${school.id}`, { confirm }),
+    onSuccess: (r) => {
+      toast(r.storageError ? `Colegio eliminado. No se pudieron borrar todos los archivos del almacenamiento: ${r.storageError}` : `"${school.name}" se eliminó definitivamente`, !!r.storageError);
+      qc.invalidateQueries({ queryKey: ['platform-schools'] });
+      qc.invalidateQueries({ queryKey: ['platform-billing'] });
+      qc.invalidateQueries({ queryKey: ['schools'] });
+      onClose();
+    },
+    onError: (e: Error) => toast(e.message, true),
+  });
+  const s = summary.data;
+  return (
+    <Sheet open onClose={onClose} title="Eliminar colegio definitivamente">
+      <div className="stack">
+        <div className="alert alert-danger small">
+          <AlertTriangle size={18} />
+          <div><b>No se puede deshacer.</b> Se borra "{school.name}" con todos sus datos, sus archivos y las cuentas que no pertenecen a otro colegio.</div>
+        </div>
+        {summary.error && <ErrorBox error={summary.error} />}
+        {!s && !summary.error && <Skeleton count={1} h={120} />}
+        {s && (
+          <ul className="small" style={{ margin: 0, paddingLeft: 18, lineHeight: 1.8 }}>
+            <li><b>{s.students}</b> alumnos con sus notas, asistencia y boletines</li>
+            <li><b>{s.accountsDeleted}</b> cuentas se borran{s.accountsKept ? ` · ${s.accountsKept} se conservan porque están en otro colegio` : ''}</li>
+            <li><b>{s.announcements}</b> comunicados y <b>{s.messages}</b> mensajes</li>
+            <li><b>{s.files}</b> archivos ({size(s.bytes)}), también del almacenamiento</li>
+            <li><b>{s.closedStatements}</b> liquidaciones cerradas ({ars(s.billedTotal)} facturados): exportá la facturación antes si la necesitás</li>
+          </ul>
+        )}
+        <Field label={`Para confirmar, escribí el identificador: ${school.slug}`}>
+          <input className="input" autoComplete="off" spellCheck={false} value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder={school.slug} />
+        </Field>
+        <button className="btn btn-danger btn-block" disabled={!s || confirm.trim().toLowerCase() !== school.slug || remove.isPending} onClick={() => remove.mutate()}>
+          <Trash2 size={16} /> {remove.isPending ? 'Eliminando…' : 'Eliminar definitivamente'}
+        </button>
+      </div>
+    </Sheet>
+  );
+};
+
 /** Consola del equipo Sentryx: todos los colegios de la plataforma. */
 export default function PlatformSchoolsPage() {
   const qc = useQueryClient();
@@ -86,6 +149,7 @@ export default function PlatformSchoolsPage() {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [creds, setCreds] = useState<Credential[]>([]);
+  const [deleting, setDeleting] = useState<SchoolRow | null>(null);
   const q = useQuery({ queryKey: ['platform-schools'], queryFn: () => apiGet<SchoolRow[]>('/platform/schools') });
   const toggle = useMutation({
     mutationFn: (s: SchoolRow) => apiSend('PATCH', `/platform/schools/${s.id}`, { active: !s.active }),
@@ -133,7 +197,9 @@ export default function PlatformSchoolsPage() {
             <div className="row wrap">
               <button className="btn btn-sm" onClick={() => enter(s)} disabled={!s.active}><ExternalLink size={14} /> Entrar al colegio</button>
               <button className="btn btn-sm btn-ghost" onClick={() => toggle.mutate(s)}>{s.active ? 'Suspender' : 'Reactivar'}</button>
+              {!s.active && <button className="btn btn-sm btn-ghost" style={{ color: 'var(--danger)' }} onClick={() => setDeleting(s)}><Trash2 size={14} /> Eliminar</button>}
             </div>
+            {s.active && <span className="xs muted">Para eliminarlo definitivamente, primero suspendelo.</span>}
           </div>
         ))}
       </div>
@@ -147,6 +213,7 @@ export default function PlatformSchoolsPage() {
           }}
         />
       )}
+      {deleting && <DeleteSchoolSheet school={deleting} onClose={() => setDeleting(null)} />}
       <CredentialsSheet items={creds} onClose={() => setCreds([])} title="Acceso de la Representante Legal" />
     </div>
   );

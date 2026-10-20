@@ -120,6 +120,7 @@ Se evalúan solas al tomar o justificar asistencia y avisan a preceptoría y con
 - **Multi-colegio:** cada colegio tiene su nombre, escudo y datos (*Administración → Institución*) y su link de ingreso `/c/<slug>`. La marca de la plataforma (Sentryx) se mantiene.
 - **Selector de nivel:** quien tiene acceso a más de un nivel (Representante Legal, Dirección general, Secretaría) elige Todos, Inicial, Primario o Secundario desde el encabezado. Toda la app se filtra a ese nivel.
 - **Alta de un colegio nuevo:** desde la consola *Plataforma → Colegios* (superadmin) o con `npm run bootstrap` (ver DEPLOY.md).
+- **Eliminar un colegio (definitivo):** en *Plataforma → Colegios*, primero se suspende y después *Eliminar*, escribiendo su identificador para confirmar. Se borran sus datos, sus archivos del bucket y las cuentas que no están en otro colegio; queda registrado en la auditoría de la plataforma. Antes conviene exportar su facturación.
 - **Crear un superadmin:** `npm run superadmin -- --email equipo@... --first Nombre --last Apellido`.
 
 ## Ciclo lectivo, alumnos y personal

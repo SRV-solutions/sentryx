@@ -23,5 +23,10 @@ export const registerSchool = { body: schoolBody };
 /** PATCH /schools/:id */
 export const updateSchool = { params: idParam, body: z.object({ name: z.string().trim().min(3).max(160).optional(), active: z.boolean().optional() }) };
 
+/** GET /schools/:id/deletion — lo que se borraría. */
+export const deletionSummary = { params: idParam };
+/** DELETE /schools/:id — eliminación definitiva; hay que escribir el identificador del colegio. */
+export const deleteSchool = { params: idParam, body: z.object({ confirm: z.string().trim().min(1, 'escribí el identificador del colegio').max(80) }) };
+
 /** GET /billing */
 export const getPlatformBilling = { query: z.object({ cycle: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).optional() }) };

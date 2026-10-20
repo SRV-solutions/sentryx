@@ -15,6 +15,8 @@ const router = Router();
 router.get('/schools', authorize(Entity.SCHOOLS, Action.READ), PlatformController.listSchools);
 router.post('/schools', authorize(Entity.SCHOOLS, Action.CREATE), validate(PlatformValidator.registerSchool), PlatformController.registerSchool);
 router.patch('/schools/:id', authorize(Entity.SCHOOLS, Action.UPDATE), validate(PlatformValidator.updateSchool), PlatformController.updateSchool);
+router.get('/schools/:id/deletion', authorize(Entity.SCHOOLS, Action.DELETE), validate(PlatformValidator.deletionSummary), PlatformController.getDeletionSummary);
+router.delete('/schools/:id', authorize(Entity.SCHOOLS, Action.DELETE), validate(PlatformValidator.deleteSchool), PlatformController.deleteSchool);
 router.get('/billing', authorize(Entity.PLATFORM_BILLING, Action.READ), validate(PlatformValidator.getPlatformBilling), PlatformController.getPlatformBilling);
 
 // Reportes de problemas de los usuarios

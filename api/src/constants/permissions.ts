@@ -118,6 +118,7 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   { entity: Entity.SCHOOLS, action: Action.READ, group: 'Plataforma', description: 'Ver todos los colegios de la plataforma' },
   { entity: Entity.SCHOOLS, action: Action.CREATE, group: 'Plataforma', description: 'Dar de alta colegios' },
   { entity: Entity.SCHOOLS, action: Action.UPDATE, group: 'Plataforma', description: 'Renombrar y suspender colegios' },
+  { entity: Entity.SCHOOLS, action: Action.DELETE, group: 'Plataforma', description: 'Eliminar colegios definitivamente (con todos sus datos)' },
   { entity: Entity.PLATFORM_BILLING, action: Action.READ, group: 'Plataforma', description: 'Ver la facturación de todos los colegios' },
   { entity: Entity.SUPPORT_REPORTS, action: Action.READ, group: 'Plataforma', description: 'Ver los problemas reportados por los usuarios' },
   { entity: Entity.SUPPORT_REPORTS, action: Action.UPDATE, group: 'Plataforma', description: 'Responder y cerrar reportes de problemas' },
