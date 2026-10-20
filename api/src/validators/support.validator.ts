@@ -14,7 +14,21 @@ export const createReport = {
       .array(z.object({ message: z.string().max(500), source: z.string().max(300).nullish(), at: z.string().max(40).nullish() }))
       .max(10)
       .default([]),
+    /** Claves devueltas por POST /support/attachments/presign (se verifican en el bucket al crear el reporte). */
+    attachments: z.array(z.object({ key: z.string().max(400), name: z.string().trim().min(1).max(200), size: z.number().int().positive(), type: z.string().max(100) })).max(5).default([]),
   }),
+};
+
+/** Capturas (hasta 15 MB, se comprimen en el navegador) y videos de pantalla (hasta 200 MB). */
+export const REPORT_IMAGE_MAX = 15 * 1024 * 1024;
+export const REPORT_VIDEO_MAX = 200 * 1024 * 1024;
+export const REPORT_TYPES = /^(image\/(jpeg|png|webp|gif|heic|heif)|video\/(mp4|webm|quicktime))$/;
+
+/** POST /support/attachments/presign */
+export const presignAttachment = {
+  body: z
+    .object({ fileName: z.string().trim().min(1).max(200), contentType: z.string().regex(REPORT_TYPES, 'Solo imágenes (JPG, PNG, WebP, GIF) o videos (MP4, WebM, MOV).'), size: z.number().int().positive() })
+    .refine((v) => v.size <= (v.contentType.startsWith('video/') ? REPORT_VIDEO_MAX : REPORT_IMAGE_MAX), 'El archivo es demasiado pesado (imágenes hasta 15 MB, videos hasta 200 MB).'),
 };
 
 /** GET /platform/support-reports */

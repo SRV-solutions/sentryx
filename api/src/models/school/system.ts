@@ -87,6 +87,8 @@ export const SUPPORT_REPORT_STATUSES = ['ABIERTO', 'EN_PROCESO', 'RESUELTO', 'DE
 export type SupportReportCategory = (typeof SUPPORT_REPORT_CATEGORIES)[number];
 export type SupportReportStatus = (typeof SUPPORT_REPORT_STATUSES)[number];
 
+export interface ReportAttachment { key: string; name: string; size: number; type: string }
+
 /** Problema o sugerencia que manda un usuario desde la app ("Reportar un problema"). */
 export class SupportReport extends Model<InferAttributes<SupportReport>, InferCreationAttributes<SupportReport>> {
   declare id: CreationOptional<number>;
@@ -100,6 +102,8 @@ export class SupportReport extends Model<InferAttributes<SupportReport>, InferCr
   declare ip: string | null;
   /** Últimos errores de la app en ese navegador (se adjuntan solos para facilitar el diagnóstico). */
   declare clientErrors: CreationOptional<object[]>;
+  /** Capturas y videos subidos al bucket de reportes (R2_REPORTS_BUCKET). */
+  declare attachments: CreationOptional<ReportAttachment[]>;
   declare status: CreationOptional<SupportReportStatus>;
   /** Respuesta del equipo de soporte (la ve quien reportó). */
   declare response: string | null;
@@ -120,6 +124,7 @@ SupportReport.init(
     userAgent: { type: DataTypes.STRING(300), allowNull: true },
     ip: { type: DataTypes.STRING(64), allowNull: true },
     clientErrors: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
+    attachments: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
     status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'ABIERTO' },
     response: { type: DataTypes.TEXT, allowNull: true },
     resolvedById: { type: DataTypes.INTEGER, allowNull: true },

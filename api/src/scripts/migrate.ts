@@ -390,6 +390,13 @@ const migrations: Array<{
       await addColumnIfMissing(qi, "GradingPeriod", "summaryOf", { type: DataTypes.STRING(60), allowNull: true });
     },
   },
+  {
+    // Capturas y videos en "Reportar un problema" (bucket aparte: R2_REPORTS_BUCKET).
+    name: "2026-10-21-report-attachments",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "SupportReport", "attachments", { type: DataTypes.JSONB, allowNull: false, defaultValue: [] });
+    },
+  },
 ];
 
 const run = async () => {

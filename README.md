@@ -166,7 +166,7 @@ Cada persona del colegio tiene un plan. La Representante Legal los cambia desde 
 
 ## Soporte y auditoría
 
-- **Reportar un problema:** en el menú y en *Mi perfil*. Va asociado al usuario, con la pantalla y los últimos errores técnicos. Se ve el estado y la respuesta en *Mis reportes*.
+- **Reportar un problema:** en el menú y en *Mi perfil*. Va asociado al usuario, con la pantalla y los últimos errores técnicos, y se pueden adjuntar hasta 5 **capturas o videos** (imágenes hasta 15 MB —se achican solas—, videos MP4/WebM/MOV hasta 200 MB), que suben directo al bucket `R2_REPORTS_BUCKET` y se ven en *Plataforma → Reportes* y en *Mis reportes*. Se ve el estado y la respuesta en *Mis reportes*.
 - **Auditoría** (*Administración → Auditoría* y *Plataforma → Auditoría*): acción, usuario, IP, fecha y hora, cambios con antes/después e ingresos (también los fallidos).
 
 ## Aula: tareas, TP y evaluaciones

@@ -27,13 +27,14 @@ Destino: colegios de **~400 alumnos, ~40 docentes y ~700 familias** (por ejemplo
 
 ## 1. Archivos: Cloudflare R2
 
-1. En Cloudflare → **R2**, creá los buckets `sentryx-files` y `sentryx-backups`.
+1. En Cloudflare → **R2**, creá los buckets `sentryx-files`, `sentryx-backups` y `sentryx-reports` (capturas y videos de *Reportar un problema*; va aparte para no mezclarlos con los archivos de los colegios ni descontar del espacio de nadie).
 2. En **Manage R2 API Tokens**, creá un token *Object Read & Write* para esos buckets. En el `.env`, cargá:
    - `R2_ACCOUNT_ID`: el Account ID que aparece en el panel de R2;
    - `R2_ACCESS_KEY_ID` y `R2_SECRET_ACCESS_KEY`: los del token.
 
    No hace falta nada de Amazon.
-3. En `sentryx-files` → *Settings* → **CORS policy** (obligatorio: los navegadores suben directo al bucket):
+   En el `.env`/Railway: `R2_BUCKET=sentryx-files`, `R2_BACKUP_BUCKET=sentryx-backups`, `R2_REPORTS_BUCKET=sentryx-reports`. Sin `R2_REPORTS_BUCKET` todo sigue funcionando: los reportes van solo con texto.
+3. En `sentryx-files` **y** en `sentryx-reports` → *Settings* → **CORS policy** (obligatorio: los navegadores suben directo al bucket):
 
    ```json
    [{ "AllowedOrigins": ["https://app.tudominio.com", "https://tu-sitio.netlify.app"],

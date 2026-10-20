@@ -22,13 +22,14 @@ const run = async () => {
   console.log(`  Endpoint  : ${env.storage.endpoint ?? `s3.${env.AWS_REGION}.amazonaws.com`}`);
   console.log(`  Archivos  : ${env.filesBucket ?? '(sin configurar: R2_BUCKET)'}`);
   console.log(`  Backups   : ${env.backupBucket ?? '(sin configurar: R2_BACKUP_BUCKET)'}`);
+  console.log(`  Reportes  : ${env.reportsBucket ?? '(sin configurar: R2_REPORTS_BUCKET — los reportes van solo con texto)'}`);
   if (!env.filesBucket || !env.storage.accessKeyId) {
     console.log('\n✗ Falta configurar R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY y R2_BUCKET en el .env (ver DEPLOY.md, sección R2).');
     process.exit(1);
   }
 
   let failed = false;
-  for (const bucket of [env.filesBucket, env.backupBucket].filter((b, i, all): b is string => !!b && all.indexOf(b) === i)) {
+  for (const bucket of [env.filesBucket, env.backupBucket, env.reportsBucket].filter((b, i, all): b is string => !!b && all.indexOf(b) === i)) {
     try {
       await s3.send(new HeadBucketCommand({ Bucket: bucket }));
       step(true, `Acceso al bucket "${bucket}"`);
@@ -40,16 +41,19 @@ const run = async () => {
   if (failed) process.exit(1);
 
   if (!process.argv.includes('--no-cors')) {
-    await s3.send(
-      new PutBucketCorsCommand({
-        Bucket: env.filesBucket,
-        CORSConfiguration: {
-          CORSRules: [{ AllowedOrigins: env.corsOrigins, AllowedMethods: ['GET', 'PUT', 'HEAD'], AllowedHeaders: ['*'], ExposeHeaders: ['ETag'], MaxAgeSeconds: 3600 }],
-        },
-      })
-    );
-    const cors = await s3.send(new GetBucketCorsCommand({ Bucket: env.filesBucket }));
-    step(true, `CORS aplicado para: ${cors.CORSRules?.[0]?.AllowedOrigins?.join(', ')}`);
+    // Los navegadores suben directo a estos dos buckets: archivos de los colegios y adjuntos de reportes.
+    for (const bucket of [env.filesBucket, env.reportsBucket].filter((b, i, all): b is string => !!b && all.indexOf(b) === i)) {
+      await s3.send(
+        new PutBucketCorsCommand({
+          Bucket: bucket,
+          CORSConfiguration: {
+            CORSRules: [{ AllowedOrigins: env.corsOrigins, AllowedMethods: ['GET', 'PUT', 'HEAD'], AllowedHeaders: ['*'], ExposeHeaders: ['ETag'], MaxAgeSeconds: 3600 }],
+          },
+        })
+      );
+      const cors = await s3.send(new GetBucketCorsCommand({ Bucket: bucket }));
+      step(true, `CORS aplicado en "${bucket}" para: ${cors.CORSRules?.[0]?.AllowedOrigins?.join(', ')}`);
+    }
   }
 
   const key = `healthcheck/${Date.now()}.txt`;

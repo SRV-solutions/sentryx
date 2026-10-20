@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiSend } from '../../lib/api';
 import { Badge, Chips, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, timeAgo, useToast } from '../../ui';
-import { REPORT_CATEGORY_LABELS, REPORT_STATUS_LABELS, REPORT_STATUS_TONES, type ReportStatus } from '../../school/ReportProblem';
+import { REPORT_CATEGORY_LABELS, REPORT_STATUS_LABELS, REPORT_STATUS_TONES, ReportAttachments, type ReportStatus, type ReportAttachment } from '../../school/ReportProblem';
 import type { Paginated } from '../../school/types';
 
 interface SupportReport {
@@ -13,6 +13,7 @@ interface SupportReport {
   userAgent: string | null;
   ip: string | null;
   clientErrors: Array<{ message: string; source?: string | null; at?: string | null }>;
+  attachments?: ReportAttachment[];
   status: ReportStatus;
   response: string | null;
   createdAt: string;
@@ -84,6 +85,7 @@ export default function PlatformSupportPage() {
         {selected && (
           <div className="stack">
             <div className="small" style={{ whiteSpace: 'pre-wrap' }}>{selected.description}</div>
+            <ReportAttachments list={selected.attachments} />
             <div className="xs muted stack" style={{ gap: 2 }}>
               <span><b>Usuario:</b> {selected.Reporter ? `${selected.Reporter.firstName} ${selected.Reporter.lastName} (${selected.Reporter.email ?? selected.Reporter.dni ?? '—'})` : '—'}</span>
               {selected.schoolName && <span><b>Colegio:</b> {selected.schoolName}</span>}

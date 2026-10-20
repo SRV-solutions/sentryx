@@ -99,7 +99,7 @@ export interface UploadedFile { fileId: number; name: string; size: number; mime
  * Achica fotos grandes antes de subirlas (máx. 1600 px, JPEG 82%). Una foto de celular de 4 MB
  * queda en ~300 KB: menos datos para el docente, menos almacenamiento y descargas más rápidas para las familias.
  */
-async function compressImage(file: File): Promise<File> {
+export async function compressImage(file: File): Promise<File> {
   if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 600 * 1024) return file;
   try {
     const bitmap = await createImageBitmap(file);

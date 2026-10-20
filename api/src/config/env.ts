@@ -49,6 +49,8 @@ const schema = z.object({
   R2_BUCKET: z.string().optional(),
   /** Bucket de backups (recomendado aparte). Si falta, usa R2_BUCKET con la carpeta backups/. */
   R2_BACKUP_BUCKET: z.string().optional(),
+  /** Bucket de capturas y videos de "Reportar un problema" (aparte: no descuenta del espacio de nadie). Sin él, los reportes van solo con texto. */
+  R2_REPORTS_BUCKET: z.string().optional(),
 
   // --- Compatibilidad: AWS S3 u otro proveedor S3 (solo si no se usa R2) ---
   AWS_REGION: z.string().optional(),
@@ -114,6 +116,7 @@ export const env = {
   },
   filesBucket: data.R2_BUCKET ?? data.S3_FILES_BUCKET ?? data.S3_BUCKET_NAME,
   backupBucket: data.R2_BACKUP_BUCKET ?? process.env.S3_BACKUP_BUCKET ?? data.R2_BUCKET ?? data.S3_FILES_BUCKET,
+  reportsBucket: data.R2_REPORTS_BUCKET ?? null,
   pushEnabled: Boolean(data.VAPID_PUBLIC_KEY && data.VAPID_PRIVATE_KEY),
   mailEnabled: Boolean(data.SMTP_USER && data.SMTP_PASS),
 };
