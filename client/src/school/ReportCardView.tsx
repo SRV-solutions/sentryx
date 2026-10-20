@@ -49,7 +49,16 @@ export const ReportCardView = ({ data }: { data: ReportCard }) => {
     return acc;
   }, []);
   const hasGroups = groups.some((g) => g.name);
-  const hasFinal = data.level.type === 'SECUNDARIO';
+  const numeric = data.periods.filter((p) => p.kind === 'NUMERIC');
+  const hasFinal = numeric.length > 0;
+  const narrativePeriods = data.periods.filter((p) => p.kind === 'NARRATIVE');
+  const s = data.level.settings;
+  const legend = [
+    data.periods.some((p) => p.kind === 'CONCEPTUAL') ? `Escala conceptual: ${s.conceptualScale.join(' · ')}.` : null,
+    numeric.length ? `Nota numérica de ${s.numericMin} a ${s.numericMax}; aprobación: ${s.passingGrade}.` : null,
+    hasFinal ? (data.periods.some((p) => p.summaryOf) ? 'Nota cuatr. = nota de cierre de cada cuatrimestre; Final = promedio de las dos.' : 'Final = promedio de las notas numéricas.') : null,
+    narrativePeriods.length ? 'Los informes escritos están debajo de la tabla.' : null,
+  ].filter(Boolean).join(' ');
 
   return (
     <div className="stack">
@@ -90,12 +99,22 @@ export const ReportCardView = ({ data }: { data: ReportCard }) => {
           </tbody>
         </table>
       </div>
-      <p className="xs muted">
-        {data.level.type === 'SECUNDARIO'
-          ? `Bimestres 1 y 3: valoración conceptual. Bimestres 2 y 4: nota numérica (${data.level.settings.numericMin} a ${data.level.settings.numericMax}). Aprobación: ${data.level.settings.passingGrade}. ${data.periods.some((p) => p.summaryOf) ? 'Nota cuatr. = nota de cierre de cada cuatrimestre; Final = promedio de las dos.' : 'Final = promedio de las notas numéricas.'}`
-          : `Escala: ${data.level.settings.conceptualScale.join(' · ')}.`}{' '}
-        En rojo: valoraciones por debajo de lo esperado.
-      </p>
+      <p className="xs muted">{legend} En rojo: valoraciones por debajo de lo esperado.</p>
+      {narrativePeriods.map((p) => {
+        const rows = data.rows.filter((r) => r.grades[p.id]?.narrative);
+        if (!rows.length) return null;
+        return (
+          <section key={p.id} className="card card-pad stack">
+            <h3 className="h3">{p.name}</h3>
+            {rows.map((r) => (
+              <div key={r.subjectId} className="stack" style={{ gap: 4 }}>
+                {data.rows.length > 1 && <div className="small" style={{ fontWeight: 700 }}>{r.subject}</div>}
+                <p className="small" style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>{r.grades[p.id].narrative}</p>
+              </div>
+            ))}
+          </section>
+        );
+      })}
       {data.rows.some((r) => Object.values(r.grades).some((g) => g.observation)) && (
         <section className="card card-pad stack">
           <h3 className="h3">Observaciones</h3>

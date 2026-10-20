@@ -111,6 +111,7 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   { entity: Entity.GRADES, action: Action.UPDATE, group: 'Calificaciones', description: 'Cargar notas de sus materias' },
   { entity: Entity.GRADES, action: Action.UPDATE_ANY, group: 'Calificaciones', description: 'Corregir cualquier nota de su alcance' },
   { entity: Entity.GRADING_PERIODS, action: Action.CLOSE, group: 'Calificaciones', description: 'Cerrar y reabrir períodos' },
+  { entity: Entity.GRADING_PERIODS, action: Action.UPDATE, group: 'Calificaciones', description: 'Configurar la calificación de su nivel (modo, escala, períodos)' },
   { entity: Entity.REPORT_CARDS, action: Action.PUBLISH, group: 'Calificaciones', description: 'Publicar boletines a las familias' },
   { entity: Entity.ATTENDANCE, action: Action.READ, group: 'Asistencia', description: 'Ver asistencia de su alcance' },
   { entity: Entity.ATTENDANCE, action: Action.UPDATE, group: 'Asistencia', description: 'Tomar y corregir asistencia' },

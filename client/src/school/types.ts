@@ -53,7 +53,12 @@ export interface SchoolSession {
   plan: { code: import('./plans').PlanCode; name: string; storageGb: number; features: import('./plans').PlanFeature[] };
 }
 
+/** Modo de calificación por defecto de un nivel (cada período se puede cambiar igual). */
+export type GradingMode = 'NUMERIC' | 'CONCEPTUAL' | 'NARRATIVE' | 'MIXED';
+export const GRADING_MODE_LABELS: Record<GradingMode, string> = { NUMERIC: 'Solo números', CONCEPTUAL: 'Solo letras (escala)', NARRATIVE: 'Informes', MIXED: 'Mixto (Secundario)' };
+
 export interface LevelSettings {
+  gradingMode?: GradingMode;
   conceptualScale: string[];
   numericMin: number;
   numericMax: number;

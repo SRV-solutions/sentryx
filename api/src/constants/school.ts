@@ -34,7 +34,22 @@ export type Severity = (typeof SEVERITIES)[number];
 export const AUDIENCE_TYPES = ['SCHOOL', 'LEVEL', 'DIVISION', 'STUDENTS', 'GUARDIANS', 'STAFF'] as const;
 export type AudienceType = (typeof AUDIENCE_TYPES)[number];
 
+/**
+ * Modo de calificación por defecto del nivel (lo define la conducción del nivel; cada período se puede cambiar igual):
+ * NUMERIC solo números · CONCEPTUAL solo letras/escala · NARRATIVE informes · MIXED el esquema clásico de Secundario
+ * (bimestre impar conceptual, par numérico).
+ */
+export const GRADING_MODES = ['NUMERIC', 'CONCEPTUAL', 'NARRATIVE', 'MIXED'] as const;
+export type GradingMode = (typeof GRADING_MODES)[number];
+export const DEFAULT_GRADING_MODE: Record<LevelType, GradingMode> = { INICIAL: 'NARRATIVE', PRIMARIO: 'CONCEPTUAL', SECUNDARIO: 'MIXED' };
+export const gradingModeOf = (level: { type: LevelType; settings: { gradingMode?: GradingMode | null } }): GradingMode => level.settings?.gradingMode ?? DEFAULT_GRADING_MODE[level.type];
+/** Tipo de nota de cada período según el modo (MIXED alterna conceptual/numérico; con cantidad impar, todo numérico). */
+export const kindsForMode = (mode: GradingMode, count: number): PeriodKind[] =>
+  Array.from({ length: count }, (_, i) => (mode === 'MIXED' ? (count % 2 === 0 ? (i % 2 === 0 ? 'CONCEPTUAL' : 'NUMERIC') : 'NUMERIC') : mode));
+
 export interface LevelSettings {
+  /** Si falta, se usa DEFAULT_GRADING_MODE según el tipo de nivel. */
+  gradingMode?: GradingMode;
   conceptualScale: string[];
   numericMin: number;
   numericMax: number;
@@ -45,6 +60,7 @@ export interface LevelSettings {
 
 export const DEFAULT_LEVEL_SETTINGS: Record<LevelType, LevelSettings> = {
   INICIAL: {
+    gradingMode: 'NARRATIVE',
     conceptualScale: ['Logrado', 'En proceso', 'Con dificultad'],
     numericMin: 1,
     numericMax: 10,
@@ -52,6 +68,7 @@ export const DEFAULT_LEVEL_SETTINGS: Record<LevelType, LevelSettings> = {
     attendanceWeights: { AUSENTE: 1, TARDE: 0.5, RETIRO: 0.5 },
   },
   PRIMARIO: {
+    gradingMode: 'CONCEPTUAL',
     conceptualScale: ['Sobresaliente', 'Muy Bueno', 'Bueno', 'Regular', 'Insuficiente'],
     numericMin: 1,
     numericMax: 10,
@@ -59,6 +76,7 @@ export const DEFAULT_LEVEL_SETTINGS: Record<LevelType, LevelSettings> = {
     attendanceWeights: { AUSENTE: 1, TARDE: 0.5, RETIRO: 0.5 },
   },
   SECUNDARIO: {
+    gradingMode: 'MIXED',
     conceptualScale: ['Avanzado', 'Suficiente', 'En proceso', 'Insuficiente'],
     numericMin: 1,
     numericMax: 10,

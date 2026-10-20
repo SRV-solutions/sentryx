@@ -1,6 +1,6 @@
 import { Transaction } from 'sequelize';
 import { Level, Division, Subject, GradingPeriod, Grade, ReportCardPublication, AcademicYear, TeachingAssignment, sequelize } from '../models';
-import { LevelType, PeriodKind } from '../constants/school';
+import { LevelType, PeriodKind, gradingModeOf, kindsForMode } from '../constants/school';
 import { badRequest, conflict } from '../lib/http';
 
 /**
@@ -112,18 +112,14 @@ interface PeriodSpec {
 }
 
 /** Períodos de cada nivel según el esquema. Secundario bimestral: 1º bimestre de cada cuatrimestre conceptual, 2º numérico. */
-export const periodsFor = (type: LevelType, scheme: GradingScheme): PeriodSpec[] => {
+/** Nombres según nivel/esquema; tipo de nota según el modo de calificación del nivel. */
+export const periodsFor = (level: { type: LevelType; settings: Level['settings'] }, scheme: GradingScheme): PeriodSpec[] => {
   const count = scheme === 'TRIMESTRAL' ? 3 : 4;
-  const unit = scheme === 'TRIMESTRAL' ? 'Trimestre' : 'Bimestre';
-  if (type === 'INICIAL') return Array.from({ length: count }, (_, i) => ({ name: `${i + 1}º Informe`, groupName: null, kind: 'NARRATIVE' }));
-  if (type === 'PRIMARIO') return Array.from({ length: count }, (_, i) => ({ name: `${i + 1}º ${unit}`, groupName: null, kind: 'CONCEPTUAL' }));
-  if (scheme === 'TRIMESTRAL') return Array.from({ length: 3 }, (_, i) => ({ name: `${i + 1}º Trimestre`, groupName: null, kind: 'NUMERIC' }));
-  return [
-    { name: '1º Bimestre', groupName: '1º Cuatrimestre', kind: 'CONCEPTUAL' },
-    { name: '2º Bimestre', groupName: '1º Cuatrimestre', kind: 'NUMERIC' },
-    { name: '3º Bimestre', groupName: '2º Cuatrimestre', kind: 'CONCEPTUAL' },
-    { name: '4º Bimestre', groupName: '2º Cuatrimestre', kind: 'NUMERIC' },
-  ];
+  const kinds = kindsForMode(gradingModeOf(level), count);
+  if (level.type === 'INICIAL') return kinds.map((kind, i) => ({ name: `${i + 1}º Informe`, groupName: null, kind }));
+  if (level.type === 'PRIMARIO' || scheme === 'TRIMESTRAL') return kinds.map((kind, i) => ({ name: `${i + 1}º ${scheme === 'TRIMESTRAL' ? 'Trimestre' : 'Bimestre'}`, groupName: null, kind }));
+  // Secundario bimestral: agrupado por cuatrimestre (habilita la nota de cuatrimestre).
+  return kinds.map((kind, i) => ({ name: `${i + 1}º Bimestre`, groupName: i < 2 ? '1º Cuatrimestre' : '2º Cuatrimestre', kind }));
 };
 
 export interface DateRange {
@@ -155,7 +151,7 @@ export const applyGradingScheme = async (schoolId: number, academicYearId: numbe
 
   await sequelize.transaction(async (transaction) => {
     for (const level of levels) {
-      const specs = periodsFor(level.type, scheme);
+      const specs = periodsFor(level, scheme);
       const periods = await GradingPeriod.findAll({ where: { levelId: level.id, academicYearId }, order: [['order', 'ASC']], transaction });
       const periodIds = periods.map((p) => p.id);
       const gradedPeriodIds = new Set(

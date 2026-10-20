@@ -40,7 +40,10 @@ export const getSuggestedRanges = asyncHandler(async (req, res) => {
 export const applyGradingScheme = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const { scheme, ranges, levelIds, academicYearId } = req.body as { scheme: GradingScheme; ranges: Array<{ startDate: string; endDate: string }>; levelIds?: number[]; academicYearId?: number };
-  const summary = await applyScheme(session.schoolId, academicYearId ?? requireCurrentYear(session.academicYearId), scheme, ranges, levelIds);
+  // La conducción de un nivel solo aplica el esquema a su nivel.
+  const wanted = levelIds?.length ? levelIds : session.scope.all ? undefined : session.scope.levelIds;
+  if (!session.scope.all && wanted?.some((id) => !session.scope.levelIds.includes(id))) throw forbidden('Solo podés cambiar el esquema de tu nivel.');
+  const summary = await applyScheme(session.schoolId, academicYearId ?? requireCurrentYear(session.academicYearId), scheme, ranges, wanted);
   await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'GradingPeriod', action: 'apply-scheme', after: { scheme, ranges, summary } });
   res.json({ scheme, summary });
 });
@@ -56,6 +59,8 @@ export const addSummaryPeriods = asyncHandler(async (req, res) => {
   const year = academicYearId ?? requireCurrentYear(session.academicYearId);
   if (!session.scope.all && !session.scope.levelIds.includes(levelId)) throw forbidden('Ese nivel está fuera de tu alcance.');
   const periods = await GradingPeriod.findAll({ where: { schoolId: session.schoolId, levelId, academicYearId: year }, order: [['order', 'ASC']] });
+  // Orden contiguo (1..n) antes de intercalar: si quedó algún hueco, se corrige acá.
+  for (const [i, p] of periods.entries()) if (p.order !== i + 1) await p.update({ order: i + 1 });
   const groups = [...new Set(periods.filter((p) => p.groupName && !p.summaryOf).map((p) => p.groupName as string))];
   if (!groups.length) throw badRequest('Este nivel no tiene cuatrimestres (los períodos no están agrupados).');
   const created: string[] = [];
@@ -104,6 +109,9 @@ export const removeSummaryPeriods = asyncHandler(async (req, res) => {
   const withGrades = await Grade.count({ where: { periodId: summaries.map((p) => p.id) } });
   if (withGrades) throw badRequest('Ya hay notas de cuatrimestre cargadas: no se pueden quitar.');
   await GradingPeriod.destroy({ where: { id: summaries.map((p) => p.id) } });
+  // Sin huecos en el orden después de quitar.
+  const rest = await GradingPeriod.findAll({ where: { schoolId: session.schoolId, levelId, academicYearId: year }, order: [['order', 'ASC']] });
+  for (const [i, p] of rest.entries()) if (p.order !== i + 1) await p.update({ order: i + 1 });
   await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'GradingPeriod', action: 'remove-summaries', before: { levelId, removed: summaries.length } });
   res.json({ removed: summaries.length });
 });

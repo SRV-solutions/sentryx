@@ -102,9 +102,14 @@ Reglas que se aplican en el backend:
 
 ## Calificaciones por nivel (configurables)
 
-- **Secundario**: 2 cuatrimestres × 2 bimestres. El 1º bimestre de cada cuatrimestre es **conceptual** y el 2º es **numérico**. La nota final es el promedio de los numéricos.
-- **Primario**: 3 trimestres, escala conceptual (Sobresaliente → Insuficiente).
-- **Inicial**: informes narrativos.
+Cada nivel tiene un **modo de calificación por defecto** (`Level.settings.gradingMode`) que define la conducción del nivel en *Administración → Calificaciones* (permiso `grading_periods:update`: RL, Dirección, Rectoría, Vicedirección, Coordinación; cada una solo sobre su nivel):
+
+- **Solo números** (`NUMERIC`): todos los períodos con nota numérica; final = promedio.
+- **Solo letras** (`CONCEPTUAL`): la escala de palabras del nivel (editable); sin promedio.
+- **Informes** (`NARRATIVE`): texto por materia o por sala.
+- **Mixto** (`MIXED`, el clásico de Secundario): bimestres impares conceptuales, pares numéricos, más la nota de cuatrimestre si se agrega.
+
+Por defecto: Inicial informes, Primario letras, Secundario mixto. El modo se aplica a los períodos nuevos (esquema trimestral/bimestral) y, con *Aplicar el modo a los períodos del ciclo*, a los existentes que no tengan notas. Además **cada período se puede cambiar individualmente** (numérico / letras / informe) mientras no tenga notas cargadas; con notas, la API responde 400 para no dejar notas ilegibles. Escala, rango numérico, nota de aprobación y valor de las inasistencias también se editan ahí. La planilla y el boletín se adaptan solos al tipo de cada período (los informes van debajo de la tabla cuando conviven con notas).
 
 **Nota de cuatrimestre (Secundario):** desde *Administración → Estructura → Nota de cuatrimestre* se agrega a cada cuatrimestre un período numérico de cierre ("Nota 1º Cuatrimestre") que carga la docente además de los bimestres; sus fechas abarcan el cuatrimestre entero (se superponen a propósito, no afecta nada). Con ellas, la **final anual = promedio de las dos notas de cuatrimestre**; sin ellas, el de las numéricas. La planilla sugiere el promedio de los bimestres entre paréntesis. Se pueden quitar mientras no tengan notas.
 

@@ -2,7 +2,9 @@
 import { Level, AcademicYear, Division, Subject, TeachingAssignment, GradingPeriod, User, Enrollment, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, forbidden } from '../lib/http';
 import { invalidateSchoolSession, divisionWhere } from '../services/schoolSession';
-import { DEFAULT_LEVEL_SETTINGS, LevelType } from '../constants/school';
+import { DEFAULT_LEVEL_SETTINGS, LevelType, gradingModeOf, kindsForMode } from '../constants/school';
+import { Entity, Action } from '../constants/permissions';
+import { Grade } from '../models';
 import { ensurePeriods } from '../services/schoolSetup';
 import { audit } from '../services/audit';
 
@@ -46,10 +48,14 @@ export const getStructure = asyncHandler(async (req, res) => {
 // ----- Niveles -----
 // PATCH /levels/:id
 export const updateLevel = asyncHandler(async (req, res) => {
-    const level = await Level.findOne({ where: { id: req.params.id, schoolId: req.schoolSession!.schoolId } });
+    const session = req.schoolSession!;
+    const level = await Level.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
     if (!level) throw notFound();
+    // La conducción de un nivel configura SU nivel (modo, escala, rangos); renombrarlo o tocar otros niveles es estructura.
+    if (!session.scope.all && !session.scope.levelIds.includes(level.id)) throw forbidden('Ese nivel está fuera de tu alcance.');
+    if (req.body.name !== undefined && !session.can(Entity.SCHOOL, Action.UPDATE)) throw forbidden('Solo la conducción general cambia el nombre del nivel.');
     const before = level.toJSON();
-    await level.update(req.body);
+    await level.update(req.body.settings ? { ...req.body, settings: { ...level.settings, ...req.body.settings } } : req.body);
     await audit({ schoolId: req.schoolSession!.schoolId, userId: req.user!.id, entity: 'Level', entityId: level.id, action: 'update', before, after: level.toJSON() });
     res.json(level);
   });
@@ -165,9 +171,50 @@ export const removeAssignment = asyncHandler(async (req, res) => {
 // ----- Períodos -----
 // PATCH /periods/:id
 export const updatePeriod = asyncHandler(async (req, res) => {
-    const period = await GradingPeriod.findOne({ where: { id: req.params.id, schoolId: req.schoolSession!.schoolId } });
+    const session = req.schoolSession!;
+    const period = await GradingPeriod.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
     if (!period) throw notFound();
-    res.json(await period.update(req.body));
+    if (!session.scope.all && !session.scope.levelIds.includes(period.levelId as number)) throw forbidden('Ese nivel está fuera de tu alcance.');
+    // Cambiar el tipo de nota con notas ya cargadas las dejaría ilegibles (un 8 en un período conceptual).
+    if (req.body.kind && req.body.kind !== period.kind && (await Grade.count({ where: { periodId: period.id } }))) {
+      throw badRequest('Este período ya tiene notas cargadas: no se puede cambiar el tipo de nota. Podés cambiarlo en los períodos todavía vacíos.');
+    }
+    const before = period.toJSON();
+    await period.update(req.body);
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'GradingPeriod', entityId: period.id, action: 'update', before, after: period.toJSON() });
+    res.json(period);
+  });
+
+/**
+ * Aplica el modo de calificación del nivel a los períodos del ciclo (solo a los que no tienen notas).
+ * Devuelve cuántos cambió y cuántos quedaron igual por tener notas.
+ */
+// POST /levels/:id/grading-mode/apply
+export const applyGradingMode = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const level = await Level.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
+    if (!level) throw notFound();
+    if (!session.scope.all && !session.scope.levelIds.includes(level.id)) throw forbidden('Ese nivel está fuera de tu alcance.');
+    const academicYearId = (req.body as { academicYearId?: number }).academicYearId ?? session.academicYearId;
+    if (!academicYearId) throw badRequest('No hay ciclo lectivo activo.');
+    const periods = await GradingPeriod.findAll({ where: { levelId: level.id, academicYearId }, order: [['order', 'ASC']] });
+    // Las notas de cuatrimestre siempre son numéricas: no entran en el patrón.
+    const regular = periods.filter((p) => !p.summaryOf);
+    const kinds = kindsForMode(gradingModeOf(level), regular.length);
+    const graded = new Set(regular.length ? (await Grade.findAll({ where: { periodId: regular.map((p) => p.id) }, attributes: ['periodId'], group: ['periodId'], raw: true })).map((g) => g.periodId as number) : []);
+    let updated = 0;
+    let skipped = 0;
+    for (const [i, period] of regular.entries()) {
+      if (period.kind === kinds[i]) continue;
+      if (graded.has(period.id)) {
+        skipped++;
+        continue;
+      }
+      await period.update({ kind: kinds[i] });
+      updated++;
+    }
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Level', entityId: level.id, action: 'apply-grading-mode', after: { mode: gradingModeOf(level), updated, skipped } });
+    res.json({ mode: gradingModeOf(level), updated, skipped });
   });
 
 // POST /periods/:id/:action(close|reopen)

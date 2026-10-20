@@ -1,7 +1,7 @@
 /** Validaciones (zod) de las rutas de structure. */
 import { z } from 'zod';
 import { idParam } from '../lib/http';
-import { LEVEL_TYPES, PERIOD_KINDS } from '../constants/school';
+import { LEVEL_TYPES, PERIOD_KINDS, GRADING_MODES } from '../constants/school';
 
 // ----- Divisiones -----
 export const divisionBody = z.object({
@@ -27,6 +27,7 @@ export const updateLevel = {
       name: z.string().min(2).max(60).optional(),
       settings: z
         .object({
+          gradingMode: z.enum(GRADING_MODES).optional(),
           conceptualScale: z.array(z.string().min(1).max(40)).min(2).max(10),
           numericMin: z.number().min(0).max(10),
           numericMax: z.number().min(1).max(100),
@@ -36,6 +37,9 @@ export const updateLevel = {
         .optional(),
     }),
   };
+
+/** POST /levels/:id/grading-mode/apply — aplica el modo del nivel a los períodos del ciclo que todavía no tienen notas. */
+export const applyGradingMode = { params: idParam, body: z.object({ academicYearId: z.number().int().optional() }).default({}) };
 
 /** POST /levels */
 export const createLevel = { body: z.object({ type: z.enum(LEVEL_TYPES) }) };

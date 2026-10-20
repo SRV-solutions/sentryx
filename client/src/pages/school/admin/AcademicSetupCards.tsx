@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Wand2, CalendarRange, Pencil, Trash2 } from 'lucide-react';
 import { apiGet, apiSend } from '../../../lib/api';
+import { useSchool } from '../../../school/SchoolContext';
 import { Card, Field, Sheet, useToast, Badge } from '../../../ui';
 import type { Structure, Division } from '../../../school/types';
 
@@ -78,7 +79,11 @@ export const DefaultStructureCard = ({ structure }: { structure: Structure }) =>
 };
 
 /** Esquema de evaluación (trimestral / bimestral) con fechas, para todos los niveles o los elegidos. */
-export const GradingSchemeCard = ({ structure }: { structure: Structure }) => {
+export const GradingSchemeCard = ({ structure: full }: { structure: Structure }) => {
+  const { session } = useSchool();
+  // La conducción de un nivel solo ve (y aplica) su nivel.
+  const scoped = new Set(session?.levels.map((l) => l.id) ?? []);
+  const structure = { ...full, levels: full.levels.filter((l) => scoped.has(l.id)) };
   const qc = useQueryClient();
   const toast = useToast();
   const [open, setOpen] = useState(false);
@@ -165,7 +170,9 @@ export const GradingSchemeCard = ({ structure }: { structure: Structure }) => {
 export const SummaryPeriodsCard = ({ structure }: { structure: Structure }) => {
   const qc = useQueryClient();
   const toast = useToast();
-  const levels = structure.levels.filter((l) => structure.periods.some((p) => p.levelId === l.id && p.groupName));
+  const { session } = useSchool();
+  const scoped = new Set(session?.levels.map((l) => l.id) ?? []);
+  const levels = structure.levels.filter((l) => scoped.has(l.id) && structure.periods.some((p) => p.levelId === l.id && p.groupName));
   const act = useMutation({
     mutationFn: ({ levelId, remove }: { levelId: number; remove: boolean }) => apiSend(remove ? 'DELETE' : 'POST', '/school/periods/summaries', { levelId }),
     onSuccess: (_r, v) => (toast(v.remove ? 'Notas de cuatrimestre quitadas' : 'Notas de cuatrimestre agregadas: ya aparecen en la planilla y el boletín'), qc.invalidateQueries({ queryKey: ['structure'] })),

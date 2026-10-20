@@ -399,6 +399,19 @@ const migrations: Array<{
       await addColumnIfMissing(qi, "SupportReport", "attachments", { type: DataTypes.JSONB, allowNull: false, defaultValue: [] });
     },
   },
+  {
+    // Boletines configurables: modo de calificación por nivel (Level.settings.gradingMode) y permiso
+    // grading_periods:update para que la conducción de cada nivel configure el suyo.
+    name: "2026-10-21-grading-mode",
+    up: async () => {
+      await syncRbacCatalog();
+      await index(`INSERT INTO "RolePermission" ("roleId", "permissionId")
+        SELECT r.id, p.id FROM "Role" r, "Permission" p
+        WHERE r.code IN ('REPRESENTANTE_LEGAL', 'DIRECTOR', 'RECTOR', 'VICEDIRECTOR', 'COORDINADOR') AND p.entity = 'grading_periods' AND p.action = 'update'
+          AND NOT EXISTS (SELECT 1 FROM "RolePermission" rp WHERE rp."roleId" = r.id AND rp."permissionId" = p.id)`);
+      invalidateRbacCache();
+    },
+  },
 ];
 
 const run = async () => {

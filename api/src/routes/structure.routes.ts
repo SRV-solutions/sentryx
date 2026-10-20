@@ -9,7 +9,9 @@ import { requireStaff } from '../middlewares/schoolSession';
 const router = Router();
 
 router.get('/structure', requireStaff, StructureController.getStructure);
-router.patch('/levels/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.updateLevel), StructureController.updateLevel);
+// Configuración de calificación: también la conducción del nivel (grading_periods:update); el controlador acota al alcance.
+router.patch('/levels/:id', authorize(Entity.GRADING_PERIODS, Action.UPDATE), validate(StructureValidator.updateLevel), StructureController.updateLevel);
+router.post('/levels/:id/grading-mode/apply', authorize(Entity.GRADING_PERIODS, Action.UPDATE), validate(StructureValidator.applyGradingMode), StructureController.applyGradingMode);
 router.post('/levels', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.createLevel), StructureController.createLevel);
 router.post('/years/:id/current', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.setCurrentYear), StructureController.setCurrentYear);
 router.post('/divisions', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.createDivision), StructureController.createDivision);
@@ -19,7 +21,7 @@ router.post('/subjects', authorize(Entity.SCHOOL, Action.UPDATE), validate(Struc
 router.patch('/subjects/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.updateSubject), StructureController.updateSubject);
 router.post('/assignments', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.assignTeacher), StructureController.assignTeacher);
 router.delete('/assignments/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.removeAssignment), StructureController.removeAssignment);
-router.patch('/periods/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.updatePeriod), StructureController.updatePeriod);
+router.patch('/periods/:id', authorize(Entity.GRADING_PERIODS, Action.UPDATE), validate(StructureValidator.updatePeriod), StructureController.updatePeriod);
 router.post('/periods/:id/:action(close|reopen)', authorize(Entity.GRADING_PERIODS, Action.CLOSE), validate(StructureValidator.setPeriodStatus), StructureController.setPeriodStatus);
 
 export default router;

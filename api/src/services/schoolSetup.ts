@@ -1,6 +1,6 @@
 import { Transaction } from 'sequelize';
 import { School, Level, AcademicYear, GradingPeriod, AttendanceRule, sequelize } from '../models';
-import { DEFAULT_LEVEL_SETTINGS, DEFAULT_PERIODS, LevelType } from '../constants/school';
+import { DEFAULT_LEVEL_SETTINGS, DEFAULT_PERIODS, LevelType, gradingModeOf, kindsForMode } from '../constants/school';
 
 const LEVEL_NAMES: Record<LevelType, string> = { INICIAL: 'Inicial', PRIMARIO: 'Primario', SECUNDARIO: 'Secundario' };
 
@@ -8,6 +8,7 @@ const LEVEL_NAMES: Record<LevelType, string> = { INICIAL: 'Inicial', PRIMARIO: '
 export const ensurePeriods = async (level: Level, year: AcademicYear, transaction?: Transaction) => {
   const count = await GradingPeriod.count({ where: { levelId: level.id, academicYearId: year.id }, transaction });
   if (count) return;
+  const kinds = kindsForMode(gradingModeOf(level), DEFAULT_PERIODS[level.type].length);
   await GradingPeriod.bulkCreate(
     DEFAULT_PERIODS[level.type].map((p, i) => ({
       schoolId: level.schoolId,
@@ -15,7 +16,7 @@ export const ensurePeriods = async (level: Level, year: AcademicYear, transactio
       academicYearId: year.id,
       name: p.name,
       groupName: p.groupName,
-      kind: p.kind,
+      kind: kinds[i],
       order: i + 1,
       startDate: null,
       endDate: null,

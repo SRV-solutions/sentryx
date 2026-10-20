@@ -90,6 +90,7 @@ const ALL_SCHOOL_PERMISSIONS: PermissionPair[] = [
   [Entity.GRADES, Action.UPDATE],
   [Entity.GRADES, Action.UPDATE_ANY],
   [Entity.GRADING_PERIODS, Action.CLOSE],
+  [Entity.GRADING_PERIODS, Action.UPDATE],
   [Entity.REPORT_CARDS, Action.PUBLISH],
   [Entity.ATTENDANCE, Action.READ],
   [Entity.ATTENDANCE, Action.UPDATE],
