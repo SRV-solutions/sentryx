@@ -301,6 +301,10 @@ a.list-item:hover { background: var(--surface-2); }
 .quiz-opt-2 { background: #d89e00; }
 .quiz-opt-3 { background: #26890c; }
 .quiz-opt.dim { opacity: 0.35; }
+/* Campo de texto dentro de una opción de color (editor de juegos): legible en modo claro y oscuro. */
+.quiz-opt-input.input { background: rgba(0, 0, 0, 0.22); border: 0; color: #fff; font-weight: 700; min-height: 40px; }
+.quiz-opt-input.input::placeholder { color: rgba(255, 255, 255, 0.78); font-weight: 600; opacity: 1; }
+.quiz-opt-input.input:focus { background: rgba(0, 0, 0, 0.32); box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85); }
 .quiz-opt.chosen { outline: 4px solid var(--text); outline-offset: 2px; }
 .quiz-shape { width: 26px; height: 26px; flex-shrink: 0; display: inline-grid; place-items: center; }
 .quiz-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }

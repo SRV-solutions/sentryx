@@ -46,8 +46,7 @@ const QuestionEditor = ({ q, index, total, onChange, onRemove, onMove, onDuplica
             <div key={i} className={`quiz-opt quiz-opt-${i}`} style={{ minHeight: 56, padding: '8px 10px' }}>
               <OptionShape index={i} />
               <input
-                className="input"
-                style={{ background: 'rgba(255,255,255,.15)', border: 0, color: '#fff', fontWeight: 700, minHeight: 40 }}
+                className="input quiz-opt-input"
                 maxLength={120}
                 placeholder={i < 2 ? `Respuesta ${i + 1}` : `Respuesta ${i + 1} (opcional)`}
                 value={o.text}

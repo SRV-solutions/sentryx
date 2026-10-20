@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Users, Play, SkipForward, Square, Trophy, Maximize, X, Check } from 'lucide-react';
+import { ArrowLeft, Users, Play, SkipForward, Square, Trophy, Maximize, X, Check, Copy, ExternalLink } from 'lucide-react';
+import QRCode from 'qrcode';
 import { apiGet, apiSend } from '../../lib/api';
 import { ErrorBox, Spinner, useToast } from '../../ui';
 import { OptionShape, formatSeconds } from '../../school/quiz';
@@ -34,6 +35,16 @@ const useCountdown = (remainingMs: number, key: unknown) => {
   return Math.max(0, deadline - Date.now());
 };
 
+/** QR con el link directo a la sala: los alumnos lo escanean y entran con el PIN ya cargado. Se genera en el navegador. */
+const JoinQr = ({ url }: { url: string }) => {
+  const [src, setSrc] = useState('');
+  useEffect(() => {
+    QRCode.toDataURL(url, { width: 260, margin: 1, errorCorrectionLevel: 'M', color: { dark: '#000000', light: '#ffffff' } }).then(setSrc).catch(() => setSrc(''));
+  }, [url]);
+  if (!src) return null;
+  return <img src={src} alt={`Código QR para entrar a la partida: ${url}`} width={220} height={220} style={{ borderRadius: 12, background: '#fff', padding: 8 }} />;
+};
+
 /** Pantalla para proyectar la partida en vivo. */
 export default function LiveHostPage() {
   const id = Number(useParams().id);
@@ -51,7 +62,9 @@ export default function LiveHostPage() {
     mutationFn: (playerId: number) => apiSend('DELETE', `/school/live-games/${id}/players/${playerId}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['live-game', id] }),
   });
-  const joinUrl = `${window.location.host}/jugar`;
+  // Link con el PIN incluido: al abrirlo (o escanear el QR) la sala aparece lista para escribir el nombre.
+  const joinUrl = s ? `${window.location.origin}/jugar?pin=${s.pin}` : '';
+  const copyJoinUrl = () => navigator.clipboard.writeText(joinUrl).then(() => toast('Link copiado'), () => toast('No se pudo copiar el link', true));
 
   if (state.error) return <ErrorBox error={state.error} />;
   if (!s) return <Spinner center />;
@@ -71,9 +84,17 @@ export default function LiveHostPage() {
       {s.status === 'LOBBY' && (
         <div className="stack-lg" style={{ alignItems: 'center', textAlign: 'center' }}>
           <div className="h2">{s.title}</div>
-          <div className="card" style={{ padding: '18px 28px' }}>
-            <div className="small muted">Entrá a <b>{joinUrl}</b> y escribí el PIN</div>
-            <div className="quiz-pin">{s.pin}</div>
+          <div className="card row wrap" style={{ padding: '18px 28px', gap: 24, justifyContent: 'center', alignItems: 'center' }}>
+            <div className="stack" style={{ alignItems: 'center', gap: 6 }}>
+              <div className="small muted">Escaneá el QR o entrá a</div>
+              <div className="row wrap" style={{ gap: 6, justifyContent: 'center' }}>
+                <a href={joinUrl} target="_blank" rel="noreferrer" className="h3" style={{ wordBreak: 'break-all' }}>{joinUrl.replace(/^https?:\/\//, '')} <ExternalLink size={14} /></a>
+                <button className="icon-btn" aria-label="Copiar link" onClick={copyJoinUrl}><Copy size={16} /></button>
+              </div>
+              <div className="small muted">PIN del juego</div>
+              <div className="quiz-pin">{s.pin}</div>
+            </div>
+            <JoinQr url={joinUrl} />
           </div>
           <div className="row wrap" style={{ gap: 8, justifyContent: 'center', maxWidth: 900 }}>
             {s.players.map((p) => (
