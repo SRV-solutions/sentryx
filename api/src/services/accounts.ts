@@ -160,13 +160,21 @@ export const resetToTemporaryPassword = async (user: User, schoolName: string) =
         title: `¡Hola ${user.firstName}!`,
         paragraphs: [`${schoolName} restableció tu contraseña de Sentryx. Al ingresar te vamos a pedir que elijas una nueva.`],
         box: [`Usuario: ${user.dni ?? user.email}`, `Contraseña temporal: ${plain}`],
-        cta: { label: 'Ingresar', url: `${env.FRONTEND_URL}/login` },
+        cta: { label: 'Ingresar', url: loginLink(user, plain) },
         footnote: 'Si no pediste este cambio, avisale a la institución.',
       }),
     });
   }
   return { tempPassword: plain, emailed, login: user.dni ?? user.email };
 };
+
+/**
+ * Link del botón "Ingresar" de los mails con contraseña temporal: abre el login con usuario y contraseña
+ * ya cargados (van en el #fragmento, que el navegador nunca manda al servidor ni queda en logs), así la
+ * persona no copia y pega. El mail ya trae esos mismos datos en el cuerpo.
+ */
+export const loginLink = (user: { dni: string | null; email: string; firstName: string }, password: string) =>
+  `${env.FRONTEND_URL}/login#${new URLSearchParams({ u: user.dni ?? user.email, p: password, n: user.firstName, m: 'mail' }).toString()}`;
 
 export const sendWelcome = (user: User, password: string, schoolName: string) => {
   if (isTechEmail(user.email)) return;
@@ -180,7 +188,7 @@ export const sendWelcome = (user: User, password: string, schoolName: string) =>
         'Podés ingresar con tu email o tu DNI. Al entrar por primera vez te vamos a pedir que cambies la contraseña.',
       ],
       box: [`Usuario: ${user.dni ?? user.email}`, `Contraseña temporal: ${password}`],
-      cta: { label: 'Ingresar', url: `${env.FRONTEND_URL}/login` },
+      cta: { label: 'Ingresar ahora', url: loginLink(user, password) },
       footnote: 'Tip: desde el celular, abrí el sitio y elegí "Agregar a pantalla de inicio" para recibir avisos al instante.',
     }),
   });

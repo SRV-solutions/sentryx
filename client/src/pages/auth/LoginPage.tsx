@@ -15,7 +15,7 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   // Datos precargados desde "Probar ingreso" (hoja de credenciales): vienen en el #fragmento y se borran al leerlos.
-  const [prefilled, setPrefilled] = useState<string | null>(null);
+  const [prefilled, setPrefilled] = useState<{ name: string; fromMail: boolean } | null>(null);
   useEffect(() => {
     const hash = window.location.hash.replace(/^#/, '');
     if (!hash) return;
@@ -23,7 +23,7 @@ export default function LoginPage() {
     if (!h.get('u')) return;
     setIdentifier(h.get('u') ?? '');
     setPassword(h.get('p') ?? '');
-    setPrefilled(h.get('n') || h.get('u'));
+    setPrefilled({ name: h.get('n') || h.get('u') || '', fromMail: h.get('m') === 'mail' });
     window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, []);
   // Login con la identidad del colegio: /c/:slug (link que cada colegio comparte con sus familias).
@@ -104,7 +104,11 @@ export default function LoginPage() {
               <label htmlFor="pw">Contraseña</label>
               <PasswordInput id="pw" value={password} onChange={setPassword} required />
             </div>
-            {prefilled && <div className="alert alert-info small">Datos cargados para probar el ingreso de <b>{prefilled}</b>. Al entrar, en este navegador queda abierta esa sesión (se cierra la tuya).</div>}
+            {prefilled && (prefilled.fromMail ? (
+              <div className="alert alert-info small">¡Hola <b>{prefilled.name}</b>! Ya cargamos tu usuario y tu contraseña temporal: tocá <b>Ingresar</b>. Después te vamos a pedir que elijas una contraseña propia.</div>
+            ) : (
+              <div className="alert alert-info small">Datos cargados para probar el ingreso de <b>{prefilled.name}</b>. Al entrar, en este navegador queda abierta esa sesión (se cierra la tuya).</div>
+            ))}
             {error && <div className="alert alert-danger">{error}</div>}
             <button className="btn btn-accent btn-block" disabled={loading || !identifier || !password}>
               {loading ? 'Ingresando…' : 'Ingresar'}
