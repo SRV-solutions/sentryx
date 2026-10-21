@@ -5,7 +5,7 @@ import { CredentialsSheet, type Credential } from '../../school/CredentialsSheet
 import { useToast } from '../../ui';
 import { Link } from 'react-router-dom';
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { Search, ChevronRight, BarChart3, KeySquare, ArrowRightLeft, CheckSquare } from 'lucide-react';
+import { Search, ChevronRight, BarChart3, KeySquare, ArrowRightLeft, CheckSquare, UserPlus } from 'lucide-react';
 import { apiGet, apiSend } from '../../lib/api';
 import { Avatar, Badge, Empty, ErrorBox, PageHeader, Skeleton } from '../../ui';
 import { TransferSheet } from '../../school/StudentLifecycle';
@@ -32,7 +32,8 @@ export default function StudentsPage() {
   });
   const rows = list.data?.pages.flatMap((p) => p.data) ?? [];
   const levelName = (id: number) => structure.data?.levels.find((l) => l.id === id)?.name ?? '';
-  const { can } = useSchool();
+  const { can, session } = useSchool();
+  const scoped = new Set(session?.levels.map((l) => l.id) ?? []);
   const toast = useToast();
   const qc = useQueryClient();
   const [creds, setCreds] = useState<Credential[]>([]);
@@ -50,7 +51,11 @@ export default function StudentsPage() {
 
   return (
     <div className="stack">
-      <PageHeader title="Alumnos" subtitle={`${list.data?.pages[0]?.pagination.totalItems ?? '…'} en tu alcance`} />
+      <PageHeader
+        title="Alumnos"
+        subtitle={`${list.data?.pages[0]?.pagination.totalItems ?? '…'} en tu alcance`}
+        actions={can(Entity.USERS, Action.CREATE) && <Link to="/admin?tab=alumnos" className="btn"><UserPlus size={18} /> Agregar alumno</Link>}
+      />
       <div className="row wrap">
         <div style={{ position: 'relative', flex: '1 1 220px' }}>
           <Search size={18} style={{ position: 'absolute', left: 14, top: 14 }} className="muted" />
@@ -58,7 +63,7 @@ export default function StudentsPage() {
         </div>
         <select className="select" style={{ flex: '1 1 160px' }} value={divisionId} onChange={(e) => setDivisionId(e.target.value ? Number(e.target.value) : '')}>
           <option value="">Todas las divisiones</option>
-          {structure.data?.divisions.map((d) => (
+          {structure.data?.divisions.filter((d) => scoped.has(d.levelId)).map((d) => (
             <option key={d.id} value={d.id}>{levelName(d.levelId)} · {d.name}</option>
           ))}
         </select>

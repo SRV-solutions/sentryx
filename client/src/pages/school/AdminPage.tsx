@@ -25,7 +25,7 @@ export default function AdminPage() {
     ...(can(Entity.AUDIT_LOG, Action.READ) ? [{ value: 'audit' as const, label: 'Auditoría' }] : []),
   ];
   const [params] = useSearchParams();
-  const alias: Record<string, string> = { calificaciones: 'grading', estructura: 'structure', personal: 'staff', ciclo: 'year', auditoria: 'audit' };
+  const alias: Record<string, string> = { calificaciones: 'grading', estructura: 'structure', personal: 'staff', alumnos: 'students', ciclo: 'year', auditoria: 'audit' };
   const wanted = alias[params.get('tab') ?? ''] ?? params.get('tab');
   const initial = tabs.find((t) => t.value === wanted)?.value;
   const [tab, setTab] = useState<(typeof tabs)[number]['value']>(initial ?? tabs[0]?.value ?? 'staff');

@@ -5,6 +5,7 @@ import { Plus, Upload, Download, Trash2 } from 'lucide-react';
 import { apiGet, apiSend } from '../../../lib/api';
 import { parseCSV, CSV_TEMPLATE, downloadText } from '../../../lib/csv';
 import { Card, Field, Skeleton, useToast } from '../../../ui';
+import { useSchool } from '../../../school/SchoolContext';
 import { type Structure } from '../../../school/types';
 import { CredentialsSheet, type Credential } from '../../../school/CredentialsSheet';
 
@@ -33,7 +34,11 @@ const isBlank = (g: GuardianForm) => !Object.entries(g).some(([k, v]) => k !== '
 export const StudentsAdminTab = () => {
   const toast = useToast();
   const qc = useQueryClient();
-  const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure') });
+  const full = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure') });
+  const { session } = useSchool();
+  // Cada directivo carga alumnos en SU alcance: Rectoría en Secundario, Dirección en su nivel, Secretaría en todos.
+  const scoped = useMemo(() => new Set(session?.levels.map((l) => l.id) ?? []), [session]);
+  const structure = useMemo(() => (full.data ? { ...full, data: { ...full.data, levels: full.data.levels.filter((l) => scoped.has(l.id)), divisions: full.data.divisions.filter((d) => scoped.has(d.levelId)) } } : full), [full, scoped]);
   const [creds, setCreds] = useState<Credential[]>([]);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', divisionId: 0, guardians: [{ ...guardianEmpty }] });
   const [importRows, setImportRows] = useState<Array<Record<string, unknown>> | null>(null);

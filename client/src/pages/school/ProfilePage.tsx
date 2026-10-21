@@ -165,6 +165,7 @@ export default function ProfilePage() {
           <div className="row wrap" style={{ justifyContent: 'center', gap: 6 }}>
             {roles.map((r) => <Badge key={r} tone="info">{r}</Badge>)}
           </div>
+          {roles.length > 1 && <div className="xs muted" style={{ textAlign: 'center' }}>Tenés varios roles: ves y podés hacer todo lo que permite cada uno, con el alcance de ambos sumado.</div>}
           {!me.avatar && <button className="btn btn-sm btn-ghost" onClick={() => setPhotoOpen(true)}><Camera size={14} /> Agregar foto</button>}
         </div>
       </div>
