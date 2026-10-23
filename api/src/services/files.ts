@@ -10,6 +10,10 @@ const MB = 1024 * 1024;
 /** Tipos permitidos: documentos de clase, imágenes, audio y video. Nada ejecutable. */
 const ALLOWED = /^(image\/(jpeg|png|webp|gif|heic|heif)|application\/pdf|application\/(msword|vnd\.openxmlformats-officedocument\.[\w.]+|vnd\.ms-[\w.]+|vnd\.oasis\.opendocument\.[\w.]+)|text\/(plain|csv)|audio\/(mpeg|mp4|ogg|webm|x-m4a)|video\/(mp4|webm|quicktime))$/;
 
+/** "820 MB", "1 GB", "4,6 GB". */
+export const sizeLabel = (bytes: number) =>
+  bytes >= GB ? `${(bytes / GB).toLocaleString('es-AR', { maximumFractionDigits: 1 })} GB` : `${Math.max(1, Math.round(bytes / MB))} MB`;
+
 export const maxBytesFor = (mime: string) => (mime.startsWith('video/') ? env.VIDEO_MAX_MB : env.FILE_MAX_MB) * MB;
 
 /**
@@ -68,13 +72,19 @@ export const createUpload = async (opts: {
   // Recibos de sueldo: solo PDF y livianos (no cuentan en el espacio de nadie, así que se acotan acá).
   if (opts.purpose === 'PAYROLL' && (opts.contentType !== 'application/pdf' || opts.size > 10 * MB)) throw badRequest('Los recibos tienen que ser PDF de hasta 10 MB.');
   const max = maxBytesFor(opts.contentType);
-  if (opts.size > max) throw badRequest(`El archivo supera el máximo de ${Math.round(max / MB)} MB.`);
+  if (opts.size > max) {
+    throw badRequest(
+      `"${opts.fileName}" pesa ${sizeLabel(opts.size)} y el máximo por archivo es ${sizeLabel(max)}.${opts.contentType.startsWith('video/') ? ' Para videos más largos, subilo a YouTube como "no listado" y pegá el link.' : ''}`,
+      { code: 'FILE_TOO_LARGE', size: opts.size, max }
+    );
+  }
   const [quota, used, userUsed] = await Promise.all([quotaBytes(opts.schoolId), usedBytes(opts.schoolId), userUsedBytes(opts.schoolId, opts.uploaderId)]);
   if (opts.purpose !== 'PAYROLL' && userUsed + opts.size > opts.userLimitBytes) {
+    const available = Math.max(0, opts.userLimitBytes - userUsed);
     throw new HttpError(
       507,
-      `Llegaste a tu espacio de ${Math.round(opts.userLimitBytes / GB)} GB. Borrá archivos que ya no uses en "Archivos" o pedí un plan con más espacio.`,
-      { code: 'USER_STORAGE_FULL', used: userUsed, limit: opts.userLimitBytes }
+      `"${opts.fileName}" pesa ${sizeLabel(opts.size)} y te quedan ${sizeLabel(available)} libres de tus ${Math.round(opts.userLimitBytes / GB)} GB. Liberá espacio en "Archivos" o pedí un plan con más espacio.`,
+      { code: 'USER_STORAGE_FULL', used: userUsed, limit: opts.userLimitBytes, available, needed: opts.size, fileName: opts.fileName }
     );
   }
   if (quota !== null && used + opts.size > quota) throw new HttpError(507, 'La institución alcanzó su espacio de almacenamiento. Pedile a administración que libere archivos.');

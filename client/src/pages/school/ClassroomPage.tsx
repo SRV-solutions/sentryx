@@ -8,6 +8,7 @@ import {
 import { apiGet, apiSend, uploadFile, formatBytes, type UploadedFile } from '../../lib/api';
 import { FolderOpen } from 'lucide-react';
 import { FilePicker } from '../../school/FilePicker';
+import { uploadLimitLabel } from '../../school/plans';
 import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Chips, Empty, ErrorBox, Field, Sheet, Skeleton, Tabs, fmtDate, fullName, timeAgo, useToast } from '../../ui';
 import type { PersonLite } from '../../school/types';
@@ -130,6 +131,7 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
   const [progress, setProgress] = useState<number | null>(null);
   const [notify, setNotify] = useState(true);
   const [picking, setPicking] = useState(false);
+  const { session } = useSchool();
 
   const upload = async (list: FileList | null) => {
     for (const f of Array.from(list ?? [])) {
@@ -227,7 +229,7 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicking(true)} disabled={files.length >= 15}><FolderOpen size={16} /> Elegir de mis archivos</button>
           </div>
           <FilePicker open={picking} onClose={() => setPicking(false)} max={15 - files.length} exclude={files.map((f) => f.fileId)} onPick={(picked) => setFiles((prev) => [...prev, ...picked.filter((p) => !prev.some((x) => x.fileId === p.fileId))])} />
-          <span className="xs muted">Las fotos se optimizan automáticamente. Para videos largos conviene subirlos a YouTube (oculto) y pegar el link.</span>
+          <span className="xs muted">Máximo {uploadLimitLabel(session?.features?.maxUploadMb)} por archivo. Las fotos se optimizan automáticamente. Para videos largos conviene subirlos a YouTube (oculto) y pegar el link.</span>
         </div>
         <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar a las familias del aula</label>
         <button className="btn btn-accent btn-block" disabled={save.isPending || progress !== null || title.trim().length < 2}>Publicar</button>

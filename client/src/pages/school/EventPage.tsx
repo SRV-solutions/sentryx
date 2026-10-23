@@ -155,7 +155,7 @@ const Workspace = ({ event }: { event: EventDetail }) => {
             )}
             <div className="row" style={{ gap: 6 }}>
               <button className="btn grow" disabled={create.isPending}>Agregar</button>
-              <label className="btn btn-ghost" aria-label="Adjuntar archivo">
+              <label className="btn btn-ghost" aria-label="Adjuntar archivo" title="Máximo 1 GB por archivo">
                 <Paperclip size={16} /> {uploading ? 'Subiendo…' : 'Archivo'}
                 <input type="file" hidden onChange={(e) => (attach(e.target.files?.[0]), (e.target.value = ''))} disabled={uploading} />
               </label>

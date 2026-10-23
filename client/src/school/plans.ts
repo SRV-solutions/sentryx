@@ -61,3 +61,9 @@ export const usePlan = () => {
     hasFeature: (feature: PlanFeature) => features.has(feature),
   };
 };
+
+/** "1 GB" (o lo que configure el servidor): el máximo por archivo, para mostrarlo donde se sube. */
+export const uploadLimitLabel = (maxUploadMb?: number) => {
+  const mb = maxUploadMb ?? 1024;
+  return mb >= 1024 ? `${(mb / 1024).toLocaleString('es-AR', { maximumFractionDigits: 1 })} GB` : `${mb} MB`;
+};

@@ -21,7 +21,13 @@ interface Member {
   storageLimit: number;
 }
 interface MembersResponse { members: Member[]; summary: { counts: Record<PlanCode, number>; monthly: number; activeTotal: number } }
-interface PlanRequestRow { id: number; userId: number; plan: PlanCode; note: string | null; status: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA'; createdAt: string; currentPlan: PlanCode; User: { firstName: string; lastName: string; avatar: string | null } }
+interface PlanRequestRow {
+  id: number; userId: number; plan: PlanCode; note: string | null; status: 'PENDIENTE' | 'APROBADA' | 'RECHAZADA'; createdAt: string; currentPlan: PlanCode;
+  User: { firstName: string; lastName: string; avatar: string | null };
+  context: { kind: 'storage'; fileName?: string; fileSize?: number; used?: number; limit?: number } | null;
+  approvers: string[];
+  canResolve: boolean;
+}
 
 const CATEGORY_FILTERS: Array<{ value: Category | ''; label: string }> = [
   { value: '', label: 'Todos' },
@@ -143,11 +149,11 @@ const PeopleTab = ({ catalog }: { catalog: PlanInfo[] }) => {
 const RequestsTab = () => {
   const qc = useQueryClient();
   const toast = useToast();
-  const { can } = useSchool();
   const [status, setStatus] = useState<'PENDIENTE' | ''>('PENDIENTE');
   const requests = useQuery({ queryKey: ['plan-requests', status], queryFn: () => apiGet<PlanRequestRow[]>(`/school/plans/requests${status ? `?status=${status}` : ''}`) });
+  const [replies, setReplies] = useState<Record<number, string>>({});
   const resolve = useMutation({
-    mutationFn: ({ id, approve }: { id: number; approve: boolean }) => apiSend('POST', `/school/plans/requests/${id}/resolve`, { approve }),
+    mutationFn: ({ id, approve }: { id: number; approve: boolean }) => apiSend('POST', `/school/plans/requests/${id}/resolve`, { approve, reply: replies[id]?.trim() || null }),
     onSuccess: (_r, v) => (toast(v.approve ? 'Aprobado: ya tiene el plan nuevo' : 'Pedido rechazado'), qc.invalidateQueries({ queryKey: ['plan-requests'] }), qc.invalidateQueries({ queryKey: ['plan-members'] })),
     onError: (e: Error) => toast(e.message, true),
   });
@@ -164,9 +170,16 @@ const RequestsTab = () => {
               <div className="grow" style={{ minWidth: 180 }}>
                 <div className="h3">{r.User.firstName} {r.User.lastName}</div>
                 <div className="small">De <b>{PLAN_NAMES[r.currentPlan]}</b> a <b>{PLAN_NAMES[r.plan]}</b> · <span className="muted">{timeAgo(r.createdAt)}</span></div>
-                {r.note && <div className="small muted" style={{ marginTop: 4 }}>“{r.note}”</div>}
+                {r.context?.kind === 'storage' && (
+                  <div className="small" style={{ marginTop: 4 }}>
+                    Quiere subir <b>{r.context.fileName ?? 'un archivo'}</b>{r.context.fileSize ? ` (${formatBytesShort(r.context.fileSize)})` : ''}{r.context.used != null && r.context.limit ? ` y ya usa ${formatBytesShort(r.context.used)} de ${formatBytesShort(r.context.limit)}` : ''}.
+                  </div>
+                )}
+                {r.note && <div className="small muted" style={{ marginTop: 4 }}>Motivo: “{r.note}”</div>}
+                {r.approvers.length > 0 && <div className="xs muted" style={{ marginTop: 4 }}>Le llegó a: {r.approvers.join(', ')}</div>}
+                {r.canResolve && <input className="input" style={{ marginTop: 8, minHeight: 36 }} maxLength={300} placeholder="Respuesta (opcional): le llega con la notificación" value={replies[r.id] ?? ''} onChange={(e) => setReplies({ ...replies, [r.id]: e.target.value })} />}
               </div>
-              {r.status === 'PENDIENTE' && can(Entity.PLANS, Action.UPDATE) ? (
+              {r.canResolve ? (
                 <div className="row" style={{ gap: 6 }}>
                   <button className="btn btn-sm btn-ghost" disabled={resolve.isPending} onClick={() => resolve.mutate({ id: r.id, approve: false })}><X size={14} /> Rechazar</button>
                   <button className="btn btn-sm" disabled={resolve.isPending} onClick={() => resolve.mutate({ id: r.id, approve: true })}><Check size={14} /> Aprobar</button>

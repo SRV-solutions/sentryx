@@ -419,6 +419,15 @@ const migrations: Array<{
       for (const model of [M.UserSession, M.LoginLinkToken]) await (model as unknown as { sync: () => Promise<unknown> }).sync();
     },
   },
+  {
+    // Pedidos de plan que van a la conducción del nivel (Dirección / Rectoría), con contexto (falta de espacio).
+    name: "2026-10-23-plan-request-approvers",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "PlanRequest", "approverIds", { type: DataTypes.ARRAY(DataTypes.INTEGER), allowNull: false, defaultValue: [] });
+      await addColumnIfMissing(qi, "PlanRequest", "context", { type: DataTypes.JSONB, allowNull: true });
+      await index(`CREATE INDEX IF NOT EXISTS "user_session_user_last" ON "UserSession" ("userId", "lastUsedAt")`);
+    },
+  },
 ];
 
 const run = async () => {

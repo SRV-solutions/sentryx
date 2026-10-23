@@ -58,7 +58,7 @@ export const listPeople = asyncHandler(async (req, res) => {
             WHERE g.active AND ${divisions ? `e."divisionId" IN (:divs)` : 'TRUE'}
             GROUP BY g."userId"
          )
-         SELECT u.id, u."firstName", u."lastName", u.avatar, u."lastLogin", u."mustChangePassword", u."isActive",
+         SELECT u.id, u."firstName", u."lastName", u.avatar, u."lastLogin", (SELECT MAX(us."lastUsedAt") FROM "UserSession" us WHERE us."userId" = u.id) AS "lastSeenAt", u."mustChangePassword", u."isActive",
                 ${contacts ? `u.email, u.phone, u.dni,` : ''} fam.children, COUNT(*) OVER()::int AS total
            FROM fam JOIN "User" u ON u.id = fam."userId"
           WHERE (:q::text IS NULL OR u."firstName" ILIKE :q OR u."lastName" ILIKE :q OR u.dni ILIKE :q OR u.email ILIKE :q
@@ -79,7 +79,7 @@ export const listPeople = asyncHandler(async (req, res) => {
 
     const roleFilter = role && isKnownSchoolRole(role, session.schoolId) ? role : null;
     const rows = (await sequelize.query(
-      `SELECT u.id, u."firstName", u."lastName", u.avatar, u."lastLogin", u."mustChangePassword", u."isActive",
+      `SELECT u.id, u."firstName", u."lastName", u.avatar, u."lastLogin", (SELECT MAX(us."lastUsedAt") FROM "UserSession" us WHERE us."userId" = u.id) AS "lastSeenAt", u."mustChangePassword", u."isActive",
               ${contacts ? `u.email, u.phone, u.dni,` : ''}
               json_agg(json_build_object('membershipId', m.id, 'role', m.role, 'levelId', m."levelId", 'level', l.name, 'title', m.title, 'active', m.active)
                        ORDER BY m.role) AS roles,
@@ -193,12 +193,19 @@ export const getPerson = asyncHandler(async (req, res) => {
       contact: full ? { email: isTechEmail(u.email) ? null : u.email, phone: u.phone, dni: u.dni } : null,
       account:
         vis === 'self' || canManage || (vis === 'staff' && session.can(Entity.USERS, Action.UPDATE))
-          ? { lastLogin: u.lastLogin, mustChangePassword: u.mustChangePassword, isActive: u.isActive, login: u.dni ?? u.email }
+          ? { lastLogin: u.lastLogin, lastSeenAt: await lastSeenOf(u.id, u.lastLogin), mustChangePassword: u.mustChangePassword, isActive: u.isActive, login: u.dni ?? u.email }
           : null,
       visibility: vis,
       canManage,
     });
   });
+
+/** Última conexión: el uso más reciente de cualquiera de sus sesiones (se registra cada 10 minutos de uso), o el último ingreso. */
+const lastSeenOf = async (userId: number, lastLogin: Date | null) => {
+  const [row] = (await sequelize.query(`SELECT MAX("lastUsedAt") AS seen FROM "UserSession" WHERE "userId" = :userId`, { replacements: { userId }, type: QueryTypes.SELECT })) as Array<{ seen: Date | null }>;
+  const seen = row?.seen ? new Date(row.seen) : null;
+  return seen && (!lastLogin || seen > lastLogin) ? seen : lastLogin;
+};
 
 /** Corrige datos personales (nombre, DNI, email, teléfono) con validación de duplicados. */
 // PATCH /people/:id

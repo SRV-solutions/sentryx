@@ -12,6 +12,10 @@ import { notify } from '../services/notifications';
 import { audit } from '../services/audit';
 import { isTechEmail } from '../services/accounts';
 import * as PlansValidator from '../validators/plans.validator';
+import { planApproversFor } from '../services/planApprovers';
+import { userUsedBytes, sizeLabel } from '../services/files';
+import { Entity, Action } from '../constants/permissions';
+import { forbidden } from '../lib/http';
 
 const catalogForDisplay = () =>
   PLAN_CATALOG.map((plan) => ({
@@ -120,42 +124,64 @@ export const changeMembersPlan = asyncHandler(async (req, res) => {
 // POST /plans/requests
 export const createRequest = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
-  const { plan, note } = req.body as z.infer<typeof PlansValidator.createRequest.body>;
+  const { plan, note, context: input } = req.body as z.infer<typeof PlansValidator.createRequest.body>;
   if (planRank(plan) <= planRank(session.plan)) throw badRequest(`Ya tenés el plan ${planDefinition(session.plan).name}, que incluye eso.`);
+  const approvers = await planApproversFor(session.schoolId, session.userId);
+  const used = input ? await userUsedBytes(session.schoolId, session.userId) : 0;
+  const context = input ? { kind: 'storage' as const, fileName: input.fileName, fileSize: input.fileSize, used, limit: planDefinition(session.plan).storageGb * GB } : null;
   const [request, created] = await PlanRequest.findOrCreate({
     where: { schoolId: session.schoolId, userId: session.userId, status: 'PENDIENTE' },
-    defaults: { schoolId: session.schoolId, userId: session.userId, plan, note: note ?? null, resolvedById: null, resolvedAt: null },
+    defaults: { schoolId: session.schoolId, userId: session.userId, plan, note: note ?? null, resolvedById: null, resolvedAt: null, approverIds: approvers.map((a) => a.userId), context },
   });
-  const changedPlan = !created && request.plan !== plan;
-  if (!created) await request.update({ plan, note: note ?? null });
-  // Solo se avisa si es un pedido nuevo o cambió el plan pedido (repetir el pedido no vuelve a notificar).
-  if (!created && !changedPlan) return res.json(request);
-  const legalReps = await UserRole.findAll({ where: { schoolId: session.schoolId, role: RoleCode.REPRESENTANTE_LEGAL, active: true }, attributes: ['userId'], raw: true });
-  const me = await User.findByPk(session.userId, { attributes: ['firstName', 'lastName'] });
-  notify({
-    userIds: legalReps.map((r) => r.userId as number),
-    title: `${me?.firstName} ${me?.lastName} pide el plan ${planDefinition(plan).name}`,
-    message: note ? note.slice(0, 200) : `Revisalo en Planes (${planDefinition(plan).price} por mes).`,
-    type: 'plan',
-    link: '/planes?tab=pedidos',
-    email: 'fallback',
-  });
-  await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'PlanRequest', entityId: request.id, action: 'request', after: { plan, note } });
-  res.status(created ? 201 : 200).json(request);
+  const changed = !created && (request.plan !== plan || (note ?? null) !== request.note || !!context);
+  if (!created) await request.update({ plan, note: note ?? null, approverIds: approvers.map((a) => a.userId), ...(context ? { context } : {}) });
+  // Solo se avisa si es un pedido nuevo o cambió (repetir el mismo pedido no vuelve a notificar).
+  if (created || changed) {
+    const me = await User.findByPk(session.userId, { attributes: ['firstName', 'lastName'] });
+    const why = context?.fileName ? `Necesita espacio para subir "${context.fileName}"${context.fileSize ? ` (${sizeLabel(context.fileSize)})` : ''}. ` : '';
+    notify({
+      userIds: approvers.map((a) => a.userId),
+      title: `${me?.firstName} ${me?.lastName} pide ${context ? 'más espacio: ' : ''}plan ${planDefinition(plan).name}`,
+      message: `${why}${note ? `Motivo: ${note}` : ''}`.slice(0, 240) || `Revisalo en Planes (${planDefinition(plan).price} por mes).`,
+      type: 'plan',
+      link: '/planes?tab=pedidos',
+      email: 'fallback',
+    });
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'PlanRequest', entityId: request.id, action: 'request', after: { plan, note, context, approvers: approvers.map((a) => a.userId) } });
+  }
+  res.status(created ? 201 : 200).json({ ...request.toJSON(), approvers });
+});
+
+// GET /plans/approvers — a quién le llegaría un pedido (para mostrarlo antes de enviarlo).
+export const getApprovers = asyncHandler(async (req, res) => {
+  const session = req.schoolSession!;
+  const used = await userUsedBytes(session.schoolId, session.userId);
+  res.json({ approvers: await planApproversFor(session.schoolId, session.userId), used, limit: planDefinition(session.plan).storageGb * GB, plan: session.plan });
 });
 
 // GET /plans/requests
 export const listRequests = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const { status } = req.query as { status?: string };
+  // Con "ver planes" se ven todos; si no, solo los pedidos que me llegaron a mí (conducción del nivel).
+  const all = session.can(Entity.PLANS, Action.READ);
   const requests = await PlanRequest.findAll({
-    where: { schoolId: session.schoolId, ...(status ? { status } : {}) },
+    where: { schoolId: session.schoolId, ...(status ? { status } : {}), ...(all ? {} : { approverIds: { [Op.contains]: [session.userId] } }) },
     include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'avatar'] }],
     order: [['createdAt', 'DESC']],
     limit: 200,
   });
   const plans = await currentPlans(session.schoolId, requests.map((r) => r.userId));
-  res.json(requests.map((r) => ({ ...r.toJSON(), currentPlan: plans.get(r.userId) ?? DEFAULT_PLAN })));
+  const approverNames = new Map((await User.findAll({ where: { id: [...new Set(requests.flatMap((r) => r.approverIds ?? []))] }, attributes: ['id', 'firstName', 'lastName'] })).map((u) => [u.id, `${u.firstName} ${u.lastName}`]));
+  const canAll = session.can(Entity.PLANS, Action.UPDATE);
+  res.json(
+    requests.map((r) => ({
+      ...r.toJSON(),
+      currentPlan: plans.get(r.userId) ?? DEFAULT_PLAN,
+      approvers: (r.approverIds ?? []).map((id) => approverNames.get(id)).filter(Boolean),
+      canResolve: r.status === 'PENDIENTE' && r.userId !== session.userId && (canAll || (r.approverIds ?? []).includes(session.userId)),
+    }))
+  );
 });
 
 // POST /plans/requests/:id/resolve
@@ -163,20 +189,40 @@ export const resolveRequest = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const request = await PlanRequest.findOne({ where: { id: req.params.id, schoolId: session.schoolId, status: 'PENDIENTE' } });
   if (!request) throw notFound('El pedido no existe o ya se resolvió.');
-  const { approve } = req.body as { approve: boolean };
+  // Resuelve la Representante Legal (cambia planes) o la conducción del nivel a la que le llegó el pedido.
+  const isApprover = (request.approverIds ?? []).includes(session.userId);
+  if (!session.can(Entity.PLANS, Action.UPDATE) && !isApprover) throw forbidden('Este pedido no te corresponde.');
+  if (request.userId === session.userId) throw forbidden('No podés aprobar tu propio pedido.');
+  const { approve, reply } = req.body as { approve: boolean; reply?: string | null };
   if (approve) {
     const hasAccess = await AccessPeriod.count({ where: { schoolId: session.schoolId, userId: request.userId, endedAt: null } });
     if (!hasAccess) throw badRequest('Esa persona ya no tiene acceso al colegio.');
     await changePlans({ schoolId: session.schoolId, userIds: [request.userId], plan: request.plan, changedById: session.userId });
   }
   await request.update({ status: approve ? 'APROBADA' : 'RECHAZADA', resolvedById: session.userId, resolvedAt: new Date() });
+  const resolver = await User.findByPk(session.userId, { attributes: ['firstName', 'lastName'] });
+  const storage = request.context?.kind === 'storage';
   notify({
     userIds: [request.userId],
     title: approve ? `Aprobaron tu pedido: plan ${planDefinition(request.plan).name}` : 'Tu pedido de cambio de plan no fue aprobado',
-    message: approve ? 'Ya podés usar todo lo que incluye.' : 'Consultá con la institución si tenés dudas.',
+    message: [approve ? (storage ? `Ya tenés ${planDefinition(request.plan).storageGb} GB: podés volver a subir el archivo.` : 'Ya podés usar todo lo que incluye.') : 'Consultá con la institución si tenés dudas.', reply ? `${resolver?.firstName}: ${reply}` : ''].filter(Boolean).join(' ').slice(0, 240),
     type: 'plan',
-    link: '/perfil/me',
-    email: 'never',
+    link: storage && approve ? '/archivos' : '/perfil/me',
+    email: 'fallback',
   });
+  // Si lo aprobó la conducción del nivel, la Representante Legal se entera (cambia lo que se factura).
+  if (approve && !session.can(Entity.PLANS, Action.UPDATE)) {
+    const reps = await UserRole.findAll({ where: { schoolId: session.schoolId, role: RoleCode.REPRESENTANTE_LEGAL, active: true }, attributes: ['userId'], raw: true });
+    const who = await User.findByPk(request.userId, { attributes: ['firstName', 'lastName'] });
+    notify({
+      userIds: reps.map((r) => r.userId as number),
+      title: `${resolver?.firstName} ${resolver?.lastName} aprobó el plan ${planDefinition(request.plan).name} para ${who?.firstName} ${who?.lastName}`,
+      message: `Se factura desde este mes (${planDefinition(request.plan).price} por mes). Podés revisarlo en Planes.`,
+      type: 'plan',
+      link: '/planes',
+      email: 'never',
+    });
+  }
+  await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'PlanRequest', entityId: request.id, action: approve ? 'approve' : 'reject', after: { plan: request.plan, reply } });
   res.json(request);
 });

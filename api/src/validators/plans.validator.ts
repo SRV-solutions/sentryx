@@ -20,10 +20,20 @@ export const changeMembersPlan = {
 };
 
 /** POST /plans/requests — una persona pide subir de plan. */
-export const createRequest = { body: z.object({ plan: z.enum(PLAN_CODES), note: z.string().trim().max(500).nullish() }) };
+export const createRequest = {
+  body: z.object({
+    plan: z.enum(PLAN_CODES),
+    note: z.string().trim().max(500).nullish(),
+    /** Si se pide porque no alcanzó el espacio para subir un archivo. */
+    context: z.object({ kind: z.literal('storage'), fileName: z.string().max(200).optional(), fileSize: z.number().int().positive().optional() }).nullish(),
+  }),
+};
+
+/** GET /plans/approvers — a quién le llegaría un pedido. */
+export const approvers = {};
 
 /** GET /plans/requests */
 export const listRequests = { query: z.object({ status: z.enum(PLAN_REQUEST_STATUSES).optional() }) };
 
 /** POST /plans/requests/:id/resolve */
-export const resolveRequest = { params: idParam, body: z.object({ approve: z.boolean() }) };
+export const resolveRequest = { params: idParam, body: z.object({ approve: z.boolean(), reply: z.string().trim().max(300).nullish() }) };

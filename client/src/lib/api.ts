@@ -123,20 +123,32 @@ export async function compressImage(file: File): Promise<File> {
  * Sube un archivo directo al bucket (S3/R2) con URL firmada y lo confirma.
  * El servidor nunca recibe el archivo: solo registra quién lo subió, cuánto pesa y a qué aula pertenece.
  */
+export const STORAGE_FULL_EVENT = 'sentryx:storage-full';
+export interface StorageFullDetail { used: number; limit: number; available: number; needed: number; fileName?: string }
+
 export async function uploadFile(
   original: File,
   opts: { purpose: UploadPurpose; divisionId?: number | null; subjectId?: number | null; onProgress?: (pct: number) => void } = { purpose: 'OTHER' }
 ): Promise<UploadedFile> {
   const file = await compressImage(original);
   const contentType = file.type || 'application/octet-stream';
-  const { fileId, uploadUrl } = await apiSend<{ fileId: number; uploadUrl: string }>('POST', '/school/files/presign', {
-    fileName: file.name,
-    contentType,
-    size: file.size,
-    purpose: opts.purpose,
-    divisionId: opts.divisionId ?? null,
-    subjectId: opts.subjectId ?? null,
-  });
+  let presigned: { fileId: number; uploadUrl: string };
+  try {
+    presigned = await apiSend<{ fileId: number; uploadUrl: string }>('POST', '/school/files/presign', {
+      fileName: file.name,
+      contentType,
+      size: file.size,
+      purpose: opts.purpose,
+      divisionId: opts.divisionId ?? null,
+      subjectId: opts.subjectId ?? null,
+    });
+  } catch (err) {
+    // Sin espacio: se abre el aviso con la opción de pedir más espacio (StorageFullSheet, en AppShell).
+    const d = err instanceof ApiError ? (err.details as (StorageFullDetail & { code?: string }) | undefined) : undefined;
+    if (d?.code === 'USER_STORAGE_FULL') window.dispatchEvent(new CustomEvent<StorageFullDetail>(STORAGE_FULL_EVENT, { detail: d }));
+    throw err;
+  }
+  const { fileId, uploadUrl } = presigned;
   // XHR para poder mostrar el progreso (videos pesados).
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();

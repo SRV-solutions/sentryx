@@ -6,6 +6,7 @@ import { roleCatalogForDisplay } from '../services/rbac';
 import { isStorageConfigured } from '../services/files';
 import { CATEGORY_LABELS, isStaffRole } from '../constants/school';
 import { roleLabel, grantableRoleCodes } from '../services/roleRegistry';
+import { env } from '../config/env';
 import { audit } from '../services/audit';
 import { publicSchool, resolveLogo, isImageAsset } from '../services/branding';
 import { isSuperAdmin } from '../middlewares/authenticate';
@@ -58,7 +59,7 @@ export const getSession = asyncHandler(async (req, res) => {
       /** Plan de la persona: la app muestra o bloquea (con opción de pedir el cambio) las funciones extra. */
       plan: { code: session.plan, name: planDefinition(session.plan).name, storageGb: planDefinition(session.plan).storageGb, features: [...featuresOf(session.plan)] },
       /** Funciones que dependen de la configuración del servidor (la app oculta lo que no está disponible). */
-      features: { fileUploads: isStorageConfigured() },
+      features: { fileUploads: isStorageConfigured(), maxUploadMb: Math.max(env.FILE_MAX_MB, env.VIDEO_MAX_MB) },
       grantableRoles: session.can(Entity.USERS, Action.UPDATE) ? grantableRoleCodes(session) : [],
       canManageRoles: session.can(Entity.ROLES, Action.MANAGE),
     });

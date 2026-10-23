@@ -18,7 +18,7 @@ interface MyPlan {
 
 export const useMyPlan = () => useQuery({ queryKey: ['my-plan'], queryFn: () => apiGet<MyPlan>('/school/plans/mine'), staleTime: 60_000 });
 
-/** Pedir un plan (lo aprueba la Representante Legal). */
+/** Pedir un plan: le llega a la conducción del nivel (Dirección / Rectoría) o a la Representante Legal. */
 export const RequestPlanSheet = ({ open, onClose, plan: initialPlan }: { open: boolean; onClose: () => void; plan: PlanCode }) => {
   const qc = useQueryClient();
   const toast = useToast();
@@ -28,7 +28,12 @@ export const RequestPlanSheet = ({ open, onClose, plan: initialPlan }: { open: b
   const [note, setNote] = useState('');
   const send = useMutation({
     mutationFn: () => apiSend('POST', '/school/plans/requests', { plan, note: note || null }),
-    onSuccess: () => (toast('Listo: le avisamos a la Representante Legal. Te llega una notificación cuando lo resuelva.'), qc.invalidateQueries({ queryKey: ['my-plan'] }), onClose()),
+    onSuccess: (r: unknown) => {
+      const names = ((r as { approvers?: Array<{ name: string; role: string }> }).approvers ?? []).map((a) => `${a.name} (${a.role})`).join(', ');
+      toast(names ? `Listo: se lo enviamos a ${names}. Te llega una notificación cuando lo resuelva.` : 'Listo: te llega una notificación cuando lo resuelvan.');
+      qc.invalidateQueries({ queryKey: ['my-plan'] });
+      onClose();
+    },
     onError: (e: Error) => toast(e.message, true),
   });
   const rank = (code: PlanCode) => (mine.data?.catalog.findIndex((p) => p.code === code) ?? -1);

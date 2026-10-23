@@ -7,6 +7,7 @@ import { useSchool } from '../../school/SchoolContext';
 import { Badge, Card, Empty, ErrorBox, PageHeader, Skeleton, Tabs, fmtDate, useToast } from '../../ui';
 import type { Paginated } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
+import { uploadLimitLabel } from '../../school/plans';
 
 interface FileRow {
   id: number;
@@ -36,6 +37,7 @@ const UploadBox = () => {
   const qc = useQueryClient();
   const toast = useToast();
   const [progress, setProgress] = useState<string | null>(null);
+  const { session } = useSchool();
   const onFiles = async (list: FileList | null) => {
     if (!list?.length) return;
     const files = Array.from(list);
@@ -57,7 +59,7 @@ const UploadBox = () => {
   return (
     <label className={`card card-pad row ${progress ? '' : 'list-button'}`} style={{ cursor: progress ? 'default' : 'pointer', justifyContent: 'center', gap: 10, borderStyle: 'dashed' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), onFiles(e.dataTransfer.files))}>
       <Upload size={18} />
-      <span className="small">{progress ?? 'Subir archivos (o arrastralos acá): fotos, videos, PDF y documentos'}</span>
+      <span className="small">{progress ?? `Subir archivos (o arrastralos acá): fotos, videos, PDF y documentos · máximo ${uploadLimitLabel(session?.features?.maxUploadMb)} por archivo`}</span>
       <input type="file" hidden multiple accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.ods,.odp,.txt" onChange={(e) => (onFiles(e.target.files), (e.target.value = ''))} disabled={progress !== null} />
     </label>
   );

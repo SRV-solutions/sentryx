@@ -87,7 +87,7 @@ const Editor = ({ program, onDone }: { program: Program; onDone: () => void }) =
                   <button type="button" className="icon-btn" aria-label="Quitar archivo" onClick={() => setD({ ...d, fileIds: d.fileIds.filter((x) => x !== f.id), files: d.files.filter((x) => x.id !== f.id) })}><X size={14} /></button>
                 </span>
               ))}
-              <label className="btn btn-sm btn-ghost" style={{ alignSelf: 'flex-start' }}>
+              <label className="btn btn-sm btn-ghost" style={{ alignSelf: 'flex-start' }} title="Máximo 1 GB por archivo">
                 <Paperclip size={14} /> {uploading ? 'Subiendo…' : 'Adjuntar'}
                 <input type="file" hidden accept=".pdf,.doc,.docx,.odt,application/pdf" disabled={uploading} onChange={(e) => (attach(e.target.files?.[0]), (e.target.value = ''))} />
               </label>

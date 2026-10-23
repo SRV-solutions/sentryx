@@ -3,6 +3,8 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Paperclip, X, Send, Save, Clock, FolderOpen } from 'lucide-react';
 import { FilePicker } from '../../school/FilePicker';
+import { uploadLimitLabel } from '../../school/plans';
+import { useSchool } from '../../school/SchoolContext';
 import { apiGet, apiSend, uploadFile, formatBytes, type UploadedFile } from '../../lib/api';
 import { Field, PageHeader, Skeleton, useToast, Chips, ErrorBox } from '../../ui';
 import type { AudienceType, AttachmentRef } from '../../school/types';
@@ -69,6 +71,7 @@ export default function AnnouncementComposePage() {
   const [uploading, setUploading] = useState(false);
   const [scheduling, setScheduling] = useState(false);
   const [picking, setPicking] = useState(false);
+  const { session } = useSchool();
   const [scheduledAt, setScheduledAt] = useState(defaultSchedule);
   const [loaded, setLoaded] = useState(false);
 
@@ -216,6 +219,7 @@ export default function AnnouncementComposePage() {
             </label>
             <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicking(true)} disabled={files.length >= 10}><FolderOpen size={16} /> Elegir de mis archivos</button>
           </div>
+          <span className="xs muted">Máximo {uploadLimitLabel(session?.features?.maxUploadMb)} por archivo.</span>
           <FilePicker open={picking} onClose={() => setPicking(false)} max={10 - files.length} exclude={files.map((f) => f.fileId)} onPick={(picked) => setFiles((prev) => [...prev, ...picked.filter((p) => !prev.some((x) => x.fileId === p.fileId))])} />
         </div>
 

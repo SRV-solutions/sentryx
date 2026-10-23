@@ -1,6 +1,6 @@
 /** Personal de la institución: listado, alta (individual y masiva) y cambios de rol. */
 import { Op } from 'sequelize';
-import { UserRole, User, Level } from '../models';
+import { UserRole, User, Level, UserSession, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, forbidden } from '../lib/http';
 import { invalidateSchoolSession } from '../services/schoolSession';
 import { NON_STAFF_ROLES, RoleCode, isStaffRole } from '../constants/roles';
@@ -23,7 +23,11 @@ export const listStaff = asyncHandler(async (req, res) => {
     ],
     order: [[User, 'lastName', 'ASC']],
   });
-  res.json(userRoles.map((userRole) => ({ ...userRole.toJSON(), roleLabel: roleLabel(userRole.role) })));
+  // Última conexión de cada persona (uso más reciente de sus sesiones).
+  const seen = new Map(
+    ((await UserSession.findAll({ where: { userId: [...new Set(userRoles.map((m) => m.userId as number))] }, attributes: ['userId', [sequelize.fn('MAX', sequelize.col('lastUsedAt')), 'seen']], group: ['userId'], raw: true })) as unknown as Array<{ userId: number; seen: Date }>).map((r) => [r.userId, r.seen])
+  );
+  res.json(userRoles.map((userRole) => ({ ...userRole.toJSON(), roleLabel: roleLabel(userRole.role), lastSeenAt: seen.get(userRole.userId as number) ?? null })));
 });
 
 // POST /staff

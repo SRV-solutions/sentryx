@@ -22,8 +22,10 @@ const requestLimiter = rateLimit({
 router.get('/plans/catalog', PlansController.getCatalog);
 router.get('/plans/mine', PlansController.getMyPlan);
 router.post('/plans/requests', requestLimiter, validate(PlansValidator.createRequest), PlansController.createRequest);
-router.get('/plans/requests', authorize(Entity.PLANS, Action.READ), validate(PlansValidator.listRequests), PlansController.listRequests);
-router.post('/plans/requests/:id/resolve', authorize(Entity.PLANS, Action.UPDATE), validate(PlansValidator.resolveRequest), PlansController.resolveRequest);
+router.get('/plans/approvers', PlansController.getApprovers);
+// Ver y resolver pedidos: la Representante Legal (todos) o la conducción del nivel (los que le llegaron); el controlador decide.
+router.get('/plans/requests', validate(PlansValidator.listRequests), PlansController.listRequests);
+router.post('/plans/requests/:id/resolve', validate(PlansValidator.resolveRequest), PlansController.resolveRequest);
 router.get('/plans/members', authorize(Entity.PLANS, Action.READ), validate(PlansValidator.listMembers), PlansController.listMembers);
 router.put('/plans/members', authorize(Entity.PLANS, Action.UPDATE), validate(PlansValidator.changeMembersPlan), PlansController.changeMembersPlan);
 

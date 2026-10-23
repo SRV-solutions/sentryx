@@ -5,6 +5,7 @@ import { ArrowLeft, Send, Paperclip, Hash, Users, EyeOff, Eye, VolumeX, Volume2,
 import { apiGet, apiSend, uploadFile } from '../../lib/api';
 import { FolderOpen } from 'lucide-react';
 import { FilePicker } from '../../school/FilePicker';
+import { uploadLimitLabel } from '../../school/plans';
 import { useAuth } from '../../context/AuthContext';
 import { useSocketEvent } from '../../context/SocketContext';
 import { useSchool } from '../../school/SchoolContext';
@@ -207,7 +208,7 @@ export default function ChannelPage() {
         <form className="composer" onSubmit={submit}>
           {session?.features?.fileUploads !== false && (
             <>
-              <label className="icon-btn" aria-label="Adjuntar">
+              <label className="icon-btn" aria-label="Adjuntar" title={`Adjuntar foto o PDF (máximo ${uploadLimitLabel(session?.features?.maxUploadMb)})`}>
                 <Paperclip size={20} />
                 <input type="file" hidden accept="image/*,application/pdf" onChange={(e) => attach(e.target.files?.[0])} />
               </label>

@@ -24,7 +24,7 @@ export interface SchoolSummary { id: number; name: string; slug: string; logoUrl
 
 export interface SchoolSession {
   /** Funciones que dependen de la configuración del servidor (ej: adjuntos requieren el almacenamiento R2). */
-  features?: { fileUploads: boolean };
+  features?: { fileUploads: boolean; maxUploadMb?: number };
   school: { id: number; name: string; slug: string; logoUrl: string | null };
   /** Niveles a los que tiene acceso el personal (selector de nivel). */
   levels: Array<{ id: number; name: string; type: LevelType }>;

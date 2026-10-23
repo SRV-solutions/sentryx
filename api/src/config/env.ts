@@ -62,8 +62,9 @@ const schema = z.object({
   S3_ENDPOINT: z.string().url().optional(),
   /** Bucket de archivos escolares (materiales, adjuntos). Si falta se usa S3_BUCKET_NAME. */
   S3_FILES_BUCKET: z.string().optional(),
-  FILE_MAX_MB: z.coerce.number().default(25),
-  VIDEO_MAX_MB: z.coerce.number().default(300),
+  /** Máximo por archivo (MB). Videos y el resto de los archivos: 1 GB. */
+  FILE_MAX_MB: z.coerce.number().default(1024),
+  VIDEO_MAX_MB: z.coerce.number().default(1024),
 
   /** embedded: sockets dentro de la API (desarrollo). remote: servidor de tiempo real aparte (producción). */
   REALTIME_MODE: z.enum(['embedded', 'remote']).default('embedded'),
