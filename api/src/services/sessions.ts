@@ -8,6 +8,10 @@
 import { randomBytes } from 'crypto';
 import { Op } from 'sequelize';
 import { UserSession } from '../models';
+import { emitToUsers } from './realtime';
+
+/** Avisa a los dispositivos abiertos de la cuenta que verifiquen su sesión: el que quedó cerrado vuelve al login al instante. */
+export const notifySessionsChanged = (userId: number) => emitToUsers([userId], 'session:check', {});
 
 export const SESSION_IDLE_DAYS = 30;
 const IDLE_MS = SESSION_IDLE_DAYS * 86_400_000;
@@ -69,6 +73,7 @@ export const listSessions = async (userId: number, currentSid?: string) => {
 export const revokeSession = async (userId: number, sid: string) => {
   const [n] = await UserSession.update({ revokedAt: new Date() }, { where: { id: sid, userId, revokedAt: null } });
   cache.delete(sid);
+  if (n > 0) notifySessionsChanged(userId);
   return n > 0;
 };
 
@@ -76,6 +81,7 @@ export const revokeSession = async (userId: number, sid: string) => {
 export const revokeOtherSessions = async (userId: number, keepSid?: string) => {
   const [n] = await UserSession.update({ revokedAt: new Date() }, { where: { userId, revokedAt: null, ...(keepSid ? { id: { [Op.ne]: keepSid } } : {}) } });
   cache.clear();
+  if (n > 0) notifySessionsChanged(userId);
   return n;
 };
 

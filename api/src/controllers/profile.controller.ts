@@ -38,7 +38,7 @@ export const changeMyPassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
   const user = await User.scope('withPassword').findByPk(req.user!.id);
   if (!user) throw notFound('Usuario no encontrado');
-  if (!(await bcrypt.compare(currentPassword, user.password))) throw unauthorized('Contraseña actual incorrecta');
+  if (!(await bcrypt.compare(currentPassword, user.password))) throw badRequest('La contraseña actual no es correcta.');
   if (currentPassword === newPassword) throw badRequest('La nueva contraseña debe ser distinta de la actual.');
   await user.update({ password: await bcrypt.hash(newPassword, 10), mustChangePassword: false, tokenVersion: user.tokenVersion + 1 });
   invalidateAccountCache(user.id);

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { API_URL, getSession, setSession, setSchoolId, onUnauthorized, StoredSession } from '../lib/api';
+import { API_URL, getSession, setSession, setSchoolId, onUnauthorized, verifySession, LOGOUT_REASON_KEY, StoredSession } from '../lib/api';
 
 export interface AuthValue {
   user: StoredSession | null;
@@ -46,16 +46,68 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   }, []);
 
-  // Sesión vencida en cualquier request → login.
-  useEffect(() => {
-    const off = onUnauthorized(() => {
-      logout();
+  /** Cierre forzado (sesión cerrada desde otro dispositivo, contraseña cambiada o vencida): login con el motivo. */
+  const kickOut = useCallback(
+    (reason?: string) => {
+      if (!getSession()) return;
+      setSession(null);
+      setSchoolId(null);
+      setUser(null);
+      try {
+        sessionStorage.setItem(LOGOUT_REASON_KEY, reason || 'Tu sesión se cerró. Volvé a ingresar.');
+      } catch {
+        /* sin sessionStorage: se va al login sin el aviso */
+      }
       navigate('/login', { replace: true });
-    });
+    },
+    [navigate]
+  );
+
+  // Sesión vencida o cerrada en cualquier request → login.
+  useEffect(() => {
+    const off = onUnauthorized((message) => kickOut(message));
     return () => {
       off();
     };
-  }, [logout, navigate]);
+  }, [kickOut]);
+
+  // Aunque la pestaña esté quieta: cada minuto y al volver a ella se revisa que la sesión siga abierta.
+  useEffect(() => {
+    if (!user) return;
+    const check = (force: boolean) => {
+      const s = getSession();
+      if (!s?.token) return;
+      if (isTokenExpired(s.token)) return kickOut('Tu sesión venció. Volvé a ingresar.');
+      verifySession(force);
+    };
+    const tick = setInterval(() => check(false), 60_000);
+    const onVisible = () => document.visibilityState === 'visible' && check(false);
+    const onFocus = () => check(false);
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      clearInterval(tick);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user, kickOut]);
+
+  // Otras pestañas del mismo navegador: si ahí se cerró la sesión o entró otra persona, esta pestaña acompaña.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== 'user') return;
+      if (!e.newValue) {
+        setUser(null);
+        navigate('/login', { replace: true });
+        return;
+      }
+      const next = JSON.parse(e.newValue) as StoredSession;
+      if (user && next.userData?.id !== user.userData?.id) window.location.reload();
+      else if (!user) setUser(next);
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, [user, navigate]);
 
   const login = async (identifier: string, password: string): Promise<StoredSession> => {
     const res = await fetch(`${API_URL}/users/login`, {

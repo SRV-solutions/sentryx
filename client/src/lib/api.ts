@@ -49,9 +49,11 @@ export class ApiError extends Error {
   }
 }
 
-type Listener = () => void;
+type Listener = (message?: string) => void;
 const unauthorizedListeners = new Set<Listener>();
-/** Se dispara ante un 401 (sesión vencida): el AuthProvider cierra sesión. Un 403 NO desloguea. */
+/** Motivo del cierre forzado de sesión: lo muestra la pantalla de login (por pestaña). */
+export const LOGOUT_REASON_KEY = 'sentryx:logout-reason';
+/** Se dispara ante un 401 (sesión vencida o cerrada) con el motivo: el AuthProvider cierra sesión. Un 403 NO desloguea. */
 export const onUnauthorized = (fn: Listener) => {
   unauthorizedListeners.add(fn);
   return () => unauthorizedListeners.delete(fn);
@@ -85,7 +87,7 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    if (res.status === 401 && session) unauthorizedListeners.forEach((fn) => fn());
+    if (res.status === 401 && session) unauthorizedListeners.forEach((fn) => fn(data?.message));
     recordClientError(`${res.status} ${data?.message ?? data?.error ?? ''}`.trim(), `${init.method ?? 'GET'} ${path}`);
     throw new ApiError(res.status, data?.message ?? data?.error ?? 'Ocurrió un error.', data?.details);
   }
@@ -93,6 +95,18 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
 }
 
 export const apiGet = <T,>(path: string) => api<T>(path);
+
+let lastCheck = 0;
+/**
+ * Pregunta al servidor si esta sesión sigue abierta. Si la cerraron desde otro dispositivo, se cambió
+ * la contraseña o venció, la respuesta es 401 y el AuthProvider manda al login con el motivo.
+ */
+export const verifySession = async (force = false) => {
+  if (!getSession()?.token) return;
+  if (!force && Date.now() - lastCheck < 30_000) return;
+  lastCheck = Date.now();
+  await api('/users/sessions').catch(() => undefined);
+};
 export const apiSend = <T,>(method: 'POST' | 'PUT' | 'PATCH' | 'DELETE', path: string, json?: unknown) => api<T>(path, { method, json });
 
 export type UploadPurpose = 'MATERIAL' | 'ANNOUNCEMENT' | 'MESSAGE' | 'OTHER' | 'PAYROLL' | 'EVENT' | 'PROGRAM';

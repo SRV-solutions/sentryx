@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
-import { API_URL } from '../lib/api';
+import { API_URL, verifySession } from '../lib/api';
 import { useAuth } from './AuthContext';
 
 /** Servidor de tiempo real (en producción es un servicio aparte de la API). */
@@ -29,6 +29,11 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       }
       wasConnected = true;
     });
+    // Cerraron sesiones o cambió la contraseña: se verifica al instante (si esta quedó cerrada, va al login).
+    // La espera deja que el dispositivo que cambió la contraseña guarde antes su token nuevo.
+    s.on('session:check', () => setTimeout(() => verifySession(true), 1500));
+    // El servidor rechazó el token al reconectar (sesión cerrada o vencida).
+    s.on('connect_error', () => verifySession());
     // Al volver a la app (desbloquear el celular) se verifica que todo esté al día.
     const onVisible = () => {
       if (document.visibilityState === 'visible' && !s.connected) s.connect();

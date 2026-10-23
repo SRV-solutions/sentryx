@@ -1,6 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { API_URL, setSchoolId } from '../../lib/api';
+import { API_URL, setSchoolId, LOGOUT_REASON_KEY } from '../../lib/api';
 import { Moon, Sun } from 'lucide-react';
 import { PasswordInput } from '../../ui';
 import { useAuth } from '../../context/AuthContext';
@@ -15,6 +15,16 @@ export default function LoginPage() {
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  // Por qué se cerró la sesión (desde otro dispositivo, contraseña cambiada, vencida): se muestra una vez.
+  const [ended] = useState<string | null>(() => {
+    try {
+      const reason = sessionStorage.getItem(LOGOUT_REASON_KEY);
+      sessionStorage.removeItem(LOGOUT_REASON_KEY);
+      return reason;
+    } catch {
+      return null;
+    }
+  });
   const [loading, setLoading] = useState(false);
   // Llegó escaneando el QR "Llevar Sentryx al celular": entra con el link de un solo uso, sin contraseña.
   useEffect(() => {
@@ -126,6 +136,7 @@ export default function LoginPage() {
               <div className="alert alert-info small">Datos cargados para probar el ingreso de <b>{prefilled.name}</b>. Al entrar, en este navegador queda abierta esa sesión (se cierra la tuya).</div>
             ))}
             {qrLink && loading && <div className="alert alert-info small">Entrando con el código del QR…</div>}
+            {ended && !error && <div className="alert alert-warn small">{ended}</div>}
             {error && <div className="alert alert-danger">{error}</div>}
             <button className="btn btn-accent btn-block" disabled={loading || !identifier || !password}>
               {loading ? 'Ingresando…' : 'Ingresar'}

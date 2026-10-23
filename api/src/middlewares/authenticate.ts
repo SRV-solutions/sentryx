@@ -8,6 +8,7 @@ import { platformRolesOf } from '../services/rbac';
 import { unauthorized } from '../lib/http';
 import { setRequestUser } from '../lib/requestContext';
 import { checkSession } from '../services/sessions';
+import { emitToUsers } from '../services/realtime';
 
 /**
  * AUTENTICACIÓN (¿quién sos?). Los permisos (¿qué podés hacer?) los resuelve middlewares/authorize.ts.
@@ -53,7 +54,12 @@ interface AccountState {
 }
 const accountCache = new Map<number, AccountState>();
 
-export const invalidateAccountCache = (userId?: number) => (userId === undefined ? accountCache.clear() : accountCache.delete(userId));
+export const invalidateAccountCache = (userId?: number) => {
+  if (userId === undefined) return accountCache.clear();
+  accountCache.delete(userId);
+  // Cambió la contraseña o el estado de la cuenta: los dispositivos abiertos verifican su sesión al instante.
+  emitToUsers([userId], 'session:check', {});
+};
 
 const accountState = async (userId: number): Promise<AccountState | null> => {
   const cached = accountCache.get(userId);
