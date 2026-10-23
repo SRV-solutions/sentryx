@@ -30,6 +30,11 @@ export interface ScheduleSlot {
   to: string;
   /** Opcional: materia o tarea de esa franja. */
   label?: string;
+  /** Horas cátedra / módulos: cuántos módulos ocupa la franja (la hora de fin sale de la duración del módulo). */
+  modules?: number;
+  /** Docentes: la materia y el curso que dicta en esa franja (tiene que ser una asignación suya). */
+  subjectId?: number;
+  divisionId?: number;
 }
 
 /**
@@ -51,6 +56,8 @@ export class StaffPosition extends Model<InferAttributes<StaffPosition>, InferCr
   declare endDate: string | null;
   declare schedule: CreationOptional<ScheduleSlot[]>;
   declare notes: string | null;
+  /** Duración de cada módulo u hora cátedra, en minutos (ej: 40). */
+  declare moduleMinutes: CreationOptional<number>;
   declare payMode: CreationOptional<PayMode>;
   /** Valor de la hora (cátedra o reloj) o monto mensual, según payMode. */
   declare rate: CreationOptional<number>;
@@ -75,6 +82,7 @@ StaffPosition.init(
     endDate: { type: DataTypes.DATEONLY, allowNull: true },
     schedule: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    moduleMinutes: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 40 },
     payMode: { type: DataTypes.STRING(16), allowNull: false, defaultValue: 'NONE' },
     rate: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0, get() { return Number(this.getDataValue('rate')); } },
     active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },

@@ -5,7 +5,15 @@ import { POSITION_KINDS, POSITION_SITUATIONS, RECEIPT_KINDS, PAY_MODES } from '.
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'usá el formato HH:MM');
 const slot = z
-  .object({ day: z.number().int().min(1).max(6), from: time, to: time, label: z.string().trim().max(60).optional() })
+  .object({
+    day: z.number().int().min(1).max(6),
+    from: time,
+    to: time,
+    label: z.string().trim().max(80).optional(),
+    modules: z.number().int().min(1).max(12).optional(),
+    subjectId: z.number().int().positive().optional(),
+    divisionId: z.number().int().positive().optional(),
+  })
   .refine((s) => s.from < s.to, { message: 'la hora de fin tiene que ser posterior a la de inicio' });
 
 const positionBody = z.object({
@@ -20,6 +28,7 @@ const positionBody = z.object({
   endDate: z.string().date().nullish(),
   schedule: z.array(slot).max(40).default([]),
   notes: z.string().trim().max(2000).nullish(),
+  moduleMinutes: z.number().int().min(20).max(120).optional(),
   payMode: z.enum(PAY_MODES).optional(),
   rate: z.number().min(0).max(100_000_000).optional(),
 });

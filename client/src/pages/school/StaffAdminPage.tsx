@@ -1,17 +1,17 @@
-import { FormEvent, useState } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Pencil, Trash2, Upload, Eye, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload, Eye, ChevronDown, ChevronUp } from 'lucide-react';
 import { apiGet, apiSend, uploadFile } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
-import { Avatar, Badge, Card, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, Tabs, fmtDate, useToast } from '../../ui';
+import { Avatar, Badge, Card, Empty, ErrorBox, PageHeader, Skeleton, Tabs, fmtDate, useToast } from '../../ui';
 import { Entity, Action } from '../../school/permissions';
 import { PlanGate } from '../../school/PlanGate';
+import { PositionSheet, emptyForm, formOf, type PositionForm } from '../../school/PositionSheet';
 import { PlanFeature } from '../../school/plans';
-import type { Structure } from '../../school/types';
 import {
-  DAYS, KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, ReceiptKind, SHIFTS, SITUATION_LABELS, ScheduleSlot, StaffPosition, WeeklySchedule,
-  currentPeriod, lastPeriods, periodLabel, PositionKind, PositionSituation, PayMode, PAY_MODE_LABELS, RATE_LABELS, monthlyPayOf, money,
+  KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, ReceiptKind, SITUATION_LABELS, StaffPosition, WeeklySchedule,
+  currentPeriod, lastPeriods, periodLabel, money,
 } from '../../school/staffRecords';
 
 export interface StaffRecord {
@@ -27,126 +27,6 @@ export interface StaffRecord {
   /** Total bruto estimado por mes (solo para quien maneja sueldos). */
   monthlyPay?: number | null;
 }
-
-export type PositionForm = {
-  id?: number;
-  userId: number;
-  title: string;
-  kind: PositionKind;
-  situation: PositionSituation;
-  weeklyHours: number;
-  shift: string;
-  levelId: number | '';
-  startDate: string;
-  endDate: string;
-  schedule: ScheduleSlot[];
-  notes: string;
-  payMode: PayMode;
-  rate: number;
-};
-
-export const emptyForm = (userId: number): PositionForm => ({ userId, title: '', kind: 'CARGO', situation: 'TITULAR', weeklyHours: 0, shift: 'Mañana', levelId: '', startDate: '', endDate: '', schedule: [], notes: '', payMode: 'NONE', rate: 0 });
-
-/** Pasa un cargo guardado al formulario. */
-export const formOf = (p: StaffPosition): PositionForm => ({ id: p.id, userId: p.userId, title: p.title, kind: p.kind, situation: p.situation, weeklyHours: p.weeklyHours, shift: p.shift ?? '', levelId: p.levelId ?? '', startDate: p.startDate ?? '', endDate: p.endDate ?? '', schedule: p.schedule, notes: p.notes ?? '', payMode: p.payMode ?? 'NONE', rate: p.rate ?? 0 });
-
-export const PositionSheet = ({ form, onClose, personName }: { form: PositionForm | null; onClose: () => void; personName: string }) => {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const { can } = useSchool();
-  // Los montos los carga quien maneja sueldos (Representante Legal, Administración).
-  const canPay = can(Entity.PAYROLL, Action.CREATE);
-  const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure'), staleTime: 5 * 60_000 });
-  const [f, setF] = useState<PositionForm | null>(form);
-  const [error, setError] = useState('');
-  if (form && (!f || f.id !== form.id || f.userId !== form.userId)) setF(form);
-  const save = useMutation({
-    mutationFn: () => {
-      const base = { ...f!, levelId: f!.levelId || null, shift: f!.shift || null, startDate: f!.startDate || null, endDate: f!.endDate || null, notes: f!.notes || null };
-      const { payMode, rate, ...noPay } = base;
-      const body = canPay ? { ...noPay, payMode, rate } : noPay;
-      const { id, userId, ...rest } = body;
-      return id ? apiSend('PATCH', `/school/staff-positions/${id}`, rest) : apiSend('POST', '/school/staff-positions', { userId, ...rest });
-    },
-    onSuccess: () => (toast('Legajo actualizado'), qc.invalidateQueries({ queryKey: ['staff-records'] }), onClose()),
-    onError: (e: Error) => setError(e.message),
-  });
-  if (!form || !f) return null;
-  const setSlot = (i: number, patch: Partial<ScheduleSlot>) => setF({ ...f, schedule: f.schedule.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
-  return (
-    <Sheet open={!!form} onClose={onClose} title={`${f.id ? 'Editar' : 'Nuevo'} cargo · ${personName}`}>
-      <form className="stack" onSubmit={(e: FormEvent) => (e.preventDefault(), setError(''), save.mutate())}>
-        <Field label="Cargo"><input className="input" required maxLength={120} placeholder="Ej: Maestra de 3º grado, Profesor de Matemática" value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></Field>
-        <div className="grid grid-2">
-          <Field label="Tipo">
-            <select className="select" value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as PositionKind })}>
-              {Object.entries(KIND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </Field>
-          <Field label="Situación">
-            <select className="select" value={f.situation} onChange={(e) => setF({ ...f, situation: e.target.value as PositionSituation })}>
-              {Object.entries(SITUATION_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-            </select>
-          </Field>
-          <Field label="Horas semanales"><input className="input" type="number" min={0} max={80} step={0.5} value={f.weeklyHours} onChange={(e) => setF({ ...f, weeklyHours: Number(e.target.value) })} /></Field>
-          <Field label="Turno">
-            <select className="select" value={f.shift} onChange={(e) => setF({ ...f, shift: e.target.value })}>
-              <option value="">—</option>
-              {SHIFTS.map((s) => <option key={s}>{s}</option>)}
-            </select>
-          </Field>
-          <Field label="Nivel">
-            <select className="select" value={f.levelId} onChange={(e) => setF({ ...f, levelId: e.target.value ? Number(e.target.value) : '' })}>
-              <option value="">Toda la institución</option>
-              {structure.data?.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Desde"><input className="input" type="date" value={f.startDate} onChange={(e) => setF({ ...f, startDate: e.target.value })} /></Field>
-        </div>
-        <Field label="Horario">
-          <div className="stack" style={{ gap: 6 }}>
-            {f.schedule.map((s, i) => (
-              <div key={i} className="row wrap" style={{ gap: 6 }}>
-                <select className="select" style={{ width: 120 }} value={s.day} onChange={(e) => setSlot(i, { day: Number(e.target.value) })}>
-                  {DAYS.slice(1).map((d, idx) => <option key={d} value={idx + 1}>{d}</option>)}
-                </select>
-                <input className="input" type="time" style={{ width: 110 }} value={s.from} onChange={(e) => setSlot(i, { from: e.target.value })} />
-                <input className="input" type="time" style={{ width: 110 }} value={s.to} onChange={(e) => setSlot(i, { to: e.target.value })} />
-                <input className="input" style={{ flex: '1 1 120px' }} placeholder="Materia / curso (opcional)" maxLength={60} value={s.label ?? ''} onChange={(e) => setSlot(i, { label: e.target.value })} />
-                <button type="button" className="icon-btn" aria-label="Quitar franja" onClick={() => setF({ ...f, schedule: f.schedule.filter((_x, j) => j !== i) })}><X size={16} /></button>
-              </div>
-            ))}
-            <button type="button" className="btn btn-sm btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setF({ ...f, schedule: [...f.schedule, { day: 1, from: '08:00', to: '09:20' }] })}><Plus size={14} /> Agregar franja</button>
-          </div>
-        </Field>
-        {canPay && (
-          <div className="card" style={{ padding: 12, background: 'var(--surface-2)' }}>
-            <div className="stack" style={{ gap: 8 }}>
-              <b className="small">Sueldo de este cargo</b>
-              <Field label="Cómo se calcula">
-                <select className="select" value={f.payMode} onChange={(e) => setF({ ...f, payMode: e.target.value as PayMode })}>
-                  {(Object.keys(PAY_MODE_LABELS) as PayMode[]).map((m) => <option key={m} value={m}>{PAY_MODE_LABELS[m]}</option>)}
-                </select>
-              </Field>
-              {f.payMode !== 'NONE' && (
-                <Field label={RATE_LABELS[f.payMode]}><input className="input" type="number" min={0} step={1} value={f.rate} onChange={(e) => setF({ ...f, rate: Number(e.target.value) })} /></Field>
-              )}
-              {f.payMode !== 'NONE' && (
-                <div className="small">
-                  Cobra por mes (bruto, antes de descuentos): <b>{money(monthlyPayOf(f))}</b>
-                  {f.payMode !== 'MENSUAL' && <span className="xs muted"> · {f.weeklyHours} h semanales{f.payMode === 'HORA_RELOJ' ? ' × 4,33 semanas' : ''} × {money(f.rate)}</span>}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        <Field label="Observaciones"><textarea className="textarea" rows={2} maxLength={2000} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
-        {error && <div className="alert alert-danger small">{error}</div>}
-        <button className="btn btn-block" disabled={save.isPending}>{save.isPending ? 'Guardando…' : 'Guardar'}</button>
-      </form>
-    </Sheet>
-  );
-};
 
 const RecordsTab = () => {
   const qc = useQueryClient();

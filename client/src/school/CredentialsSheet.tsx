@@ -21,7 +21,7 @@ export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generad
       .writeText(items.map((c) => `${c.name}\nUsuario: ${c.login}\nContraseña temporal: ${c.tempPassword}`).join('\n\n'))
       .then(() => toast('Copiado'));
   return (
-    <Sheet open={items.length > 0} onClose={onClose} title={title}>
+    <Sheet open={items.length > 0} onClose={onClose} title={title} size="xl">
       <div className="stack">
         <div className="alert alert-warn small">
           <div>

@@ -15,7 +15,8 @@ import { Entity, Action } from '../../../school/permissions';
 import { PlanGate } from '../../../school/PlanGate';
 import { PlanFeature } from '../../../school/plans';
 import { KIND_LABELS, SITUATION_LABELS, money, type PayMode } from '../../../school/staffRecords';
-import { PositionSheet, emptyForm, formOf, type PositionForm, type StaffRecord } from '../StaffAdminPage';
+import type { StaffRecord } from '../StaffAdminPage';
+import { PositionSheet, emptyForm, formOf, roleTitle, type PositionForm } from '../../../school/PositionSheet';
 import { StaffImportButton } from './StaffImport';
 
 export interface StaffRow {
@@ -402,8 +403,8 @@ const PayTab = ({ person }: { person: StaffPerson }) => {
   const active = positions.filter((p) => p.active);
   const name = `${person.User.firstName} ${person.User.lastName}`;
   /** Un cargo nuevo arranca con los datos del rol (ej: "Rectoría" en Secundario). */
-  const fromRole = (m: StaffRow): PositionForm => ({ ...emptyForm(person.userId), title: m.title || m.roleLabel, kind: m.role === 'DOCENTE' ? 'HORAS_CATEDRA' : 'CARGO', levelId: m.levelId ?? '', payMode: m.role === 'DOCENTE' ? 'HORA_CATEDRA' : 'MENSUAL' });
-  const uncovered = person.memberships.filter((m) => m.active && !active.some((p) => p.title === (m.title || m.roleLabel)));
+  const fromRole = (m: StaffRow): PositionForm => ({ ...emptyForm(person.userId), title: roleTitle({ roleLabel: m.roleLabel, level: m.Level?.name }), kind: m.role === 'DOCENTE' ? 'HORAS_CATEDRA' : 'CARGO', levelId: m.levelId ?? '', payMode: m.role === 'DOCENTE' ? 'HORA_CATEDRA' : 'MENSUAL' });
+  const uncovered = person.memberships.filter((m) => m.active && !active.some((p) => p.title === roleTitle({ roleLabel: m.roleLabel, level: m.Level?.name }) || p.title === m.title));
   return (
     <div className="stack">
       <div className="card" style={{ padding: 12, background: 'var(--surface-2)' }}>

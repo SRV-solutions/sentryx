@@ -15,7 +15,17 @@ export const monthlyPayOf = (p: { payMode?: PayMode; rate?: number; weeklyHours:
   Math.round((p.payMode === 'HORA_CATEDRA' ? p.weeklyHours * (p.rate ?? 0) : p.payMode === 'HORA_RELOJ' ? p.weeklyHours * (p.rate ?? 0) * (52 / 12) : p.payMode === 'MENSUAL' ? p.rate ?? 0 : 0) * 100) / 100;
 export const money = (n: number) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 
-export interface ScheduleSlot { day: number; from: string; to: string; label?: string }
+export interface ScheduleSlot {
+  day: number;
+  from: string;
+  to: string;
+  label?: string;
+  /** Horas cátedra / módulos: cuántos módulos ocupa la franja. */
+  modules?: number;
+  /** Docentes: la materia y el curso de esa franja. */
+  subjectId?: number;
+  divisionId?: number;
+}
 export interface StaffPosition {
   id: number;
   userId: number;
@@ -30,6 +40,8 @@ export interface StaffPosition {
   schedule: ScheduleSlot[];
   notes: string | null;
   active: boolean;
+  /** Duración del módulo u hora cátedra (minutos). */
+  moduleMinutes?: number;
   /** Solo para quien maneja sueldos (y la propia persona en Mi legajo). */
   payMode?: PayMode;
   rate?: number;

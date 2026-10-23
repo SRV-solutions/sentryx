@@ -115,7 +115,8 @@ const sheetStack: Array<() => void> = [];
 const onSheetKey = (e: KeyboardEvent) => e.key === 'Escape' && sheetStack[sheetStack.length - 1]?.();
 
 /** Hoja deslizable (abajo en el celular, centrada en escritorio). Se monta en <body> para poder apilar varias. */
-export const Sheet = ({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) => {
+/** size: lg (formularios con varias columnas) o xl (tablas anchas, ej: credenciales). */
+export const Sheet = ({ open, onClose, title, children, size }: { open: boolean; onClose: () => void; title: string; children: ReactNode; size?: 'lg' | 'xl' }) => {
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
@@ -135,7 +136,7 @@ export const Sheet = ({ open, onClose, title, children }: { open: boolean; onClo
   if (!open) return null;
   return createPortal(
     <div className="sheet-backdrop" onClick={onClose}>
-      <div className="sheet" role="dialog" aria-modal aria-label={title} onClick={(e) => e.stopPropagation()}>
+      <div className={`sheet${size ? ` sheet-${size}` : ''}`} role="dialog" aria-modal aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="row-between" style={{ marginBottom: 16 }}>
           <h2 className="h2">{title}</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Cerrar">

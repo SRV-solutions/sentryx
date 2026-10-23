@@ -4,7 +4,7 @@
  */
 import { z } from 'zod';
 import { Op } from 'sequelize';
-import { StaffPosition, User, UserRole, Level } from '../models';
+import { StaffPosition, User, UserRole, Level, TeachingAssignment } from '../models';
 import { asyncHandler, badRequest, forbidden, notFound } from '../lib/http';
 import { NON_STAFF_ROLES, SchoolRole } from '../constants/roles';
 import { roleLabel } from '../services/roleRegistry';
@@ -42,7 +42,16 @@ const assertLevel = async (schoolId: number, levelId?: number | null) => {
   if (levelId && !(await Level.count({ where: { id: levelId, schoolId } }))) throw badRequest('Nivel inválido.');
 };
 
-const positionAttributes = ['id', 'userId', 'title', 'kind', 'situation', 'weeklyHours', 'shift', 'levelId', 'startDate', 'endDate', 'schedule', 'notes', 'active', 'payMode', 'rate'];
+const positionAttributes = ['id', 'userId', 'title', 'kind', 'situation', 'weeklyHours', 'shift', 'levelId', 'startDate', 'endDate', 'schedule', 'notes', 'active', 'payMode', 'rate', 'moduleMinutes'];
+
+/** Las franjas con materia tienen que ser materias que esa persona dicta en ese curso. */
+const assertTeaching = async (schoolId: number, userId: number, schedule?: Array<{ subjectId?: number; divisionId?: number }>) => {
+  const pairs = (schedule ?? []).filter((s) => s.subjectId || s.divisionId);
+  if (!pairs.length) return;
+  const own = await TeachingAssignment.findAll({ where: { schoolId, teacherId: userId }, attributes: ['subjectId', 'divisionId'], raw: true });
+  const ok = (s: { subjectId?: number; divisionId?: number }) => own.some((a) => a.subjectId === s.subjectId && a.divisionId === s.divisionId);
+  if (!pairs.every(ok)) throw badRequest('Hay franjas con una materia que esta persona no dicta. Asignale la materia en Estructura o elegí una de las suyas.');
+};
 
 /** Los montos los ve y carga quien maneja sueldos (Representante Legal y Administración); el resto ve cargos y horas. */
 const seesPay = (session: SchoolSession) => session.can(Entity.PAYROLL, Action.READ);
@@ -119,6 +128,7 @@ export const createPosition = asyncHandler(async (req, res) => {
   assertPayEdit(session, body);
   await assertStaffMember(session.schoolId, body.userId);
   await assertLevel(session.schoolId, body.levelId);
+  await assertTeaching(session.schoolId, body.userId, body.schedule);
   const position = await StaffPosition.create({
     ...body,
     schoolId: session.schoolId,
@@ -139,6 +149,7 @@ export const updatePosition = asyncHandler(async (req, res) => {
   if (!position) throw notFound();
   assertPayEdit(session, req.body);
   await assertLevel(session.schoolId, req.body.levelId);
+  await assertTeaching(session.schoolId, position.userId, req.body.schedule);
   const before = position.toJSON();
   await position.update(req.body);
   await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'StaffPosition', entityId: position.id, action: 'update', before, after: position.toJSON() });

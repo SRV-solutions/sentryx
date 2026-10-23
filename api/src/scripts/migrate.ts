@@ -436,6 +436,13 @@ const migrations: Array<{
       await addColumnIfMissing(qi, "StaffPosition", "rate", { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 });
     },
   },
+  {
+    // Horas cátedra en módulos: duración de cada módulo (ej: 40 minutos).
+    name: "2026-10-23-staff-position-modules",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "StaffPosition", "moduleMinutes", { type: DataTypes.INTEGER, allowNull: false, defaultValue: 40 });
+    },
+  },
 ];
 
 const run = async () => {
