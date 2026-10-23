@@ -51,9 +51,10 @@ export default function PeoplePage() {
   if (type === 'families' && divisionId) qs.set('divisionId', String(divisionId));
   if (type === 'staff' && role) qs.set('role', role);
   const list = useQuery({
-    queryKey: ['people', qs.toString()],
+    queryKey: ['people', type, qs.toString()],
     queryFn: () => apiGet<Page<FamilyRow | StaffRow>>(`/school/people?${qs}`),
-    placeholderData: keepPreviousData,
+    // Mientras carga, se mantiene la página anterior solo si es del mismo tipo (familias y personal tienen otras columnas).
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[1] === type ? keepPreviousData(prev) : undefined),
   });
 
   const setType = (t: 'families' | 'staff') => setParams(t === 'staff' ? { tipo: 'personal' } : {}, { replace: true });
@@ -111,9 +112,9 @@ export default function PeoplePage() {
             const name = `${row.lastName}, ${row.firstName}`;
             const st = manage ? accountStatus(row) : null;
             const detail =
-              type === 'families'
-                ? (row as FamilyRow).children.map((c) => `${c.relationship} de ${c.firstName}${c.division ? ` (${c.division})` : ''}`).join(' · ')
-                : (row as StaffRow).roles.filter((r) => r.active).map((r) => r.title || `${r.roleLabel}${r.level ? ` · ${r.level}` : ''}`).join(' · ') || 'Sin roles activos';
+              'children' in row
+                ? (row.children ?? []).map((c) => `${c.relationship} de ${c.firstName}${c.division ? ` (${c.division})` : ''}`).join(' · ')
+                : (row.roles ?? []).filter((r) => r.active).map((r) => r.title || `${r.roleLabel}${r.level ? ` · ${r.level}` : ''}`).join(' · ') || 'Sin roles activos';
             const contact = [row.phone, row.email].filter(Boolean).join(' · ');
             return (
               <Link key={row.id} to={`/personas/${row.id}`} className="list-item" style={{ opacity: type === 'staff' && !(row as StaffRow).active ? 0.55 : 1 }}>
