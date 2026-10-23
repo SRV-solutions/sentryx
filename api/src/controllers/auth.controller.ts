@@ -9,7 +9,8 @@ import { env } from '../config/env';
 import { asyncHandler, badRequest, unauthorized } from '../lib/http';
 import { accountPayload, isTechEmail } from '../services/accounts';
 import { audit } from '../services/audit';
-import { setRequestUser } from '../lib/requestContext';
+import { setRequestUser, currentRequest } from '../lib/requestContext';
+import { createSession } from '../services/sessions';
 
 /** Oculta parte del usuario intentado en el registro de ingresos fallidos. */
 const maskIdentifier = (identifier: string) => (identifier.length <= 4 ? '***' : `${identifier.slice(0, 3)}***${identifier.slice(-2)}`);
@@ -29,8 +30,10 @@ export const login = asyncHandler(async (req, res) => {
   }
   setRequestUser(user.id);
   await User.update({ lastLogin: new Date() }, { where: { id: user.id } });
+  const r = currentRequest();
+  const sid = await createSession(user.id, { ip: r?.ip ?? null, userAgent: r?.userAgent ?? null, appVersion: (req.headers['x-app-version'] as string) ?? null });
   await audit({ schoolId: null, userId: user.id, entity: 'Session', action: 'login' });
-  res.json({ message: 'Login exitoso', token: signToken(user), userData: await accountPayload(user.id) });
+  res.json({ message: 'Login exitoso', token: signToken(user, sid), userData: await accountPayload(user.id) });
 });
 
 // POST /users/request-password-reset — siempre responde lo mismo (no revela qué cuentas existen).

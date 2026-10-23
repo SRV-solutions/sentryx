@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { API_URL, setSchoolId } from '../../lib/api';
 import { Moon, Sun } from 'lucide-react';
 import { PasswordInput } from '../../ui';
@@ -7,13 +7,29 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginPage() {
-  const { login } = useAuth();
+  const { login, loginWithLink } = useAuth();
+  const [params, setParams] = useSearchParams();
+  const qrLink = params.get('link');
   const { darkMode, toggleTheme } = useTheme() as { darkMode: boolean; toggleTheme: () => void };
   const navigate = useNavigate();
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  // Llegó escaneando el QR "Llevar Sentryx al celular": entra con el link de un solo uso, sin contraseña.
+  useEffect(() => {
+    if (!qrLink) return;
+    setLoading(true);
+    loginWithLink(qrLink)
+      .then((data) => navigate(data.userData.mustChangePassword ? '/cambiar-clave' : '/', { replace: true }))
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'No se pudo entrar con el código.');
+        setParams({}, { replace: true });
+      })
+      .finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qrLink]);
+
   // Datos precargados desde "Probar ingreso" (hoja de credenciales): vienen en el #fragmento y se borran al leerlos.
   const [prefilled, setPrefilled] = useState<{ name: string; fromMail: boolean } | null>(null);
   useEffect(() => {
@@ -109,6 +125,7 @@ export default function LoginPage() {
             ) : (
               <div className="alert alert-info small">Datos cargados para probar el ingreso de <b>{prefilled.name}</b>. Al entrar, en este navegador queda abierta esa sesión (se cierra la tuya).</div>
             ))}
+            {qrLink && loading && <div className="alert alert-info small">Entrando con el código del QR…</div>}
             {error && <div className="alert alert-danger">{error}</div>}
             <button className="btn btn-accent btn-block" disabled={loading || !identifier || !password}>
               {loading ? 'Ingresando…' : 'Ingresar'}

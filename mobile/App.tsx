@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AppState, useColorScheme } from 'react-native';
+import { AppState, Linking, useColorScheme } from 'react-native';
 import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -35,6 +35,22 @@ const ThemeProvider = ({ children }: { children: React.ReactNode }) => {
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 };
 
+/** Link del QR "Llevar Sentryx al celular" (…/login?link=…): entra sin contraseña si todavía no hay sesión. */
+const QrLinkLogin = () => {
+  const { user, restoring, loginWithLink } = useAuth();
+  useEffect(() => {
+    if (restoring) return;
+    const handle = (url: string | null | undefined) => {
+      const token = url?.match(/[?&]link=([A-Za-z0-9]+)/)?.[1];
+      if (token && !user) loginWithLink(token).catch(() => {});
+    };
+    Linking.getInitialURL().then(handle);
+    const sub = Linking.addEventListener('url', (e) => handle(e.url));
+    return () => sub.remove();
+  }, [restoring, user, loginWithLink]);
+  return null;
+};
+
 /** Lo que arranca con la sesión: tiempo real, push (si ya estaba permitido) y asistencia pendiente. */
 const SessionEffects = () => {
   const { user } = useAuth();
@@ -65,6 +81,7 @@ const Shell = () => {
       <StatusBar style={dark ? 'light' : 'dark'} />
       <RootNavigator />
       <SessionEffects />
+      <QrLinkLogin />
       <ToastHost />
     </NavigationContainer>
   );

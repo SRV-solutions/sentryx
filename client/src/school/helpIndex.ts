@@ -81,6 +81,9 @@ export const HELP_INDEX: HelpEntry[] = [
 
   // --- Cuenta ---
   { id: 'perfil', title: 'Mi perfil', description: 'Tu foto, tus datos y cambiar tu contraseña.', path: '/perfil/me', section: 'Mi cuenta', keywords: ['perfil', 'mi cuenta', 'contraseña', 'cambiar contraseña', 'foto', 'avatar', 'notificaciones'] },
+  { id: 'sesiones', title: 'Sesiones y dispositivos', description: 'Dónde está abierta tu sesión y cerrarla en los otros dispositivos. Dura 30 días desde el último uso.', path: '/perfil/me', section: 'Mi cuenta', keywords: ['sesiones', 'dispositivos', 'cerrar sesión en otros dispositivos', 'desloguear', 'celular perdido', 'seguridad'] },
+  { id: 'celular', title: 'Llevar Sentryx al celular (QR)', description: 'Un código QR que abre Sentryx en tu celular ya con tu sesión, sin escribir la contraseña.', path: '/perfil/me', section: 'Mi cuenta', keywords: ['celular', 'qr', 'app', 'instalar', 'teléfono', 'llevar al celular'] },
+  { id: 'equipo', title: 'Equipo Sentryx (superadmins)', description: 'Sumar personas del equipo a la consola.', path: '/plataforma/equipo', section: 'Plataforma', keywords: ['superadmin', 'equipo', 'consola', 'agregar superadmin'], show: (c) => c.isSuperAdmin },
   { id: 'ayuda', title: 'Ayuda e índice', description: 'Todo lo que se puede hacer en Sentryx, por sección, con un buscador.', path: '/ayuda', section: 'Mi cuenta', keywords: ['ayuda', 'índice', 'documentación', 'manual', 'cómo', 'dónde está', 'buscar'] },
 
   // --- Plataforma (equipo Sentryx) ---

@@ -12,6 +12,8 @@ import UserRole from './UserRole';
 import Notification from './Notification';
 import UserNotification from './UserNotification';
 import PasswordResetToken from './PasswordResetToken';
+import UserSession from './UserSession';
+import LoginLinkToken from './LoginLinkToken';
 
 import { School, Level, AcademicYear, Division, Subject, TeachingAssignment } from './school/structure';
 import { Student, Enrollment, StudentGuardian } from './school/people';
@@ -42,6 +44,8 @@ export const associateModels = () => {
   Notification.associate();
   UserNotification.associate();
   PasswordResetToken.associate();
+  UserSession.associate();
+  LoginLinkToken.associate();
 
   const req = (name: string) => ({ foreignKey: { name, allowNull: false }, onDelete: 'CASCADE' as const });
   const opt = (name: string) => ({ foreignKey: { name, allowNull: true }, onDelete: 'SET NULL' as const });
@@ -176,7 +180,7 @@ associateModels();
 
 export {
   sequelize,
-  User, Role, Permission, RolePermission, UserRole, Notification, UserNotification, PasswordResetToken,
+  User, Role, Permission, RolePermission, UserRole, Notification, UserNotification, PasswordResetToken, UserSession, LoginLinkToken,
   School, Level, AcademicYear, Division, Subject, TeachingAssignment,
   Student, Enrollment, StudentGuardian, GradingPeriod, Grade, ReportCardPublication,
   Attendance, AttendanceRule, Alert, Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage,

@@ -17,6 +17,8 @@ router.post('/schools', authorize(Entity.SCHOOLS, Action.CREATE), validate(Platf
 router.patch('/schools/:id', authorize(Entity.SCHOOLS, Action.UPDATE), validate(PlatformValidator.updateSchool), PlatformController.updateSchool);
 router.get('/schools/:id/deletion', authorize(Entity.SCHOOLS, Action.DELETE), validate(PlatformValidator.deletionSummary), PlatformController.getDeletionSummary);
 router.delete('/schools/:id', authorize(Entity.SCHOOLS, Action.DELETE), validate(PlatformValidator.deleteSchool), PlatformController.deleteSchool);
+router.get('/superadmins', authorize(Entity.SCHOOLS, Action.CREATE), PlatformController.listSuperadmins);
+router.post('/superadmins', authorize(Entity.SCHOOLS, Action.CREATE), validate(PlatformValidator.createSuperadmin), PlatformController.createSuperadmin);
 router.get('/billing', authorize(Entity.PLATFORM_BILLING, Action.READ), validate(PlatformValidator.getPlatformBilling), PlatformController.getPlatformBilling);
 
 // Reportes de problemas de los usuarios

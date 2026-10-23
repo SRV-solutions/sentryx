@@ -63,7 +63,7 @@ router.patch('/people/:id', authorize(Entity.USERS, Action.UPDATE), validate(Peo
 | `UserRole` | Qué roles tiene cada usuario: en qué colegio (vacío = rol de plataforma) y con qué alcance (nivel o divisiones). |
 
 - El catálogo de `constants/` es la configuración **por defecto**: al arrancar se crean los roles y permisos que falten. Si se ajusta un vínculo rol↔permiso directo en la base, se respeta (los permisos se recargan cada 5 minutos).
-- **Rol de plataforma:** `SUPERADMIN` (equipo Sentryx). Da de alta colegios y ve la facturación de todos: `npm run superadmin -- --email ...`.
+- **Rol de plataforma:** `SUPERADMIN` (equipo Sentryx). Da de alta colegios y ve la facturación de todos. Se suman desde la consola (*Plataforma → Equipo Sentryx*) o con `npm run superadmin -- --email ...`; **quitar** a un superadmin solo se puede por consola del servidor (`--remove`), nunca desde la web: nadie puede borrar a otro.
 - **Roles de colegio:** una persona puede tener varios, en uno o varios colegios (ej: Docente en uno y Familia en otro). **Dentro del mismo colegio también** (Secretaría + Preceptoría, Dirección + Docente, superadmin + Docente): los permisos se suman y el alcance es la unión. Desde *Administración → Personal*, botón **Otro rol** en la persona.
 - **Roles personalizados** (*Administración → Roles y permisos → Nuevo rol*): la conducción (RL, Dirección, Rectoría, Vicedirección; permiso `roles:manage`) arma un rol tildando acciones concretas del catálogo. Reglas: solo permisos que quien lo crea ya tiene, jerarquía siempre menor a la propia, y no se elimina mientras alguien lo tenga. Viven en `Role.schoolId` y se comportan como los del catálogo (`services/roleRegistry.ts`).
 
@@ -91,7 +91,8 @@ Reglas que se aplican en el backend:
 
 - **Solo el front:** la API rechaza (403) todo pedido que no venga del front (header `Origin` dentro de `CORS_ORIGINS`) o de un cliente registrado (header `X-Client-Key` con una clave de `CLIENT_APP_KEYS`, para la futura app móvil o scripts de soporte). Quedan abiertos solo `/health` y las fotos de perfil.
 - **Red:** en producción la API y el tiempo real escuchan en `127.0.0.1` (`HOST`); solo se llega por Caddy con HTTPS.
-- **Sesiones:** al cambiar o blanquear una contraseña se cierran todas las sesiones de esa cuenta (`User.tokenVersion`). Una cuenta desactivada queda afuera aunque tenga un token vigente.
+- **Sesiones por dispositivo** (`UserSession`): cada login crea una sesión y el token lleva su id. Duran **30 días desde el último uso**: mientras se usa, la API renueva el token sola (header `X-Session-Token`, que web y app guardan); 30 días sin tocarla y se cierra. En *Mi perfil → Sesiones y dispositivos* (y en la app, *Más → Seguridad*) se ven las sesiones abiertas y se cierran las de los otros dispositivos. Al cambiar o blanquear una contraseña se cierran todas (`User.tokenVersion`); una cuenta desactivada queda afuera aunque tenga un token vigente.
+- **Llevar Sentryx al celular:** desde la PC, un QR con un link de un solo uso (5 minutos, guardado hasheado) que abre la app o el navegador del celular ya con la sesión, sin escribir la contraseña.
 - **Límites de pedidos** (`middlewares/rateLimits.ts`), pensados para colegios que salen a internet con una sola IP:
   - con sesión: 300 pedidos/minuto **por usuario**;
   - login: 10 intentos **fallidos** por cuenta cada 15 minutos (y 100 por IP); los ingresos correctos no cuentan;

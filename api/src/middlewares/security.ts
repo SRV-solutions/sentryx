@@ -41,6 +41,8 @@ export const corsPolicy = cors({
   // X-Player-Token: jugadores de partidas en vivo (/play), sin cuenta.
   allowedHeaders: ['Content-Type', 'Accept', 'Authorization', 'X-School-Id', 'X-Level-Id', 'X-Client-Key', 'X-Player-Token'],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  // El token renovado (sesión deslizante de 30 días) viaja en este header.
+  exposedHeaders: ['X-Session-Token'],
   maxAge: 86400,
 });
 

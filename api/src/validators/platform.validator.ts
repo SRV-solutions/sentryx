@@ -3,6 +3,9 @@ import { z } from 'zod';
 import { idParam } from '../lib/http';
 import { LEVEL_TYPES } from '../constants/school';
 
+/** POST /platform/superadmins */
+export const createSuperadmin = { body: z.object({ firstName: z.string().trim().min(1).max(80), lastName: z.string().trim().min(1).max(80), email: z.string().trim().email().max(120), dni: z.string().trim().max(12).nullish() }) };
+
 export const schoolBody = z.object({
   name: z.string().trim().min(3).max(160),
   slug: z.string().trim().regex(/^[a-z0-9-]{3,80}$/, 'solo minúsculas, números y guiones (ej: divina-providencia)'),

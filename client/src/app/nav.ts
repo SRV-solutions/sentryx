@@ -67,6 +67,7 @@ export const buildNav = (opts: {
     items.push({ to: '/plataforma/facturacion', label: 'Facturación global', icon: Receipt, section: 'platform' });
     items.push({ to: '/plataforma/reportes', label: 'Reportes de usuarios', icon: LifeBuoy, section: 'platform' });
     items.push({ to: '/plataforma/auditoria', label: 'Auditoría', icon: ShieldCheck, section: 'platform' });
+    items.push({ to: '/plataforma/equipo', label: 'Equipo Sentryx', icon: Contact, section: 'platform' });
   }
   return items;
 };

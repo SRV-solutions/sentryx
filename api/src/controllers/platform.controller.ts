@@ -10,7 +10,7 @@ import { QueryTypes } from 'sequelize';
 import { School, UserRole, sequelize } from '../models';
 import { asyncHandler, notFound, conflict } from '../lib/http';
 import { createSchool } from '../services/schoolSetup';
-import { findOrCreatePerson, sendWelcome, isTechEmail } from '../services/accounts';
+import { findOrCreatePerson, sendWelcome, isTechEmail, loginLink } from '../services/accounts';
 import { billingFor, cycleOf, reconcileAccess } from '../services/billing';
 import { publicSchool } from '../services/branding';
 import { invalidateSchoolSession } from '../services/schoolSession';
@@ -18,6 +18,11 @@ import { audit } from '../services/audit';
 import { env } from '../config/env';
 import { schoolBody } from '../validators/platform.validator';
 import { RoleCode } from '../constants/roles';
+import { grantPlatformRole } from '../services/rbac';
+import { User } from '../models';
+import { invalidateAccountCache } from '../middlewares/authenticate';
+import { sendMail } from '../config/mailer';
+import { brandEmail } from '../lib/emailTemplate';
 
 
 /** Colegios con sus indicadores principales. */
@@ -105,4 +110,41 @@ export const getDeletionSummary = asyncHandler(async (req, res) => {
 export const deleteSchool = asyncHandler(async (req, res) => {
   const result = await deleteSchoolPermanently({ schoolId: Number(req.params.id), confirmSlug: (req.body as { confirm: string }).confirm, deletedById: req.user!.id });
   res.json(result);
+});
+
+// ---------- Equipo Sentryx (superadmins) ----------
+
+/** GET /platform/superadmins — quiénes tienen la consola. */
+export const listSuperadmins = asyncHandler(async (_req, res) => {
+  const rows = await UserRole.findAll({
+    where: { role: RoleCode.SUPERADMIN, schoolId: null, active: true },
+    include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'email', 'dni', 'lastLogin', 'isActive'] }],
+    order: [[User, 'lastName', 'ASC']],
+  });
+  res.json(rows.map((r) => (r as UserRole & { User?: User }).User).filter(Boolean));
+});
+
+/**
+ * POST /platform/superadmins — suma a alguien del equipo. Por diseño NO hay forma de quitar a un superadmin
+ * desde la consola (ni a uno mismo ni a otro): solo por consola del servidor (`npm run superadmin -- --remove`).
+ */
+export const createSuperadmin = asyncHandler(async (req, res) => {
+  const input = req.body as { firstName: string; lastName: string; email: string; dni?: string | null };
+  const { user, tempPassword } = await sequelize.transaction(async (transaction) => findOrCreatePerson({ ...input, phone: null }, transaction));
+  await grantPlatformRole(user.id, RoleCode.SUPERADMIN);
+  invalidateAccountCache(user.id);
+  await audit({ schoolId: null, userId: req.user!.id, entity: 'UserRole', entityId: user.id, action: 'grant-superadmin', after: { email: user.email } });
+  if (!isTechEmail(user.email)) {
+    sendMail({
+      to: user.email,
+      subject: 'Tu acceso a la consola de Sentryx',
+      html: brandEmail({
+        title: `¡Hola ${user.firstName}!`,
+        paragraphs: ['Te sumaron al equipo de Sentryx: desde la consola podés dar de alta colegios, ver la facturación y atender los reportes de los usuarios.', tempPassword ? 'Entrá con tu email y la contraseña temporal; al ingresar te vamos a pedir que elijas una propia.' : 'Entrá con tu email y tu contraseña de siempre.'],
+        box: tempPassword ? [`Usuario: ${user.email}`, `Contraseña temporal: ${tempPassword}`] : [`Usuario: ${user.email}`],
+        cta: { label: tempPassword ? 'Ingresar ahora' : 'Ingresar', url: tempPassword ? loginLink(user, tempPassword) : `${env.FRONTEND_URL}/login` },
+      }),
+    });
+  }
+  res.status(201).json({ user: { id: user.id, firstName: user.firstName, lastName: user.lastName, email: user.email }, tempPassword });
 });

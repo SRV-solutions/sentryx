@@ -412,6 +412,13 @@ const migrations: Array<{
       invalidateRbacCache();
     },
   },
+  {
+    // Sesiones por dispositivo (30 días desde el último uso, cierre remoto) y login por QR.
+    name: "2026-10-23-sessions-login-link",
+    up: async () => {
+      for (const model of [M.UserSession, M.LoginLinkToken]) await (model as unknown as { sync: () => Promise<unknown> }).sync();
+    },
+  },
 ];
 
 const run = async () => {

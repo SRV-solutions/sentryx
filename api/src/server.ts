@@ -10,6 +10,7 @@ import { syncRbacCatalog } from './services/rbac';
 import { cleanupPendingUploads } from './services/files';
 import { reconcileAllSchools } from './services/billing';
 import { sendDueAnnouncements } from './services/announcementDispatch';
+import { purgeOldSessions } from './services/sessions';
 
 const start = async () => {
   await sequelize.authenticate();
@@ -45,6 +46,8 @@ const start = async () => {
   setInterval(() => cleanupPendingUploads().catch((err) => console.error('[files] cleanup', err)), 3600_000).unref();
   // Red de seguridad de facturación: sincroniza los períodos de acceso aunque algún cambio no lo haya hecho.
   setInterval(() => reconcileAllSchools().catch((err) => console.error('[billing] reconcile', err)), 3600_000).unref();
+  // Sesiones cerradas o vencidas hace más de 60 días se borran.
+  setInterval(() => purgeOldSessions().catch((err) => console.error('[sessions] purge', err)), 24 * 3600_000).unref();
   // Comunicados programados: se envían solos cuando llega su hora.
   setInterval(() => sendDueAnnouncements().catch((err) => console.error('[announcements] scheduled', err)), 60_000).unref();
 

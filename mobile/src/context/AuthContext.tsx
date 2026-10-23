@@ -1,5 +1,5 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { apiGet, apiSend, onUnauthorized, setApiAuth } from '../lib/api';
+import { apiGet, apiSend, onUnauthorized, setApiAuth, onTokenRenewed } from '../lib/api';
 import { secureToken, prefs } from '../lib/storage';
 import { queryClient } from '../lib/queryClient';
 import { unregisterPush } from '../lib/push';
@@ -13,9 +13,11 @@ interface Ctx {
   logout: () => Promise<void>;
   patchUserData: (patch: Partial<UserData>) => void;
   replaceToken: (token: string) => Promise<void>;
+  /** Entra con el link de un solo uso del QR "Llevar Sentryx al celular". */
+  loginWithLink: (token: string) => Promise<void>;
 }
 
-const AuthCtx = createContext<Ctx>({ user: null, restoring: true, login: async () => {}, logout: async () => {}, patchUserData: () => {}, replaceToken: async () => {} });
+const AuthCtx = createContext<Ctx>({ user: null, restoring: true, login: async () => {}, logout: async () => {}, patchUserData: () => {}, replaceToken: async () => {}, loginWithLink: async () => {} });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<StoredSession | null>(null);
@@ -23,6 +25,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = useCallback(async () => {
     await unregisterPush().catch(() => {});
+    // Avisa al servidor para que esta sesión deje de servir (si no hay red, igual se borra el token local).
+    await apiSend('POST', '/users/logout').catch(() => {});
     setUser(null);
     setApiAuth({ token: null, schoolId: null, levelId: null });
     await secureToken.clear();
@@ -60,6 +64,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser({ token: r.token, userData: r.userData });
   }, []);
 
+  const loginWithLink = useCallback(async (token: string) => {
+    const r = await apiSend<{ token: string; userData: UserData }>('POST', '/users/login-link/redeem', { token });
+    setApiAuth({ token: r.token });
+    await secureToken.set(r.token);
+    await prefs.set('userData', r.userData);
+    setUser({ token: r.token, userData: r.userData });
+  }, []);
+
+  // Token renovado por la API (sesión deslizante de 30 días): se guarda en el dispositivo.
+  useEffect(() => {
+    onTokenRenewed((token) => {
+      secureToken.set(token).catch(() => {});
+      setUser((u) => (u ? { ...u, token } : u));
+    });
+    return () => onTokenRenewed(null);
+  }, []);
+
   const patchUserData = useCallback((patch: Partial<UserData>) => {
     setUser((u) => {
       if (!u) return u;
@@ -75,7 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser((u) => (u ? { ...u, token } : u));
   }, []);
 
-  const value = useMemo(() => ({ user, restoring, login, logout, patchUserData, replaceToken }), [user, restoring, login, logout, patchUserData, replaceToken]);
+  const value = useMemo(() => ({ user, restoring, login, logout, patchUserData, replaceToken, loginWithLink }), [user, restoring, login, logout, patchUserData, replaceToken, loginWithLink]);
   return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;
 };
 

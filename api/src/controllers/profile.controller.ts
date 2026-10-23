@@ -8,6 +8,8 @@ import { asyncHandler, HttpError, notFound, badRequest, unauthorized } from '../
 import { accountPayload } from '../services/accounts';
 import { AVATAR_MAX_BYTES } from '../validators/profile.validator';
 import { audit } from '../services/audit';
+import { createSession, revokeOtherSessions } from '../services/sessions';
+import { currentRequest } from '../lib/requestContext';
 
 /** Firma real del archivo (no alcanza con el tipo declarado). */
 const IMAGE_SIGNATURES: Record<string, (data: Buffer) => boolean> = {
@@ -40,8 +42,12 @@ export const changeMyPassword = asyncHandler(async (req, res) => {
   if (currentPassword === newPassword) throw badRequest('La nueva contraseña debe ser distinta de la actual.');
   await user.update({ password: await bcrypt.hash(newPassword, 10), mustChangePassword: false, tokenVersion: user.tokenVersion + 1 });
   invalidateAccountCache(user.id);
+  // Subir tokenVersion cierra todos los dispositivos; este se vuelve a abrir con una sesión nueva.
+  await revokeOtherSessions(user.id);
+  const r = currentRequest();
+  const sid = await createSession(user.id, { ip: r?.ip ?? null, userAgent: r?.userAgent ?? null, appVersion: (req.headers['x-app-version'] as string) ?? null });
   await audit({ schoolId: null, userId: user.id, entity: 'User', entityId: user.id, action: 'password-change' });
-  res.json({ message: 'Contraseña cambiada con éxito', token: signToken(user) });
+  res.json({ message: 'Contraseña cambiada con éxito', token: signToken(user, sid) });
 });
 
 /**

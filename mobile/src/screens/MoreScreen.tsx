@@ -9,6 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { useSchool } from '../context/SchoolContext';
 import { useTheme, radius, ThemeMode } from '../theme';
 import { Avatar, Card, Chip, Row, Screen, Sheet, T, toast } from '../ui';
+import { apiSend } from '../lib/api';
 import { pushState, registerPush, unregisterPush, PushState } from '../lib/push';
 import { WEB_URL, APP_VERSION } from '../config';
 import { Perm } from '../types';
@@ -105,7 +106,8 @@ export default function MoreScreen() {
         <Item icon="globe" label="Abrir Sentryx en el navegador" onPress={() => Linking.openURL(WEB_URL)} />
       </Group>
 
-      <Group>
+      <Group title="Seguridad">
+        <Item icon="smartphone" label="Cerrar sesión en los otros dispositivos" detail="Si prestaste o perdiste otro celular, o entraste en una PC ajena" onPress={() => apiSend<{ closed: number }>('POST', '/users/sessions/logout-others').then((r) => toast(r.closed ? `Sesión cerrada en ${r.closed} ${r.closed === 1 ? 'dispositivo' : 'dispositivos'}` : 'No había otras sesiones abiertas')).catch((e: Error) => toast(e.message, true))} />
         <Item icon="log-out" label="Cerrar sesión" danger onPress={logout} />
       </Group>
       <T kind="xs" muted style={{ textAlign: 'center' }}>Sentryx {APP_VERSION} · {Platform.OS === 'ios' ? 'iOS' : 'Android'} · por SRV</T>

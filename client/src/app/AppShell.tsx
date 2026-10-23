@@ -1,7 +1,7 @@
 import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Moon, Sun, MoreHorizontal, LogOut, ChevronDown, Check, Layers, LifeBuoy } from 'lucide-react';
+import { Bell, Moon, Sun, MoreHorizontal, LogOut, ChevronDown, Check, Layers, LifeBuoy, Smartphone } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useSchool } from '../school/SchoolContext';
@@ -10,6 +10,7 @@ import { apiGet, apiSend } from '../lib/api';
 import { buildNav, NavItem } from './nav';
 import { Sheet, timeAgo, Empty, useToast, Avatar } from '../ui';
 import { ReportProblemSheet } from '../school/ReportProblem';
+import { TakeToPhoneSheet } from '../school/TakeToPhoneSheet';
 import { GlobalSearch } from './GlobalSearch';
 
 const SRV_LOGO = 'https://wearesrv.com/srv-logo-96.webp';
@@ -54,6 +55,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
   const [bellOpen, setBellOpen] = useState(false);
   const [schoolOpen, setSchoolOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
 
   const nav = useMemo(() => buildNav({ session, can, isSuperAdmin }), [session, can, isSuperAdmin]);
   const badges = useBadges(!!session);
@@ -171,6 +173,9 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
           <NavLink to="/perfil/me" className={({ isActive }) => (isActive ? 'active' : '')}>
             <Avatar name={meName} src={user?.userData.avatar} size="sm" /> <span className="truncate">Mi perfil</span>
           </NavLink>
+          <a href="#" onClick={(e) => (e.preventDefault(), setPhoneOpen(true))}>
+            <Smartphone size={19} /> Llevar al celular
+          </a>
           <a href="#" onClick={(e) => (e.preventDefault(), setReportOpen(true))}>
             <LifeBuoy size={19} /> Reportar un problema
           </a>
@@ -242,6 +247,9 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
               {badgeFor(item) > 0 && <span className="count">{badgeFor(item)}</span>}
             </Link>
           ))}
+          <a href="#" className="list-item" onClick={(e) => (e.preventDefault(), setMoreOpen(false), setPhoneOpen(true))}>
+            <Smartphone size={20} /> <span className="grow">Sentryx en el celular</span>
+          </a>
           <a href="#" className="list-item" onClick={(e) => (e.preventDefault(), setMoreOpen(false), setReportOpen(true))}>
             <LifeBuoy size={20} /> <span className="grow">Reportar un problema</span>
           </a>
@@ -252,6 +260,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
       </Sheet>
 
       <ReportProblemSheet open={reportOpen} onClose={() => setReportOpen(false)} />
+      <TakeToPhoneSheet open={phoneOpen} onClose={() => setPhoneOpen(false)} />
 
       <Sheet open={bellOpen} onClose={() => setBellOpen(false)} title="Notificaciones">
         {unreadNotifications > 0 && (

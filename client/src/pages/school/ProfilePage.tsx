@@ -1,7 +1,7 @@
 import { FormEvent, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Camera, Trash2, Moon, Sun, Bell, LogOut, KeyRound, Mail, IdCard, Phone, Check, LifeBuoy } from 'lucide-react';
+import { Camera, Trash2, Moon, Sun, Bell, LogOut, KeyRound, Mail, IdCard, Phone, Check, LifeBuoy, Smartphone } from 'lucide-react';
 import { apiSend, avatarDataUrl, StoredSession } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
@@ -10,6 +10,8 @@ import { enablePush, pushState, isIOSNotInstalled } from '../../lib/push';
 import { usePerson } from '../../school/PersonProfile';
 import { ReportProblemSheet } from '../../school/ReportProblem';
 import { MyPlanCard } from '../../school/MyPlanCard';
+import { SessionsCard } from '../../school/SessionsCard';
+import { TakeToPhoneSheet } from '../../school/TakeToPhoneSheet';
 import { Avatar, Badge, Card, Field, PageHeader, Sheet, useToast, PasswordInput, newPasswordProblem } from '../../ui';
 
 type UserData = StoredSession['userData'] & { phone?: string | null; biography?: string | null };
@@ -121,6 +123,7 @@ export default function ProfilePage() {
   const [form, setForm] = useState<{ firstName: string; lastName: string; phone: string; biography: string } | null>(null);
   const [push, setPush] = useState(pushState());
   const [reportOpen, setReportOpen] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
 
   const data = form ?? { firstName: me.firstName, lastName: me.lastName, phone: me.phone ?? '', biography: me.biography ?? '' };
   const save = useMutation({
@@ -218,6 +221,11 @@ export default function ProfilePage() {
       {session && <MyPlanCard />}
 
       <PasswordCard />
+
+      <SessionsCard />
+
+      <button className="btn btn-block" onClick={() => setPhoneOpen(true)}><Smartphone size={16} /> Llevar Sentryx al celular (QR)</button>
+      <TakeToPhoneSheet open={phoneOpen} onClose={() => setPhoneOpen(false)} />
 
       <Card>
         <div className="stack">

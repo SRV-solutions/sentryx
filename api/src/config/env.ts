@@ -26,7 +26,8 @@ const schema = z.object({
   DB_SYNC: z.enum(['true', 'false']).default('false'),
 
   JWT_SECRET: z.string().min(16).optional(),
-  JWT_EXPIRES_IN: z.string().default('7d'),
+  /** Vida máxima del token. La sesión real dura 30 días desde el último uso (se renueva sola). */
+  JWT_EXPIRES_IN: z.string().default('30d'),
 
   CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174,https://sentryx.wearesrv.com'),
   FRONTEND_URL: z.string().default('https://sentryx.wearesrv.com'),

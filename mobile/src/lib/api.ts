@@ -20,6 +20,11 @@ let token: string | null = null;
 let schoolId: number | null = null;
 let levelId: number | null = null;
 const unauthorizedListeners = new Set<() => void>();
+let tokenRenewedHandler: ((token: string) => void) | null = null;
+/** Sesión deslizante: cuando la API manda un token renovado, el AuthContext lo guarda. */
+export const onTokenRenewed = (fn: ((token: string) => void) | null) => {
+  tokenRenewedHandler = fn;
+};
 
 export const setApiAuth = (next: { token?: string | null; schoolId?: number | null; levelId?: number | null }) => {
   if (next.token !== undefined) token = next.token;
@@ -64,6 +69,11 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
     clearTimeout(timer);
   }
 
+  const renewed = res.headers.get('X-Session-Token') ?? res.headers.get('x-session-token');
+  if (renewed && token && renewed !== token) {
+    token = renewed;
+    tokenRenewedHandler?.(renewed);
+  }
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {

@@ -7,6 +7,7 @@ import { RoleCode } from '../constants/roles';
 import { platformRolesOf } from '../services/rbac';
 import { unauthorized } from '../lib/http';
 import { setRequestUser } from '../lib/requestContext';
+import { checkSession } from '../services/sessions';
 
 /**
  * AUTENTICACIÓN (¿quién sos?). Los permisos (¿qué podés hacer?) los resuelve middlewares/authorize.ts.
@@ -21,17 +22,26 @@ interface TokenPayload {
   email: string;
   /** Versión de sesión (tokenVersion). Tokens viejos sin versión equivalen a 0. */
   ver?: number;
+  /** Id de la sesión por dispositivo (UserSession). Tokens viejos no lo traen. */
+  sid?: string;
+  iat?: number;
 }
 
 export interface AuthenticatedUser {
   id: number;
   email: string;
+  sid?: string;
+  /** Cuándo se firmó el token (segundos). */
+  issuedAt?: number;
 }
 
-export const signToken = (user: { id: number; email: string; tokenVersion: number }) =>
-  jwt.sign({ id: user.id, email: user.email, ver: user.tokenVersion } satisfies TokenPayload, env.JWT_SECRET, {
+export const signToken = (user: { id: number; email: string; tokenVersion: number }, sid?: string) =>
+  jwt.sign({ id: user.id, email: user.email, ver: user.tokenVersion, ...(sid ? { sid } : {}) } satisfies TokenPayload, env.JWT_SECRET, {
     expiresIn: env.JWT_EXPIRES_IN as jwt.SignOptions['expiresIn'],
   });
+
+/** El token se renueva solo cuando tiene más de un día: la sesión dura 30 días desde el ÚLTIMO uso, no desde el login. */
+const REFRESH_AFTER_S = 24 * 3600;
 
 // Estado de la cuenta en memoria (30 s): evita consultar la base en cada request.
 const ACCOUNT_CACHE_TTL_MS = 30_000;
@@ -56,7 +66,7 @@ const accountState = async (userId: number): Promise<AccountState | null> => {
 };
 
 /** Valida el token y que la cuenta siga activa y con la misma versión de sesión. */
-const verifyToken = async (token: string): Promise<AuthenticatedUser> => {
+const verifyToken = async (token: string, ip?: string | null): Promise<AuthenticatedUser> => {
   let payload: TokenPayload;
   try {
     payload = jwt.verify(token, env.JWT_SECRET) as TokenPayload;
@@ -67,17 +77,27 @@ const verifyToken = async (token: string): Promise<AuthenticatedUser> => {
   const state = await accountState(userId);
   if (!state || !state.isActive) throw unauthorized('La cuenta está desactivada.');
   if ((payload.ver ?? 0) !== state.tokenVersion) throw unauthorized('Tu sesión se cerró porque se cambió la contraseña. Volvé a ingresar.');
-  return { id: userId, email: payload.email };
+  if (payload.sid) {
+    const session = await checkSession(payload.sid, ip ?? null);
+    if (session === 'revoked' || session === 'missing') throw unauthorized('Esta sesión se cerró desde otro dispositivo. Volvé a ingresar.');
+    if (session === 'expired') throw unauthorized('Tu sesión se cerró por inactividad (30 días sin uso). Volvé a ingresar.');
+  }
+  return { id: userId, email: payload.email, sid: payload.sid, issuedAt: payload.iat };
 };
 
 /** Exige un usuario autenticado (header Authorization: Bearer <token>). */
-export const authenticate = async (req: Request, _res: Response, next: NextFunction) => {
+export const authenticate = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const header = req.headers.authorization;
     const token = header?.startsWith('Bearer ') ? header.slice(7) : undefined;
     if (!token) throw unauthorized('No autorizado. Falta el token de sesión.');
-    req.user = await verifyToken(token);
+    req.user = await verifyToken(token, req.ip);
     setRequestUser(req.user.id);
+    // Renovación deslizante: el cliente guarda el token nuevo y la sesión sigue 30 días más desde hoy.
+    if (req.user.sid && req.user.issuedAt && Date.now() / 1000 - req.user.issuedAt > REFRESH_AFTER_S) {
+      const state = await accountState(req.user.id);
+      if (state) res.setHeader('X-Session-Token', signToken({ id: req.user.id, email: req.user.email, tokenVersion: state.tokenVersion }, req.user.sid));
+    }
     next();
   } catch (err) {
     next(err);

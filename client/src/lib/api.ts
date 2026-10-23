@@ -79,6 +79,9 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
     throw new ApiError(0, 'Sin conexión. Revisá tu internet e intentá de nuevo.');
   }
 
+  // Sesión deslizante: si el servidor renovó el token (más de un día de uso), se guarda y la sesión sigue 30 días más.
+  const renewed = res.headers.get('X-Session-Token');
+  if (renewed && session && renewed !== session.token) setSession({ ...session, token: renewed });
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {

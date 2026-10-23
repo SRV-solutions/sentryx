@@ -60,6 +60,7 @@ const PlatformSchoolsPage = lazy(() => import('./pages/platform/PlatformSchoolsP
 const PlatformBillingPage = lazy(() => import('./pages/platform/PlatformBillingPage'));
 const PlatformSupportPage = lazy(() => import('./pages/platform/PlatformSupportPage'));
 const PlatformAuditPage = lazy(() => import('./pages/platform/PlatformAuditPage'));
+const PlatformTeamPage = lazy(() => import('./pages/platform/PlatformTeamPage'));
 const NoSchoolPage = lazy(() => import('./pages/auth/NoSchoolPage'));
 const NotFound = lazy(() => import('./pages/NotFound.jsx'));
 
@@ -167,6 +168,7 @@ export default function App() {
             <Route path="/plataforma/facturacion" element={<RequireSuperAdmin><PlatformBillingPage /></RequireSuperAdmin>} />
             <Route path="/plataforma/reportes" element={<RequireSuperAdmin><PlatformSupportPage /></RequireSuperAdmin>} />
             <Route path="/plataforma/auditoria" element={<RequireSuperAdmin><PlatformAuditPage /></RequireSuperAdmin>} />
+            <Route path="/plataforma/equipo" element={<RequireSuperAdmin><PlatformTeamPage /></RequireSuperAdmin>} />
           </Route>
         </Route>
         <Route path="*" element={<NotFound />} />
