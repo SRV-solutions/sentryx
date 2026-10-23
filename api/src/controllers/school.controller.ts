@@ -61,6 +61,8 @@ export const getSession = asyncHandler(async (req, res) => {
       /** Funciones que dependen de la configuración del servidor (la app oculta lo que no está disponible). */
       features: { fileUploads: isStorageConfigured(), maxUploadMb: Math.max(env.FILE_MAX_MB, env.VIDEO_MAX_MB) },
       grantableRoles: session.can(Entity.USERS, Action.UPDATE) ? grantableRoleCodes(session) : [],
+      /** Niveles donde puede crear cursos (además de quien configura toda la institución). */
+      courseLevelIds: session.courseLevelIds,
       canManageRoles: session.can(Entity.ROLES, Action.MANAGE),
     });
   });

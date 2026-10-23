@@ -90,13 +90,21 @@ export const createDivision = asyncHandler(async (req, res) => {
     if (!session.academicYearId) throw badRequest('Primero creá el ciclo lectivo.');
     const level = await Level.findOne({ where: { id: req.body.levelId, schoolId: session.schoolId } });
     if (!level) throw notFound('Nivel inexistente.');
+    // Cada directivo crea cursos de su nivel (la Representante Legal y quien tiene toda la institución, de cualquiera).
+    if (!session.can(Entity.SCHOOL, Action.UPDATE) && !session.courseLevelIds.includes(level.id)) throw forbidden(`No podés crear cursos en ${level.name}: no es un nivel a tu cargo.`);
+    const name = String(req.body.name).trim();
+    const same = await Division.findOne({ where: { schoolId: session.schoolId, levelId: level.id, academicYearId: session.academicYearId, name: sequelize.where(sequelize.fn('lower', sequelize.col('name')), name.toLowerCase()) } as never });
+    if (same) throw badRequest(`Ya existe el curso ${same.name} en ${level.name}.`);
     const division = await Division.create({
+      name,
       ...req.body,
       section: req.body.section ?? null,
       shift: req.body.shift ?? null,
       schoolId: session.schoolId,
       academicYearId: session.academicYearId,
     });
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Division', entityId: division.id, action: 'create', after: { name: division.name, levelId: level.id } });
+    invalidateSchoolSession();
     res.status(201).json(division);
   });
 

@@ -33,6 +33,11 @@ export interface SchoolSession {
   childIds: number[];
   /** Niveles a los que el personal tiene acceso (para el selector de nivel). */
   levelIds: number[];
+  /**
+   * Niveles donde puede crear cursos aunque no edite la estructura de toda la institución
+   * (ej: la Rectora crea un curso de Secundario al importar alumnos). Quien tiene SCHOOL UPDATE crea en todos.
+   */
+  courseLevelIds: number[];
   /** Directivo / Docente / Familia / Estudiante (la más alta si tiene varias). */
   category: Category | null;
   /** Si es una cuenta de estudiante: su legajo y división actual. */
@@ -151,6 +156,8 @@ const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: 
   const permissions = await permissionsForRoles(roles);
   // La estructura institucional solo la edita quien tiene alcance sobre toda la escuela:
   // una Rectora de Secundario no debe poder modificar Primario.
+  // Sí puede crear cursos de los niveles que conduce.
+  const courseLevelIds = !hasWholeSchoolScope && permissions.has(permissionKey(Entity.SCHOOL, Action.UPDATE)) ? assignedLevelIds : [];
   if (!hasWholeSchoolScope) permissions.delete(permissionKey(Entity.SCHOOL, Action.UPDATE));
 
   return {
@@ -170,6 +177,7 @@ const buildSchoolSession = async (userId: number, schoolId: number, superAdmin: 
     teaching,
     childIds,
     levelIds: roles.some(isStaffRole) ? staffLevelIds : [],
+    courseLevelIds,
     activeLevelId: null,
     divisionLevel,
     plan,

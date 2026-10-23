@@ -1,13 +1,13 @@
 /** Administración → Alumnos y familias. */
 import { FormEvent, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Upload, Download, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { apiGet, apiSend } from '../../../lib/api';
-import { parseCSV, CSV_TEMPLATE, downloadText } from '../../../lib/csv';
-import { Card, Field, Skeleton, useToast } from '../../../ui';
+import { Field, Skeleton, useToast } from '../../../ui';
 import { useSchool } from '../../../school/SchoolContext';
 import { type Structure } from '../../../school/types';
 import { CredentialsSheet, type Credential } from '../../../school/CredentialsSheet';
+import { StudentsImportCard } from './StudentsImport';
 
 const guardianEmpty = { firstName: '', lastName: '', dni: '', email: '', phone: '', relationship: 'Madre' };
 type GuardianForm = typeof guardianEmpty;
@@ -41,20 +41,8 @@ export const StudentsAdminTab = () => {
   const structure = useMemo(() => (full.data ? { ...full, data: { ...full.data, levels: full.data.levels.filter((l) => scoped.has(l.id)), divisions: full.data.divisions.filter((d) => scoped.has(d.levelId)) } } : full), [full, scoped]);
   const [creds, setCreds] = useState<Credential[]>([]);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', divisionId: 0, guardians: [{ ...guardianEmpty }] });
-  const [importRows, setImportRows] = useState<Array<Record<string, unknown>> | null>(null);
-  const [importErrors, setImportErrors] = useState<Array<{ row: number; message: string }>>([]);
   const [submitError, setSubmitError] = useState('');
   const [showErrors, setShowErrors] = useState(false);
-
-  const divisionByName = useMemo(() => {
-    const m = new Map<string, number>();
-    structure.data?.divisions.forEach((d) => {
-      const level = structure.data!.levels.find((l) => l.id === d.levelId)?.name.toLowerCase();
-      m.set(`${level}|${d.name.toLowerCase()}`, d.id);
-      if (![...m.keys()].some((k) => k !== `${level}|${d.name.toLowerCase()}` && k.endsWith(`|${d.name.toLowerCase()}`))) m.set(`|${d.name.toLowerCase()}`, d.id);
-    });
-    return m;
-  }, [structure.data]);
 
   const create = useMutation({
     mutationFn: () =>
@@ -80,47 +68,6 @@ export const StudentsAdminTab = () => {
     onError: (e: Error) => setSubmitError(e.message),
   });
 
-  const runImport = useMutation({
-    mutationFn: () => apiSend<{ imported: number; errors: Array<{ row: number; message: string }>; credentials: Credential[] }>('POST', '/school/students/import', { rows: importRows, sendEmails: true }),
-    onSuccess: (r) => {
-      toast(`${r.imported} alumnos importados${r.errors.length ? ` · ${r.errors.length} con errores` : ''}`, r.errors.length > 0);
-      setImportErrors(r.errors);
-      setCreds(r.credentials);
-      setImportRows(null);
-      qc.invalidateQueries({ queryKey: ['students'] });
-      qc.invalidateQueries({ queryKey: ['structure'] });
-    },
-    onError: (e: Error) => toast(e.message, true),
-  });
-
-  const onFile = async (file?: File) => {
-    if (!file) return;
-    const rows = parseCSV(await file.text());
-    const mapped = rows.map((r) => {
-      const guardians = [1, 2]
-        .map((n) => ({
-          firstName: r[`tutor${n}_nombre`],
-          lastName: r[`tutor${n}_apellido`],
-          dni: r[`tutor${n}_dni`] || null,
-          email: r[`tutor${n}_email`] || null,
-          phone: r[`tutor${n}_telefono`] || null,
-          relationship: r[`tutor${n}_vinculo`] || 'Tutor/a',
-        }))
-        .filter((g) => g.firstName && g.lastName);
-      const key = `${(r.nivel ?? '').toLowerCase()}|${(r.division ?? '').toLowerCase()}`;
-      return {
-        firstName: r.alumno_nombre,
-        lastName: r.alumno_apellido,
-        dni: r.alumno_dni || null,
-        birthDate: r.fecha_nacimiento || null,
-        divisionId: divisionByName.get(key) ?? divisionByName.get(`|${(r.division ?? '').toLowerCase()}`) ?? 0,
-        guardians,
-      };
-    });
-    setImportErrors(mapped.flatMap((m, i) => (m.divisionId ? [] : [{ row: i + 1, message: `División "${rows[i].division}" no encontrada` }])));
-    setImportRows(mapped);
-  };
-
   if (!structure.data) return <Skeleton count={3} h={90} />;
   const setG = (i: number, patch: Partial<typeof guardianEmpty>) => setForm({ ...form, guardians: form.guardians.map((g, j) => (j === i ? { ...g, ...patch } : g)) });
   const gErrors = form.guardians.map((g) => guardianErrors(g, form.guardians));
@@ -139,27 +86,7 @@ export const StudentsAdminTab = () => {
 
   return (
     <div className="stack-lg">
-      <Card>
-        <div className="stack">
-          <h2 className="h2">Importación masiva</h2>
-          <p className="small muted">Subí un CSV (Excel → Guardar como CSV) con alumnos y hasta 2 familiares por alumno. Los hermanos se vinculan solos a la misma familia por DNI/email.</p>
-          <div className="row wrap">
-            <button className="btn btn-sm btn-ghost" onClick={() => downloadText('plantilla-alumnos.csv', CSV_TEMPLATE)}><Download size={16} /> Descargar plantilla</button>
-            <label className="btn btn-sm"><Upload size={16} /> Elegir CSV<input type="file" accept=".csv,text/csv" hidden onChange={(e) => onFile(e.target.files?.[0])} /></label>
-          </div>
-          {importRows && (
-            <div className="alert alert-info">
-              <div className="grow small">{importRows.length} filas listas para importar{importErrors.length ? ` · ${importErrors.length} con división desconocida` : ''}.</div>
-              <button className="btn btn-sm" onClick={() => runImport.mutate()} disabled={runImport.isPending}>{runImport.isPending ? 'Importando…' : 'Importar'}</button>
-            </div>
-          )}
-          {importErrors.length > 0 && (
-            <div className="alert alert-danger small" style={{ flexDirection: 'column' }}>
-              {importErrors.slice(0, 20).map((e) => <div key={e.row}>Fila {e.row}: {e.message}</div>)}
-            </div>
-          )}
-        </div>
-      </Card>
+      <StudentsImportCard structure={structure.data} onCredentials={setCreds} />
 
       <form className="card card-pad stack" onSubmit={submitStudent} noValidate>
         <h2 className="h2">Alta individual</h2>

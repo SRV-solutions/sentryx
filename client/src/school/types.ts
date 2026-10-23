@@ -48,6 +48,8 @@ export interface SchoolSession {
   /** Roles de personal que puede otorgar (calculado por el servidor según la jerarquía). */
   /** Códigos del catálogo o de roles personalizados del colegio. */
   grantableRoles: string[];
+  /** Niveles donde puede crear cursos (la conducción de un nivel). */
+  courseLevelIds?: number[];
   canManageRoles?: boolean;
   /** Plan de la persona (ver school/plans.ts). */
   plan: { code: import('./plans').PlanCode; name: string; storageGb: number; features: import('./plans').PlanFeature[] };
