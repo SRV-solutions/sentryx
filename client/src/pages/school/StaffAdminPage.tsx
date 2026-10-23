@@ -11,10 +11,10 @@ import { PlanFeature } from '../../school/plans';
 import type { Structure } from '../../school/types';
 import {
   DAYS, KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, ReceiptKind, SHIFTS, SITUATION_LABELS, ScheduleSlot, StaffPosition, WeeklySchedule,
-  currentPeriod, lastPeriods, periodLabel, PositionKind, PositionSituation,
+  currentPeriod, lastPeriods, periodLabel, PositionKind, PositionSituation, PayMode, PAY_MODE_LABELS, RATE_LABELS, monthlyPayOf, money,
 } from '../../school/staffRecords';
 
-interface StaffRecord {
+export interface StaffRecord {
   userId: number;
   name: string;
   avatar: string | null;
@@ -24,9 +24,11 @@ interface StaffRecord {
   seesOwnRecords: boolean;
   weeklyHours: number;
   positions: StaffPosition[];
+  /** Total bruto estimado por mes (solo para quien maneja sueldos). */
+  monthlyPay?: number | null;
 }
 
-type PositionForm = {
+export type PositionForm = {
   id?: number;
   userId: number;
   title: string;
@@ -39,20 +41,30 @@ type PositionForm = {
   endDate: string;
   schedule: ScheduleSlot[];
   notes: string;
+  payMode: PayMode;
+  rate: number;
 };
 
-const emptyForm = (userId: number): PositionForm => ({ userId, title: '', kind: 'CARGO', situation: 'TITULAR', weeklyHours: 0, shift: 'Mañana', levelId: '', startDate: '', endDate: '', schedule: [], notes: '' });
+export const emptyForm = (userId: number): PositionForm => ({ userId, title: '', kind: 'CARGO', situation: 'TITULAR', weeklyHours: 0, shift: 'Mañana', levelId: '', startDate: '', endDate: '', schedule: [], notes: '', payMode: 'NONE', rate: 0 });
 
-const PositionSheet = ({ form, onClose, personName }: { form: PositionForm | null; onClose: () => void; personName: string }) => {
+/** Pasa un cargo guardado al formulario. */
+export const formOf = (p: StaffPosition): PositionForm => ({ id: p.id, userId: p.userId, title: p.title, kind: p.kind, situation: p.situation, weeklyHours: p.weeklyHours, shift: p.shift ?? '', levelId: p.levelId ?? '', startDate: p.startDate ?? '', endDate: p.endDate ?? '', schedule: p.schedule, notes: p.notes ?? '', payMode: p.payMode ?? 'NONE', rate: p.rate ?? 0 });
+
+export const PositionSheet = ({ form, onClose, personName }: { form: PositionForm | null; onClose: () => void; personName: string }) => {
   const qc = useQueryClient();
   const toast = useToast();
+  const { can } = useSchool();
+  // Los montos los carga quien maneja sueldos (Representante Legal, Administración).
+  const canPay = can(Entity.PAYROLL, Action.CREATE);
   const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure'), staleTime: 5 * 60_000 });
   const [f, setF] = useState<PositionForm | null>(form);
   const [error, setError] = useState('');
   if (form && (!f || f.id !== form.id || f.userId !== form.userId)) setF(form);
   const save = useMutation({
     mutationFn: () => {
-      const body = { ...f!, levelId: f!.levelId || null, shift: f!.shift || null, startDate: f!.startDate || null, endDate: f!.endDate || null, notes: f!.notes || null };
+      const base = { ...f!, levelId: f!.levelId || null, shift: f!.shift || null, startDate: f!.startDate || null, endDate: f!.endDate || null, notes: f!.notes || null };
+      const { payMode, rate, ...noPay } = base;
+      const body = canPay ? { ...noPay, payMode, rate } : noPay;
       const { id, userId, ...rest } = body;
       return id ? apiSend('PATCH', `/school/staff-positions/${id}`, rest) : apiSend('POST', '/school/staff-positions', { userId, ...rest });
     },
@@ -107,6 +119,27 @@ const PositionSheet = ({ form, onClose, personName }: { form: PositionForm | nul
             <button type="button" className="btn btn-sm btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setF({ ...f, schedule: [...f.schedule, { day: 1, from: '08:00', to: '09:20' }] })}><Plus size={14} /> Agregar franja</button>
           </div>
         </Field>
+        {canPay && (
+          <div className="card" style={{ padding: 12, background: 'var(--surface-2)' }}>
+            <div className="stack" style={{ gap: 8 }}>
+              <b className="small">Sueldo de este cargo</b>
+              <Field label="Cómo se calcula">
+                <select className="select" value={f.payMode} onChange={(e) => setF({ ...f, payMode: e.target.value as PayMode })}>
+                  {(Object.keys(PAY_MODE_LABELS) as PayMode[]).map((m) => <option key={m} value={m}>{PAY_MODE_LABELS[m]}</option>)}
+                </select>
+              </Field>
+              {f.payMode !== 'NONE' && (
+                <Field label={RATE_LABELS[f.payMode]}><input className="input" type="number" min={0} step={1} value={f.rate} onChange={(e) => setF({ ...f, rate: Number(e.target.value) })} /></Field>
+              )}
+              {f.payMode !== 'NONE' && (
+                <div className="small">
+                  Cobra por mes (bruto, antes de descuentos): <b>{money(monthlyPayOf(f))}</b>
+                  {f.payMode !== 'MENSUAL' && <span className="xs muted"> · {f.weeklyHours} h semanales{f.payMode === 'HORA_RELOJ' ? ' × 4,33 semanas' : ''} × {money(f.rate)}</span>}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <Field label="Observaciones"><textarea className="textarea" rows={2} maxLength={2000} value={f.notes} onChange={(e) => setF({ ...f, notes: e.target.value })} /></Field>
         {error && <div className="alert alert-danger small">{error}</div>}
         <button className="btn btn-block" disabled={save.isPending}>{save.isPending ? 'Guardando…' : 'Guardar'}</button>
@@ -151,6 +184,7 @@ const RecordsTab = () => {
                 <div className="xs muted truncate">{r.roles.join(' · ')} · {r.positions.filter((p) => p.active).length} cargos · plan {r.plan}</div>
               </div>
               <Badge>{r.weeklyHours} h</Badge>
+              {!!r.monthlyPay && <Badge tone="info">{money(r.monthlyPay)} /mes</Badge>}
               {open === r.userId ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
             </button>
             {open === r.userId && (
@@ -162,9 +196,10 @@ const RecordsTab = () => {
                     <Badge>{KIND_LABELS[p.kind]} · {p.weeklyHours} h</Badge>
                     <Badge tone="ok">{SITUATION_LABELS[p.situation]}</Badge>
                     {p.shift && <Badge>{p.shift}</Badge>}
+                    {!!p.monthlyPay && <Badge tone="info">{money(p.monthlyPay)} /mes</Badge>}
                     {canEdit && (
                       <>
-                        <button className="icon-btn" aria-label="Editar cargo" onClick={() => setForm({ ...emptyForm(r.userId), ...p, shift: p.shift ?? '', levelId: p.levelId ?? '', startDate: p.startDate ?? '', endDate: p.endDate ?? '', notes: p.notes ?? '' })}><Pencil size={15} /></button>
+                        <button className="icon-btn" aria-label="Editar cargo" onClick={() => setForm(formOf(p))}><Pencil size={15} /></button>
                         <button className="icon-btn" aria-label="Eliminar cargo" onClick={() => remove.mutate(p.id)}><Trash2 size={15} /></button>
                       </>
                     )}

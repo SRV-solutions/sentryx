@@ -1,7 +1,7 @@
 /** Validaciones (zod) del legajo del personal y de los recibos de sueldo. */
 import { z } from 'zod';
 import { idParam } from '../lib/http';
-import { POSITION_KINDS, POSITION_SITUATIONS, RECEIPT_KINDS } from '../models/school/staff';
+import { POSITION_KINDS, POSITION_SITUATIONS, RECEIPT_KINDS, PAY_MODES } from '../models/school/staff';
 
 const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'usá el formato HH:MM');
 const slot = z
@@ -20,6 +20,8 @@ const positionBody = z.object({
   endDate: z.string().date().nullish(),
   schedule: z.array(slot).max(40).default([]),
   notes: z.string().trim().max(2000).nullish(),
+  payMode: z.enum(PAY_MODES).optional(),
+  rate: z.number().min(0).max(100_000_000).optional(),
 });
 
 /** POST /staff-positions */

@@ -5,13 +5,16 @@
 import { z } from 'zod';
 import { Op } from 'sequelize';
 import { StaffPosition, User, UserRole, Level } from '../models';
-import { asyncHandler, badRequest, notFound } from '../lib/http';
+import { asyncHandler, badRequest, forbidden, notFound } from '../lib/http';
 import { NON_STAFF_ROLES, SchoolRole } from '../constants/roles';
 import { roleLabel } from '../services/roleRegistry';
 import { DEFAULT_PLAN, PlanFeature, featuresOf, planDefinition } from '../constants/plans';
 import { currentPlans } from '../services/plans';
 import { audit } from '../services/audit';
 import * as Validator from '../validators/staffRecords.validator';
+import { monthlyPayOf } from '../models/school/staff';
+import type { SchoolSession } from '../services/schoolSession';
+import { Entity, Action } from '../constants/permissions';
 
 /** Personal activo del colegio con sus roles. */
 export const staffMembers = async (schoolId: number) => {
@@ -39,13 +42,33 @@ const assertLevel = async (schoolId: number, levelId?: number | null) => {
   if (levelId && !(await Level.count({ where: { id: levelId, schoolId } }))) throw badRequest('Nivel inválido.');
 };
 
-const positionAttributes = ['id', 'userId', 'title', 'kind', 'situation', 'weeklyHours', 'shift', 'levelId', 'startDate', 'endDate', 'schedule', 'notes', 'active'];
+const positionAttributes = ['id', 'userId', 'title', 'kind', 'situation', 'weeklyHours', 'shift', 'levelId', 'startDate', 'endDate', 'schedule', 'notes', 'active', 'payMode', 'rate'];
+
+/** Los montos los ve y carga quien maneja sueldos (Representante Legal y Administración); el resto ve cargos y horas. */
+const seesPay = (session: SchoolSession) => session.can(Entity.PAYROLL, Action.READ);
+const withPay = (p: StaffPosition, show: boolean) => {
+  const json = p.toJSON() as unknown as Record<string, unknown>;
+  if (!show) {
+    delete json.payMode;
+    delete json.rate;
+    return json;
+  }
+  return { ...json, monthlyPay: monthlyPayOf(p) };
+};
+
+const assertPayEdit = (session: SchoolSession, body: { payMode?: string; rate?: number }) => {
+  if ((body.payMode !== undefined || body.rate !== undefined) && !session.can(Entity.PAYROLL, Action.CREATE)) throw forbidden('Solo quien maneja los sueldos puede cargar montos.');
+};
 
 // GET /staff-records — todo el personal con sus cargos y horas
 export const listStaffRecords = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const members = await staffMembers(session.schoolId);
+  // ?userId= → solo esa persona (Personal → Editar → Cargos y sueldo).
+  const only = Number(req.query.userId) || 0;
+  if (only) for (const id of [...members.keys()]) if (id !== only) members.delete(id);
   const userIds = [...members.keys()];
+  const show = seesPay(session);
   const [positions, plans] = await Promise.all([
     StaffPosition.findAll({ where: { schoolId: session.schoolId, userId: userIds.length ? userIds : [0] }, attributes: positionAttributes, order: [['active', 'DESC'], ['title', 'ASC']] }),
     currentPlans(session.schoolId, userIds),
@@ -64,7 +87,8 @@ export const listStaffRecords = asyncHandler(async (req, res) => {
         /** Con su plan, ¿ve su propio legajo y sus recibos? */
         seesOwnRecords: featuresOf(plan).has(PlanFeature.STAFF_RECORDS),
         weeklyHours: own.filter((p) => p.active).reduce((sum, p) => sum + p.weeklyHours, 0),
-        positions: own,
+        monthlyPay: show ? Math.round(own.reduce((sum, p) => sum + monthlyPayOf(p), 0) * 100) / 100 : null,
+        positions: own.map((p) => withPay(p, show)),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -80,13 +104,19 @@ export const getMyRecord = asyncHandler(async (req, res) => {
     include: [{ model: Level, attributes: ['id', 'name'] }],
     order: [['title', 'ASC']],
   });
-  res.json({ positions, weeklyHours: positions.reduce((sum, p) => sum + p.weeklyHours, 0) });
+  // Cada persona ve su propio sueldo estimado.
+  res.json({
+    positions: positions.map((p) => withPay(p, true)),
+    weeklyHours: positions.reduce((sum, p) => sum + p.weeklyHours, 0),
+    monthlyPay: Math.round(positions.reduce((sum, p) => sum + monthlyPayOf(p), 0) * 100) / 100,
+  });
 });
 
 // POST /staff-positions
 export const createPosition = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const body = req.body as z.infer<typeof Validator.createPosition.body>;
+  assertPayEdit(session, body);
   await assertStaffMember(session.schoolId, body.userId);
   await assertLevel(session.schoolId, body.levelId);
   const position = await StaffPosition.create({
@@ -107,6 +137,7 @@ export const updatePosition = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const position = await StaffPosition.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
   if (!position) throw notFound();
+  assertPayEdit(session, req.body);
   await assertLevel(session.schoolId, req.body.levelId);
   const before = position.toJSON();
   await position.update(req.body);

@@ -5,7 +5,7 @@ import { apiGet, apiSend } from '../../lib/api';
 import { Badge, Card, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, fmtDate, useToast } from '../../ui';
 import { PlanGate } from '../../school/PlanGate';
 import { PlanFeature, ars, usePlan } from '../../school/plans';
-import { KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, SITUATION_LABELS, StaffPosition, WeeklySchedule, periodLabel } from '../../school/staffRecords';
+import { KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, SITUATION_LABELS, StaffPosition, WeeklySchedule, periodLabel, money } from '../../school/staffRecords';
 
 const openReceipt = async (id: number) => {
   // Se abre la pestaña antes del pedido: los navegadores de celular bloquean ventanas abiertas después de un await.
@@ -85,7 +85,7 @@ export default function MyRecordPage() {
   const { hasFeature } = usePlan();
   const record = useQuery({
     queryKey: ['my-record'],
-    queryFn: () => apiGet<{ positions: StaffPosition[]; weeklyHours: number }>('/school/staff-records/me'),
+    queryFn: () => apiGet<{ positions: StaffPosition[]; weeklyHours: number; monthlyPay: number }>('/school/staff-records/me'),
     enabled: hasFeature(PlanFeature.STAFF_RECORDS),
   });
   return (
@@ -109,8 +109,14 @@ export default function MyRecordPage() {
                   <Badge tone="ok">{SITUATION_LABELS[p.situation]}</Badge>
                   {p.shift && <Badge>{p.shift}</Badge>}
                   {p.Level && <Badge>{p.Level.name}</Badge>}
+                  {!!p.monthlyPay && <Badge tone="info">{money(p.monthlyPay)} /mes</Badge>}
                 </div>
               ))}
+              {record.data.monthlyPay > 0 && (
+                <div className="alert alert-info small" style={{ marginTop: 6 }}>
+                  <div>Vas a cobrar aproximadamente <b>{money(record.data.monthlyPay)} por mes</b> (bruto, antes de descuentos), según los cargos y horas que cargó la institución. El monto exacto está en tu recibo de sueldo.</div>
+                </div>
+              )}
               <h3 className="h3" style={{ marginTop: 8 }}>Horario semanal</h3>
               <WeeklySchedule positions={record.data.positions} />
             </div>

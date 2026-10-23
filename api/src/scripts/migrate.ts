@@ -428,6 +428,14 @@ const migrations: Array<{
       await index(`CREATE INDEX IF NOT EXISTS "user_session_user_last" ON "UserSession" ("userId", "lastUsedAt")`);
     },
   },
+  {
+    // Sueldo por cargo del legajo: modo de pago (hora cátedra, hora reloj o mensual) y valor.
+    name: "2026-10-23-staff-position-pay",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "StaffPosition", "payMode", { type: DataTypes.STRING(16), allowNull: false, defaultValue: "NONE" });
+      await addColumnIfMissing(qi, "StaffPosition", "rate", { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0 });
+    },
+  },
 ];
 
 const run = async () => {

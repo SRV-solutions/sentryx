@@ -5,6 +5,22 @@ import type User from '../User';
 export const POSITION_KINDS = ['CARGO', 'HORAS_CATEDRA', 'MODULOS'] as const;
 export type PositionKind = (typeof POSITION_KINDS)[number];
 export const POSITION_SITUATIONS = ['TITULAR', 'INTERINO', 'SUPLENTE', 'CONTRATADO'] as const;
+/**
+ * Cómo se calcula el sueldo de un cargo:
+ *  - HORA_CATEDRA: valor mensual de cada hora cátedra semanal × horas semanales (lo habitual en docentes).
+ *  - HORA_RELOJ: valor de la hora trabajada × horas semanales × 4,33 semanas.
+ *  - MENSUAL: monto fijo por mes (cargos de dirección, secretaría, preceptoría…).
+ *  - NONE: sin cargar.
+ */
+export const PAY_MODES = ['NONE', 'HORA_CATEDRA', 'HORA_RELOJ', 'MENSUAL'] as const;
+export type PayMode = (typeof PAY_MODES)[number];
+const WEEKS_PER_MONTH = 52 / 12;
+/** Sueldo bruto estimado por mes de un cargo (antes de descuentos). */
+export const monthlyPayOf = (p: { payMode: PayMode; rate: number; weeklyHours: number; active?: boolean }) => {
+  if (p.active === false) return 0;
+  const v = p.payMode === 'HORA_CATEDRA' ? p.weeklyHours * p.rate : p.payMode === 'HORA_RELOJ' ? p.weeklyHours * p.rate * WEEKS_PER_MONTH : p.payMode === 'MENSUAL' ? p.rate : 0;
+  return Math.round(v * 100) / 100;
+};
 export type PositionSituation = (typeof POSITION_SITUATIONS)[number];
 
 /** Franja del horario semanal: día 1 (lunes) a 6 (sábado), horas "HH:MM". */
@@ -35,6 +51,9 @@ export class StaffPosition extends Model<InferAttributes<StaffPosition>, InferCr
   declare endDate: string | null;
   declare schedule: CreationOptional<ScheduleSlot[]>;
   declare notes: string | null;
+  declare payMode: CreationOptional<PayMode>;
+  /** Valor de la hora (cátedra o reloj) o monto mensual, según payMode. */
+  declare rate: CreationOptional<number>;
   declare active: CreationOptional<boolean>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
@@ -56,6 +75,8 @@ StaffPosition.init(
     endDate: { type: DataTypes.DATEONLY, allowNull: true },
     schedule: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
     notes: { type: DataTypes.TEXT, allowNull: true },
+    payMode: { type: DataTypes.STRING(16), allowNull: false, defaultValue: 'NONE' },
+    rate: { type: DataTypes.DECIMAL(14, 2), allowNull: false, defaultValue: 0, get() { return Number(this.getDataValue('rate')); } },
     active: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,

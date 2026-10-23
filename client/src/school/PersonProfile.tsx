@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { KeyRound, Mail, Phone, IdCard, Pencil, BookOpen, Baby, ShieldCheck, Clock, MessageCircle, ChevronRight } from 'lucide-react';
 import { apiGet, apiSend } from '../lib/api';
-import { Avatar, Badge, Card, ErrorBox, Field, Sheet, Skeleton, timeAgo, useToast } from '../ui';
+import { Avatar, Badge, Card, ErrorBox, Field, Sheet, Skeleton, timeAgo, useToast, fmtDate } from '../ui';
 import { CredentialsSheet, type Credential } from './CredentialsSheet';
 import type { SchoolRole } from './types';
 
@@ -22,7 +22,7 @@ export interface PersonDetail {
   children: Array<{ id: number; firstName: string; lastName?: string; relationship: string; isPrimary?: boolean; canPickUp?: boolean; division?: { id: number; name: string; level: string } | null }>;
   teaching: Array<{ division: { id: number; name: string; level?: string }; subject: { id: number; name: string } }>;
   contact: { email: string | null; phone: string | null; dni: string | null } | null;
-  account: { lastLogin: string | null; mustChangePassword: boolean; isActive: boolean; login: string } | null;
+  account: { lastLogin: string | null; lastSeenAt?: string | null; mustChangePassword: boolean; isActive: boolean; login: string } | null;
   visibility: 'self' | 'staff' | 'limited';
   canManage: boolean;
 }
@@ -71,6 +71,9 @@ const AccessToggle = ({ p }: { p: PersonDetail }) => {
     </>
   );
 };
+
+/** "23 oct, 14:32": fecha y hora exactas para el registro de conexión. */
+export const exactDate = (d: string) => fmtDate(d, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 /** Estado de la cuenta en palabras (para administración). */
 export const accountStatus = (a: { lastLogin: string | null; mustChangePassword: boolean; isActive?: boolean }) =>
@@ -248,7 +251,8 @@ export const PersonProfile = ({ userId, onNavigate }: { userId: number; onNaviga
             <h3 className="h3 row"><ShieldCheck size={18} /> Cuenta</h3>
             <dl className="kv">
               <dt>Usuario</dt><dd>{p.account.login.endsWith('@sin-email.local') ? p.contact?.dni ?? '—' : p.account.login}</dd>
-              <dt>Último ingreso</dt><dd className="row" style={{ gap: 6 }}><Clock size={14} className="muted" /> {p.account.lastLogin ? timeAgo(p.account.lastLogin) : 'Nunca'}</dd>
+              <dt>Último ingreso</dt><dd className="row" style={{ gap: 6 }}><Clock size={14} className="muted" /> {p.account.lastLogin ? `${timeAgo(p.account.lastLogin)} · ${exactDate(p.account.lastLogin)}` : 'Nunca'}</dd>
+              <dt>Última conexión</dt><dd>{p.account.lastSeenAt ? `${timeAgo(p.account.lastSeenAt)} · ${exactDate(p.account.lastSeenAt)}` : 'Nunca'}</dd>
             </dl>
             {p.canManage ? (
               <div className="row wrap">

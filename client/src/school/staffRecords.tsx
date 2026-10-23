@@ -2,6 +2,18 @@
 export type PositionKind = 'CARGO' | 'HORAS_CATEDRA' | 'MODULOS';
 export type PositionSituation = 'TITULAR' | 'INTERINO' | 'SUPLENTE' | 'CONTRATADO';
 export type ReceiptKind = 'SUELDO' | 'AGUINALDO' | 'VACACIONES' | 'OTRO';
+export type PayMode = 'NONE' | 'HORA_CATEDRA' | 'HORA_RELOJ' | 'MENSUAL';
+export const PAY_MODE_LABELS: Record<PayMode, string> = {
+  NONE: 'Sin cargar',
+  HORA_CATEDRA: 'Por hora cátedra (valor mensual de cada hora semanal)',
+  HORA_RELOJ: 'Por hora trabajada (× 4,33 semanas por mes)',
+  MENSUAL: 'Monto fijo mensual',
+};
+export const RATE_LABELS: Record<PayMode, string> = { NONE: 'Valor', HORA_CATEDRA: 'Valor de la hora cátedra (por mes)', HORA_RELOJ: 'Valor de la hora trabajada', MENSUAL: 'Monto mensual' };
+/** Mismo cálculo que la API (models/school/staff.ts → monthlyPayOf). */
+export const monthlyPayOf = (p: { payMode?: PayMode; rate?: number; weeklyHours: number }) =>
+  Math.round((p.payMode === 'HORA_CATEDRA' ? p.weeklyHours * (p.rate ?? 0) : p.payMode === 'HORA_RELOJ' ? p.weeklyHours * (p.rate ?? 0) * (52 / 12) : p.payMode === 'MENSUAL' ? p.rate ?? 0 : 0) * 100) / 100;
+export const money = (n: number) => n.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
 
 export interface ScheduleSlot { day: number; from: string; to: string; label?: string }
 export interface StaffPosition {
@@ -18,6 +30,10 @@ export interface StaffPosition {
   schedule: ScheduleSlot[];
   notes: string | null;
   active: boolean;
+  /** Solo para quien maneja sueldos (y la propia persona en Mi legajo). */
+  payMode?: PayMode;
+  rate?: number;
+  monthlyPay?: number;
   Level?: { id: number; name: string } | null;
 }
 export interface Receipt {
