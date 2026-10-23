@@ -39,7 +39,7 @@ export const listStudents = { query: studentQuery };
 export const getStudent = { params: idParam };
 
 /** POST /students */
-export const createStudent = { body: studentBody };
+export const createStudent = { body: studentBody.extend({ sendEmail: z.boolean().default(true) }) };
 
 /** POST /students/import */
 export const importStudents = { body: z.object({ rows: z.array(z.unknown()).min(1).max(1500), sendEmails: z.boolean().default(true) }) };
@@ -51,7 +51,7 @@ export const updateStudent = {
   };
 
 /** POST /students/:id/guardians */
-export const addGuardian = { params: idParam, body: guardianInput };
+export const addGuardian = { params: idParam, body: guardianInput.and(z.object({ sendEmail: z.boolean().default(true) })) };
 
 /** PATCH /guardians/:id */
 export const updateGuardianLink = {

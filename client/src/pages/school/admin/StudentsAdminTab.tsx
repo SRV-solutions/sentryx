@@ -42,6 +42,7 @@ export const StudentsAdminTab = () => {
   const [creds, setCreds] = useState<Credential[]>([]);
   const [form, setForm] = useState({ firstName: '', lastName: '', dni: '', birthDate: '', divisionId: 0, guardians: [{ ...guardianEmpty }] });
   const [submitError, setSubmitError] = useState('');
+  const [sendEmail, setSendEmail] = useState(true);
   const [showErrors, setShowErrors] = useState(false);
 
   const create = useMutation({
@@ -53,6 +54,7 @@ export const StudentsAdminTab = () => {
         birthDate: form.birthDate || null,
         divisionId: form.divisionId,
         guardians: form.guardians.filter((g) => !isBlank(g)).map((g) => ({ ...g, email: g.email.trim() || null, dni: g.dni.trim() || null, phone: g.phone.trim() || null })),
+        sendEmail,
       }),
     onSuccess: (r) => {
       const n = r.guardiansLinked ?? 0;
@@ -128,6 +130,10 @@ export const StudentsAdminTab = () => {
         ))}
         {form.guardians.length < 4 && <button type="button" className="btn btn-sm btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setForm({ ...form, guardians: [...form.guardians, { ...guardianEmpty, relationship: 'Padre' }] })}><Plus size={16} /> Otro familiar</button>}
         <p className="xs muted">Cada familiar ingresa con su propio DNI o email. Si mamá y papá comparten un email, cargalo en uno solo y el otro entra con su DNI.</p>
+        <label className="row small" style={{ gap: 8 }}>
+          <input type="checkbox" checked={sendEmail} onChange={(e) => setSendEmail(e.target.checked)} />
+          <span>Enviar por mail los datos de acceso a los familiares que tengan email<span className="xs muted" style={{ display: 'block' }}>Le llega un botón para entrar directo y elegir su contraseña (sirve una vez, 7 días).</span></span>
+        </label>
         {submitError && <div className="alert alert-danger small">{submitError}</div>}
         <button className="btn btn-accent btn-block" disabled={create.isPending || !form.divisionId || !form.firstName || !form.lastName}>
           {create.isPending ? 'Guardando…' : `Guardar alumno${filled ? ` y ${filled} familiar${filled === 1 ? '' : 'es'}` : ''}`}

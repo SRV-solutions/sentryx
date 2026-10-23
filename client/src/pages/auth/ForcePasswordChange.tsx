@@ -8,7 +8,6 @@ import { PasswordInput, newPasswordProblem } from '../../ui';
 export default function ForcePasswordChange() {
   const { patchUserData, replaceToken, logout } = useAuth();
   const navigate = useNavigate();
-  const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
   const [error, setError] = useState('');
@@ -17,11 +16,11 @@ export default function ForcePasswordChange() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
-    const problem = newPasswordProblem(next, confirm, current);
+    const problem = newPasswordProblem(next, confirm, '');
     if (problem) return setError(problem);
     setLoading(true);
     try {
-      const { token } = await apiSend<{ token: string }>('PUT', '/users/change-password', { currentPassword: current, newPassword: next });
+      const { token } = await apiSend<{ token: string }>('PUT', '/users/change-password', { newPassword: next });
       replaceToken(token);
       patchUserData({ mustChangePassword: false });
       navigate('/', { replace: true });
@@ -36,14 +35,10 @@ export default function ForcePasswordChange() {
     <div style={{ minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <form className="card card-pad stack" style={{ width: '100%', maxWidth: 420 }} onSubmit={submit}>
         <h1 className="h2">Elegí tu contraseña</h1>
-        <p className="muted small">Ingresaste con una contraseña temporal. Por seguridad, creá una propia (mínimo 8 caracteres).</p>
-        <div className="field">
-          <label htmlFor="cur">Contraseña temporal</label>
-          <PasswordInput id="cur" value={current} onChange={setCurrent} required autoFocus />
-        </div>
+        <p className="muted small">Ingresaste con un acceso temporal. Por seguridad, creá tu propia contraseña (mínimo 8 caracteres): es la que vas a usar desde ahora.</p>
         <div className="field">
           <label htmlFor="new">Nueva contraseña</label>
-          <PasswordInput id="new" value={next} onChange={setNext} autoComplete="new-password" required />
+          <PasswordInput id="new" value={next} onChange={setNext} autoComplete="new-password" required autoFocus />
           <span className="xs muted">Mínimo 8 caracteres. Tiene que ser distinta de la temporal.</span>
         </div>
         <div className="field">

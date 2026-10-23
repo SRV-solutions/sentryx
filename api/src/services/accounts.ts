@@ -9,6 +9,7 @@ import { sendMail } from '../config/mailer';
 import { brandEmail } from '../lib/emailTemplate';
 import { env } from '../config/env';
 import { conflict, badRequest, notFound } from '../lib/http';
+import { emailLoginLink, EMAIL_LINK_DAYS } from './loginLinks';
 
 export interface PersonInput {
   firstName: string;
@@ -153,15 +154,20 @@ export const resetToTemporaryPassword = async (user: User, schoolName: string) =
   invalidateAccountCache(user.id);
   const emailed = !isTechEmail(user.email);
   if (emailed) {
+    // El link se emite con la versión nueva: los links y sesiones anteriores ya no sirven.
+    const url = await emailLoginLink(user.id, user.tokenVersion + 1).catch(() => loginLink(user, plain));
     sendMail({
       to: user.email,
       subject: `Tu nueva contraseña de ${schoolName} en Sentryx`,
       html: brandEmail({
         title: `¡Hola ${user.firstName}!`,
-        paragraphs: [`${schoolName} restableció tu contraseña de Sentryx. Al ingresar te vamos a pedir que elijas una nueva.`],
+        paragraphs: [
+          `${schoolName} restableció tu contraseña de Sentryx.`,
+          `Tocá el botón: entrás directo y elegís tu contraseña nueva en el momento. El botón sirve una sola vez y vence en ${EMAIL_LINK_DAYS} días.`,
+        ],
         box: [`Usuario: ${user.dni ?? user.email}`, `Contraseña temporal: ${plain}`],
-        cta: { label: 'Ingresar', url: loginLink(user, plain) },
-        footnote: 'Si no pediste este cambio, avisale a la institución.',
+        cta: { label: 'Entrar y elegir mi contraseña', url },
+        footnote: 'Si el botón ya no funciona, ingresá con el usuario y la contraseña temporal de arriba. Si no pediste este cambio, avisale a la institución.',
       }),
     });
   }
@@ -178,18 +184,21 @@ export const loginLink = (user: { dni: string | null; email: string; firstName: 
 
 export const sendWelcome = (user: User, password: string, schoolName: string) => {
   if (isTechEmail(user.email)) return;
-  sendMail({
-    to: user.email,
-    subject: `Tu acceso a ${schoolName} en Sentryx`,
-    html: brandEmail({
-      title: `¡Hola ${user.firstName}!`,
-      paragraphs: [
-        `${schoolName} te dio acceso a Sentryx: comunicados, mensajes, notas y asistencia en un solo lugar.`,
-        'Podés ingresar con tu email o tu DNI. Al entrar por primera vez te vamos a pedir que cambies la contraseña.',
-      ],
-      box: [`Usuario: ${user.dni ?? user.email}`, `Contraseña temporal: ${password}`],
-      cta: { label: 'Ingresar ahora', url: loginLink(user, password) },
-      footnote: 'Tip: desde el celular, abrí el sitio y elegí "Agregar a pantalla de inicio" para recibir avisos al instante.',
-    }),
-  });
+  void (async () => {
+    const url = await emailLoginLink(user.id, user.tokenVersion ?? 0).catch(() => loginLink(user, password));
+    sendMail({
+      to: user.email,
+      subject: `Tu acceso a ${schoolName} en Sentryx`,
+      html: brandEmail({
+        title: `¡Hola ${user.firstName}!`,
+        paragraphs: [
+          `${schoolName} te dio acceso a Sentryx: comunicados, mensajes, notas y asistencia en un solo lugar.`,
+          `Tocá el botón: entrás directo y elegís tu contraseña en el momento. El botón sirve una sola vez y vence en ${EMAIL_LINK_DAYS} días.`,
+        ],
+        box: [`Usuario: ${user.dni ?? user.email}`, `Contraseña temporal: ${password}`],
+        cta: { label: 'Entrar y elegir mi contraseña', url },
+        footnote: 'Si el botón ya no funciona, ingresá con tu email o DNI y la contraseña temporal de arriba. Tip: desde el celular, abrí el sitio y elegí "Agregar a pantalla de inicio" para recibir avisos al instante.',
+      }),
+    });
+  })();
 };

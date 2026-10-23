@@ -25,7 +25,7 @@ export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generad
       <div className="stack">
         <div className="alert alert-warn small">
           <div>
-            Se muestran <b>una sola vez</b>. {items.some((i) => i.email) ? 'Quienes tienen email ya las recibieron; al resto' : 'Entregáselas'} en mano o impresas. Al ingresar se les pide elegir una contraseña propia.
+            Se muestran <b>una sola vez</b>. {items.some((i) => i.email) ? 'Quienes figuran con "Enviado" ya las recibieron por mail (con un botón para entrar directo); al resto' : 'Entregáselas'} en mano o impresas. Al ingresar se les pide elegir una contraseña propia.
             <div style={{ marginTop: 4 }}><b>Probar ingreso</b> abre el login con los datos cargados: ojo, al entrar con esa cuenta se cierra tu sesión en este navegador.</div>
           </div>
         </div>
@@ -41,7 +41,7 @@ export const CredentialsSheet = ({ items, onClose, title = 'Credenciales generad
                   {items.some((x) => x.student) && <td>{c.student}</td>}
                   <td>{c.login}</td>
                   <td><code style={{ fontSize: 15, fontWeight: 700 }}>{c.tempPassword}</code></td>
-                  <td className="xs muted">{c.email ? 'Enviado ✓' : 'Sin email'}</td>
+                  <td className="xs muted">{c.email ? 'Enviado ✓' : 'No enviado'}</td>
                   <td>
                     <button type="button" className="btn btn-sm btn-ghost" title="Abre el ingreso en otra pestaña con estos datos ya cargados" onClick={() => openLogin(c)}>
                       <LogIn size={14} /> Probar ingreso

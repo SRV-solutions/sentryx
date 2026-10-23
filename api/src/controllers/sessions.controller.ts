@@ -3,7 +3,8 @@
  * ver dónde está abierta la sesión, cerrarla en otros dispositivos, y "Llevar Sentryx al celular"
  * (QR con un link de un solo uso que entra sin escribir la contraseña).
  */
-import { randomBytes, createHash } from 'crypto';
+import { randomBytes } from 'crypto';
+import { sha256 } from '../services/loginLinks';
 import { z } from 'zod';
 import { User, LoginLinkToken } from '../models';
 import { asyncHandler, badRequest, unauthorized } from '../lib/http';
@@ -15,7 +16,6 @@ import { audit } from '../services/audit';
 import { env } from '../config/env';
 
 const LINK_TTL_MS = 5 * 60_000;
-const sha256 = (v: string) => createHash('sha256').update(v).digest('hex');
 
 export const redeemLoginLinkBody = { body: z.object({ token: z.string().min(20).max(200) }) };
 export const sessionParam = { params: z.object({ id: z.string().min(8).max(64) }) };
@@ -58,8 +58,8 @@ export const createLoginLink = asyncHandler(async (req, res) => {
   const token = randomBytes(32).toString('hex');
   const expiresAt = new Date(Date.now() + LINK_TTL_MS);
   // Un solo link vivo por persona: los anteriores dejan de servir.
-  await LoginLinkToken.update({ usedAt: new Date() }, { where: { userId: req.user!.id, usedAt: null } });
-  await LoginLinkToken.create({ userId: req.user!.id, tokenHash: sha256(token), expiresAt, usedAt: null });
+  await LoginLinkToken.update({ usedAt: new Date() }, { where: { userId: req.user!.id, usedAt: null, purpose: 'QR' } });
+  await LoginLinkToken.create({ userId: req.user!.id, tokenHash: sha256(token), expiresAt, usedAt: null, purpose: 'QR' });
   res.json({ url: `${env.FRONTEND_URL}/login?link=${token}`, expiresAt });
 });
 
@@ -67,16 +67,26 @@ export const createLoginLink = asyncHandler(async (req, res) => {
 export const redeemLoginLink = asyncHandler(async (req, res) => {
   const { token } = req.body as { token: string };
   const record = await LoginLinkToken.findOne({ where: { tokenHash: sha256(token) } });
+  const fromMail = record?.purpose === 'EMAIL';
   if (!record || record.usedAt || record.expiresAt < new Date()) {
-    throw unauthorized('El código ya se usó o venció. Volvé a abrir "Llevar Sentryx al celular" en la computadora y escaneá el nuevo.');
+    throw unauthorized(
+      fromMail
+        ? 'El botón del mail ya se usó o venció. Ingresá con tu usuario y la contraseña temporal del mail, o pedile a la institución que te la blanquee.'
+        : 'El código ya se usó o venció. Volvé a abrir "Llevar Sentryx al celular" en la computadora y escaneá el nuevo.'
+    );
   }
   const user = await User.findByPk(record.userId);
   if (!user || !user.isActive) throw unauthorized('La cuenta ya no está activa.');
+  // El link de un mail deja de servir si después se cambió la contraseña.
+  if (record.ver !== null && record.ver !== undefined && record.ver !== user.tokenVersion) {
+    await record.update({ usedAt: new Date() });
+    throw unauthorized('Este botón ya no sirve porque la contraseña cambió. Ingresá con tu usuario y tu contraseña.');
+  }
   await record.update({ usedAt: new Date() });
   setRequestUser(user.id);
   const r = currentRequest();
-  const sid = await createSession(user.id, { ip: r?.ip ?? null, userAgent: r?.userAgent ?? null, appVersion: (req.headers['x-app-version'] as string) ?? null, via: 'QR' });
+  const sid = await createSession(user.id, { ip: r?.ip ?? null, userAgent: r?.userAgent ?? null, appVersion: (req.headers['x-app-version'] as string) ?? null, via: fromMail ? 'Mail' : 'QR' });
   await User.update({ lastLogin: new Date() }, { where: { id: user.id } });
-  await audit({ schoolId: null, userId: user.id, entity: 'Session', action: 'login-qr' });
+  await audit({ schoolId: null, userId: user.id, entity: 'Session', action: fromMail ? 'login-mail' : 'login-qr' });
   res.json({ token: signToken(user, sid), userData: await accountPayload(user.id) });
 });

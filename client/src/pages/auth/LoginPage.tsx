@@ -135,7 +135,7 @@ export default function LoginPage() {
             ) : (
               <div className="alert alert-info small">Datos cargados para probar el ingreso de <b>{prefilled.name}</b>. Al entrar, en este navegador queda abierta esa sesión (se cierra la tuya).</div>
             ))}
-            {qrLink && loading && <div className="alert alert-info small">Entrando con el código del QR…</div>}
+            {qrLink && loading && <div className="alert alert-info small">Entrando…</div>}
             {ended && !error && <div className="alert alert-warn small">{ended}</div>}
             {error && <div className="alert alert-danger">{error}</div>}
             <button className="btn btn-accent btn-block" disabled={loading || !identifier || !password}>

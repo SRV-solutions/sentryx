@@ -145,11 +145,11 @@ const StudentAccountCard = ({ studentId, name, account }: { studentId: number; n
 const AddGuardianSheet = ({ studentId, studentName, onClose }: { studentId: number; studentName: string; onClose: () => void }) => {
   const qc = useQueryClient();
   const toast = useToast();
-  const [f, setF] = useState({ firstName: '', lastName: '', dni: '', email: '', phone: '', relationship: 'Padre', canPickUp: true });
+  const [f, setF] = useState({ firstName: '', lastName: '', dni: '', email: '', phone: '', relationship: 'Padre', canPickUp: true, sendEmail: true });
   const [error, setError] = useState('');
   const [creds, setCreds] = useState<Credential[]>([]);
   const add = useMutation({
-    mutationFn: () => apiSend<{ name: string; login: string; tempPassword: string | null; email: string | null; existing: boolean }>('POST', `/school/students/${studentId}/guardians`, f),
+    mutationFn: () => apiSend<{ name: string; login: string; tempPassword: string | null; email: string | null; existing: boolean }>('POST', `/school/students/${studentId}/guardians`, { ...f, sendEmail: f.sendEmail && !!f.email.trim() }),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['student', studentId] });
       qc.invalidateQueries({ queryKey: ['people'] });
@@ -184,6 +184,10 @@ const AddGuardianSheet = ({ studentId, studentName, onClose }: { studentId: numb
             <Field label="Teléfono"><input className="input" inputMode="tel" value={f.phone} onChange={(e) => setF({ ...f, phone: e.target.value })} /></Field>
           </div>
           <label className="row small"><input type="checkbox" checked={f.canPickUp} onChange={(e) => setF({ ...f, canPickUp: e.target.checked })} /> Autorizado/a a retirar</label>
+          <label className="row small" style={{ gap: 8, opacity: f.email ? 1 : 0.5 }}>
+            <input type="checkbox" disabled={!f.email} checked={!!f.email && f.sendEmail} onChange={(e) => setF({ ...f, sendEmail: e.target.checked })} />
+            <span>Enviarle por mail los datos de acceso<span className="xs muted" style={{ display: 'block' }}>Le llega un botón para entrar directo y elegir su contraseña (sirve una vez, 7 días).</span></span>
+          </label>
           <p className="xs muted">Si ya tiene cuenta (por ejemplo, por un hermano), se vincula a la misma.</p>
           {error && <div className="alert alert-danger small">{error}</div>}
           <button className="btn btn-block" disabled={add.isPending}>{add.isPending ? 'Guardando…' : 'Agregar familiar'}</button>

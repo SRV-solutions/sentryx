@@ -249,9 +249,11 @@ export const getStudent = asyncHandler(async (req, res) => {
 // POST /students
 export const createStudent = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
-    const result = await createStudentWithFamily(session, req.body);
+    const { sendEmail, ...input } = req.body as StudentInput & { sendEmail: boolean };
+    const result = await createStudentWithFamily(session, input);
     const name = await schoolName(session.schoolId);
-    result.newUsers.forEach(({ user, tempPassword }) => sendWelcome(user, tempPassword, name));
+    if (sendEmail) result.newUsers.forEach(({ user, tempPassword }) => sendWelcome(user, tempPassword, name));
+    else result.credentials = result.credentials.map((c) => ({ ...c, email: null }));
     invalidateSchoolSession();
     touchAccess(session.schoolId);
     res.status(201).json({ student: result.student, credentials: result.credentials, guardiansLinked: result.guardiansLinked });
@@ -321,7 +323,7 @@ export const addGuardian = asyncHandler(async (req, res) => {
     const student = await Student.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
     if (!student) throw notFound();
     await assertStaffOverStudent(session, student.id);
-    const { relationship, isPrimary, canPickUp, receivesCommunications, ...p } = req.body as z.infer<typeof guardianInput>;
+    const { relationship, isPrimary, canPickUp, receivesCommunications, sendEmail, ...p } = req.body as z.infer<typeof guardianInput> & { sendEmail: boolean };
     const result = await sequelize.transaction(async (transaction) => {
       const r = await findOrCreatePerson(p, transaction);
       const [link, created] = await StudentGuardian.unscoped().findOrCreate({
@@ -338,7 +340,7 @@ export const addGuardian = asyncHandler(async (req, res) => {
       });
       return r;
     });
-    if (result.tempPassword) sendWelcome(result.user, result.tempPassword, await schoolName(session.schoolId));
+    if (result.tempPassword && sendEmail) sendWelcome(result.user, result.tempPassword, await schoolName(session.schoolId));
     invalidateSchoolSession(result.user.id);
     touchAccess(session.schoolId, [result.user.id]);
     res.status(201).json({
@@ -346,7 +348,7 @@ export const addGuardian = asyncHandler(async (req, res) => {
       name: `${result.user.firstName} ${result.user.lastName}`,
       login: result.user.dni ?? result.user.email,
       tempPassword: result.tempPassword,
-      email: isTechEmail(result.user.email) ? null : result.user.email,
+      email: isTechEmail(result.user.email) || !sendEmail ? null : result.user.email,
       existing: !result.created,
     });
   });

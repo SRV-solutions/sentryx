@@ -57,6 +57,7 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
   /** Cursos creados en este momento: clave del CSV → id (por si se les cambió el nombre al crearlos). */
   const [createdAs, setCreatedAs] = useState<Record<string, number>>({});
   const [result, setResult] = useState<Array<{ row: number; message: string }>>([]);
+  const [sendEmails, setSendEmails] = useState(true);
 
   /** Busca el curso de cada fila. Lo que no aparece se agrupa para crearlo. */
   const plan = useMemo(() => {
@@ -165,8 +166,8 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
           .filter((g) => g.firstName && g.lastName);
         return [{ firstName: r.alumno_nombre, lastName: r.alumno_apellido, dni: r.alumno_dni || null, birthDate: r.fecha_nacimiento || null, divisionId, guardians }];
       });
-      const r = await apiSend<{ imported: number; errors: Array<{ row: number; message: string }>; credentials: Credential[] }>('POST', '/school/students/import', { rows, sendEmails: true });
-      return { ...r, errors: r.errors.map((e) => ({ ...e, row: original[e.row - 1] ?? e.row })) };
+      const r = await apiSend<{ imported: number; errors: Array<{ row: number; message: string }>; credentials: Credential[] }>('POST', '/school/students/import', { rows, sendEmails });
+      return { ...r, credentials: sendEmails ? r.credentials : r.credentials.map((c) => ({ ...c, email: null })), errors: r.errors.map((e) => ({ ...e, row: original[e.row - 1] ?? e.row })) };
     },
     onSuccess: (r) => {
       const skipped = plan!.divisionIds.filter((id) => !id).length;
@@ -254,6 +255,12 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
           </div>
         )}
 
+        {raw && plan && (
+          <label className="row small" style={{ gap: 8 }}>
+            <input type="checkbox" checked={sendEmails} onChange={(e) => setSendEmails(e.target.checked)} />
+            <span>Enviar por mail los datos de acceso a los familiares que tengan email<span className="xs muted" style={{ display: 'block' }}>Le llega un botón para entrar directo y elegir su contraseña (sirve una vez, 7 días).</span></span>
+          </label>
+        )}
         {raw && plan && (
           <div className="alert alert-info">
             <div className="grow small">

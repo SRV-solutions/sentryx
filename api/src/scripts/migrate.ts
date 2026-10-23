@@ -443,6 +443,14 @@ const migrations: Array<{
       await addColumnIfMissing(qi, "StaffPosition", "moduleMinutes", { type: DataTypes.INTEGER, allowNull: false, defaultValue: 40 });
     },
   },
+  {
+    // Botón de los mails de acceso: link de ingreso de un solo uso (7 días) que deja de servir si cambia la contraseña.
+    name: "2026-10-23-login-link-email",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "LoginLinkToken", "purpose", { type: DataTypes.STRING(10), allowNull: false, defaultValue: "QR" });
+      await addColumnIfMissing(qi, "LoginLinkToken", "ver", { type: DataTypes.INTEGER, allowNull: true });
+    },
+  },
 ];
 
 const run = async () => {

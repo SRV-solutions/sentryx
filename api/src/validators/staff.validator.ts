@@ -25,7 +25,7 @@ export const staffImportRow = z.object({
 export const importStaff = { body: z.object({ rows: z.array(z.unknown()).min(1).max(500), sendEmails: z.boolean().default(true) }) };
 
 /** POST /staff */
-export const createStaffMember = { body: staffBody };
+export const createStaffMember = { body: staffBody.extend({ sendEmail: z.boolean().default(true) }) };
 
 /** PATCH /staff/:id */
 export const updateStaffRole = {

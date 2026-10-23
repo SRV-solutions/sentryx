@@ -33,8 +33,9 @@ export const listStaff = asyncHandler(async (req, res) => {
 // POST /staff
 export const createStaffMember = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
-  const { user, tempPassword, userRole } = await grantStaffRole(session, req.body as StaffMemberInput);
-  if (tempPassword) sendWelcome(user, tempPassword, await schoolName(session.schoolId));
+  const { sendEmail, ...input } = req.body as StaffMemberInput & { sendEmail: boolean };
+  const { user, tempPassword, userRole } = await grantStaffRole(session, input);
+  if (tempPassword && sendEmail) sendWelcome(user, tempPassword, await schoolName(session.schoolId));
   res.status(201).json({
     membership: userRole,
     user: { id: user.id, firstName: user.firstName, lastName: user.lastName },

@@ -49,7 +49,7 @@ export const lastSeenText = (seen: string | null | undefined, lastLogin?: string
   return d ? `Última conexión ${timeAgo(d)} (${exactDate(d)})` : 'Nunca ingresó';
 };
 
-type AddForm = { firstName: string; lastName: string; email: string; dni: string; role: string; levelId: number | ''; divisionIds: number[]; title: string };
+type AddForm = { firstName: string; lastName: string; email: string; dni: string; role: string; levelId: number | ''; divisionIds: number[]; title: string; sendEmail?: boolean };
 
 export const StaffTab = () => {
   const toast = useToast();
@@ -90,10 +90,10 @@ export const StaffTab = () => {
   const person = people.find((p) => p.userId === editing) ?? null;
 
   const create = useMutation({
-    mutationFn: () => apiSend<{ tempPassword: string | null; user: { firstName: string; lastName: string } }>('POST', '/school/staff', { ...form, email: form!.email || null, dni: form!.dni || null, levelId: form!.levelId || null, title: form!.title || null }),
+    mutationFn: () => apiSend<{ tempPassword: string | null; user: { firstName: string; lastName: string } }>('POST', '/school/staff', { ...form, email: form!.email || null, dni: form!.dni || null, levelId: form!.levelId || null, title: form!.title || null, sendEmail: form!.sendEmail !== false && !!form!.email }),
     onSuccess: (r) => {
       toast('Personal agregado');
-      if (r.tempPassword) setCreds([{ name: `${r.user.firstName} ${r.user.lastName}`, login: form!.dni || form!.email, tempPassword: r.tempPassword, email: form!.email || null }]);
+      if (r.tempPassword) setCreds([{ name: `${r.user.firstName} ${r.user.lastName}`, login: form!.dni || form!.email, tempPassword: r.tempPassword, email: form!.sendEmail !== false && form!.email ? form!.email : null }]);
       else toast(`${r.user.firstName} ${r.user.lastName} ya tenía cuenta: se le sumó el rol y conserva su contraseña.`);
       setForm(null);
       qc.invalidateQueries({ queryKey: ['staff'] });
@@ -162,6 +162,10 @@ export const StaffTab = () => {
             <Field label="Email" hint="Recibe acceso por email. Si no tiene, ingresa con DNI."><input className="input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></Field>
             <Field label="DNI"><input className="input" inputMode="numeric" value={form.dni} onChange={(e) => setForm({ ...form, dni: e.target.value })} /></Field>
             <RoleFields form={form} setForm={setForm} grantable={grantable} />
+            <label className="row small" style={{ gap: 8, opacity: form.email ? 1 : 0.5 }} title={form.email ? '' : 'Cargá el email para poder enviárselo'}>
+              <input type="checkbox" disabled={!form.email} checked={!!form.email && form.sendEmail !== false} onChange={(e) => setForm({ ...form, sendEmail: e.target.checked })} />
+              <span>Enviarle por mail los datos de acceso<span className="xs muted" style={{ display: 'block' }}>Le llega un botón para entrar directo y elegir su contraseña (sirve una vez, 7 días).</span></span>
+            </label>
             <p className="xs muted">Si ya existe (mismo email o DNI), se le suma el rol a su cuenta. Después podés sumarle más roles desde Editar → Roles.</p>
             {!form.email && !form.dni && <p className="field-error">Cargá el DNI o el email: es lo que usa para ingresar.</p>}
             {formError && <div className="alert alert-danger small">{formError}</div>}

@@ -17,7 +17,7 @@ export const updateMyProfile = {
 };
 
 /** PUT /users/change-password */
-export const changeMyPassword = { body: z.object({ currentPassword: z.string().min(1).max(100), newPassword: PASSWORD }) };
+export const changeMyPassword = { body: z.object({ currentPassword: z.string().max(100).optional(), newPassword: PASSWORD }) };
 
 /** PUT /users/me/avatar — imagen ya recortada en el navegador (data URL). */
 export const setMyAvatar = {
