@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { User, LoginLinkToken } from '../models';
 import { asyncHandler, badRequest, unauthorized } from '../lib/http';
 import { currentRequest, setRequestUser } from '../lib/requestContext';
-import { signToken } from '../middlewares/authenticate';
+import { signToken, invalidateAccountCache } from '../middlewares/authenticate';
 import { createSession, listSessions, revokeSession, revokeOtherSessions, SESSION_IDLE_DAYS } from '../services/sessions';
 import { accountPayload } from '../services/accounts';
 import { audit } from '../services/audit';
@@ -27,9 +27,14 @@ export const listMySessions = asyncHandler(async (req, res) => {
 
 // POST /users/sessions/logout-others — cierra la sesión en todos los demás dispositivos.
 export const logoutOthers = asyncHandler(async (req, res) => {
+  const user = await User.findByPk(req.user!.id);
+  if (!user) throw unauthorized();
+  // Subir la versión deja sin efecto cualquier token anterior, incluso de logins previos a las sesiones por dispositivo.
+  await user.update({ tokenVersion: user.tokenVersion + 1 });
+  invalidateAccountCache(user.id);
   const closed = await revokeOtherSessions(req.user!.id, req.user!.sid);
   await audit({ schoolId: null, userId: req.user!.id, entity: 'Session', action: 'logout-others', after: { closed } });
-  res.json({ closed });
+  res.json({ closed, token: signToken(user, req.user!.sid) });
 });
 
 // DELETE /users/sessions/:id — cierra una sesión puntual.

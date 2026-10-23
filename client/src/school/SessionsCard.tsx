@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MonitorSmartphone, LogOut, X } from 'lucide-react';
 import { apiGet, apiSend } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
 import { Badge, Card, Skeleton, useToast, timeAgo } from '../ui';
 
 interface SessionRow { id: string; device: string; ip: string | null; createdAt: string; lastUsedAt: string; current: boolean }
@@ -12,11 +13,13 @@ interface SessionRow { id: string; device: string; ip: string | null; createdAt:
 export const SessionsCard = () => {
   const qc = useQueryClient();
   const toast = useToast();
+  const { replaceToken } = useAuth();
   const q = useQuery({ queryKey: ['my-sessions'], queryFn: () => apiGet<{ sessions: SessionRow[]; idleDays: number }>('/users/sessions') });
   const refresh = () => qc.invalidateQueries({ queryKey: ['my-sessions'] });
   const closeOthers = useMutation({
-    mutationFn: () => apiSend<{ closed: number }>('POST', '/users/sessions/logout-others'),
-    onSuccess: (r) => (refresh(), toast(r.closed ? `Se cerró la sesión en ${r.closed} ${r.closed === 1 ? 'dispositivo' : 'dispositivos'}` : 'No había otras sesiones abiertas')),
+    mutationFn: () => apiSend<{ closed: number; token?: string }>('POST', '/users/sessions/logout-others'),
+    // Este dispositivo sigue con un token nuevo; todos los anteriores dejan de servir.
+    onSuccess: (r) => (r.token && replaceToken(r.token), refresh(), toast(r.closed ? `Se cerró la sesión en ${r.closed} ${r.closed === 1 ? 'dispositivo' : 'dispositivos'}` : 'No había otras sesiones abiertas')),
     onError: (e: Error) => toast(e.message, true),
   });
   const closeOne = useMutation({

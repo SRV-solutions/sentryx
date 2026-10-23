@@ -87,7 +87,8 @@ export async function api<T = unknown>(path: string, init: RequestInit & { json?
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    if (res.status === 401 && session) unauthorizedListeners.forEach((fn) => fn(data?.message));
+    // Si mientras tanto este dispositivo recibió un token nuevo (cambio de contraseña, cerrar las demás), el 401 del viejo no cuenta.
+    if (res.status === 401 && session && getSession()?.token === session.token) unauthorizedListeners.forEach((fn) => fn(data?.message));
     recordClientError(`${res.status} ${data?.message ?? data?.error ?? ''}`.trim(), `${init.method ?? 'GET'} ${path}`);
     throw new ApiError(res.status, data?.message ?? data?.error ?? 'Ocurrió un error.', data?.details);
   }

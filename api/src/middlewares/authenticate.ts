@@ -7,7 +7,8 @@ import { RoleCode } from '../constants/roles';
 import { platformRolesOf } from '../services/rbac';
 import { unauthorized } from '../lib/http';
 import { setRequestUser } from '../lib/requestContext';
-import { checkSession } from '../services/sessions';
+import { createHash } from 'crypto';
+import { checkSession, createSession } from '../services/sessions';
 import { emitToUsers } from '../services/realtime';
 
 /**
@@ -82,13 +83,33 @@ const verifyToken = async (token: string, ip?: string | null): Promise<Authentic
   const userId = Number(payload.id);
   const state = await accountState(userId);
   if (!state || !state.isActive) throw unauthorized('La cuenta está desactivada.');
-  if ((payload.ver ?? 0) !== state.tokenVersion) throw unauthorized('Tu sesión se cerró porque se cambió la contraseña. Volvé a ingresar.');
+  if ((payload.ver ?? 0) !== state.tokenVersion) throw unauthorized('Esta sesión se cerró (cambio de contraseña o cierre desde otro dispositivo). Volvé a ingresar.');
   if (payload.sid) {
     const session = await checkSession(payload.sid, ip ?? null);
     if (session === 'revoked' || session === 'missing') throw unauthorized('Esta sesión se cerró desde otro dispositivo. Volvé a ingresar.');
     if (session === 'expired') throw unauthorized('Tu sesión se cerró por inactividad (30 días sin uso). Volvé a ingresar.');
   }
   return { id: userId, email: payload.email, sid: payload.sid, issuedAt: payload.iat };
+};
+
+/**
+ * Tokens de antes de las sesiones por dispositivo (sin sid): en su primer uso se registran como una
+ * sesión más, así aparecen en "Sesiones y dispositivos" y se pueden cerrar. El cliente recibe el token
+ * nuevo en X-Session-Token. Los pedidos simultáneos con el mismo token viejo comparten la misma sesión.
+ */
+const adopted = new Map<string, { sid: Promise<string>; at: number }>();
+const adoptLegacySession = (token: string, userId: number, req: Request) => {
+  const key = createHash('sha256').update(token).digest('hex');
+  const now = Date.now();
+  for (const [k, v] of adopted) if (now - v.at > 10 * 60_000) adopted.delete(k);
+  let entry = adopted.get(key);
+  if (!entry) {
+    const sid = createSession(userId, { ip: req.ip ?? null, userAgent: req.headers['user-agent'] ?? null, appVersion: (req.headers['x-app-version'] as string) ?? null });
+    sid.catch(() => adopted.delete(key));
+    entry = { sid, at: now };
+    adopted.set(key, entry);
+  }
+  return entry.sid;
 };
 
 /** Exige un usuario autenticado (header Authorization: Bearer <token>). */
@@ -99,6 +120,13 @@ export const authenticate = async (req: Request, res: Response, next: NextFuncti
     if (!token) throw unauthorized('No autorizado. Falta el token de sesión.');
     req.user = await verifyToken(token, req.ip);
     setRequestUser(req.user.id);
+    if (!req.user.sid) {
+      const sid = await adoptLegacySession(token, req.user.id, req);
+      const state = await accountState(req.user.id);
+      if (state) res.setHeader('X-Session-Token', signToken({ id: req.user.id, email: req.user.email, tokenVersion: state.tokenVersion }, sid));
+      req.user.sid = sid;
+      req.user.issuedAt = Math.floor(Date.now() / 1000);
+    }
     // Renovación deslizante: el cliente guarda el token nuevo y la sesión sigue 30 días más desde hoy.
     if (req.user.sid && req.user.issuedAt && Date.now() / 1000 - req.user.issuedAt > REFRESH_AFTER_S) {
       const state = await accountState(req.user.id);
