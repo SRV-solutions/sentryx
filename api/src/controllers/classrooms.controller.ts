@@ -202,7 +202,9 @@ export const createPost = asyncHandler(async (req, res) => {
       pinned: input.pinned,
     });
 
-    if (input.fileIds.length) await FileAsset.update({ divisionId: division.id, subjectId: input.subjectId ?? null, purpose: 'MATERIAL' }, { where: { id: input.fileIds } });
+    // Los archivos subidos para este aula (o desde "Mis archivos") quedan como material del curso; los que ya pertenecen
+    // a un comunicado, mensaje u otro lugar se comparten sin cambiarles el origen.
+    if (input.fileIds.length) await FileAsset.update({ divisionId: division.id, subjectId: input.subjectId ?? null, purpose: 'MATERIAL' }, { where: { id: input.fileIds, purpose: { [Op.in]: ['OTHER', 'MATERIAL'] } } });
 
     if (input.notifyFamilies) {
       const guardians = (await sequelize.query(

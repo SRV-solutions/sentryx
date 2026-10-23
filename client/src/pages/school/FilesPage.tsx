@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, Film, Image as ImageIcon, Music, Trash2, Search, Download, HardDrive } from 'lucide-react';
-import { apiGet, apiSend, formatBytes } from '../../lib/api';
+import { FileText, Film, Image as ImageIcon, Music, Trash2, Search, Download, HardDrive, Upload } from 'lucide-react';
+import { apiGet, apiSend, formatBytes, uploadFile } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
 import { Badge, Card, Empty, ErrorBox, PageHeader, Skeleton, Tabs, fmtDate, useToast } from '../../ui';
 import type { Paginated } from '../../school/types';
@@ -29,7 +29,39 @@ interface Usage {
 }
 
 const icon = (mime: string) => (mime.startsWith('video/') ? <Film size={18} /> : mime.startsWith('image/') ? <ImageIcon size={18} /> : mime.startsWith('audio/') ? <Music size={18} /> : <FileText size={18} />);
-const PURPOSE: Record<string, string> = { MATERIAL: 'Material de aula', ANNOUNCEMENT: 'Adjunto de comunicado', MESSAGE: 'Adjunto de mensaje', OTHER: 'Otro', EVENT: 'Espacio de un acto', PROGRAM: 'Programa de materia' };
+const PURPOSE: Record<string, string> = { MATERIAL: 'Material de aula', ANNOUNCEMENT: 'Adjunto de comunicado', MESSAGE: 'Adjunto de mensaje', OTHER: 'Mis archivos', EVENT: 'Espacio de un acto', PROGRAM: 'Programa de materia' };
+
+/** Subir archivos directamente a "Mis archivos" para compartirlos después en aulas, comunicados o mensajes. */
+const UploadBox = () => {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [progress, setProgress] = useState<string | null>(null);
+  const onFiles = async (list: FileList | null) => {
+    if (!list?.length) return;
+    const files = Array.from(list);
+    let ok = 0;
+    for (const [i, f] of files.entries()) {
+      setProgress(`Subiendo ${i + 1} de ${files.length}: ${f.name}`);
+      try {
+        await uploadFile(f, { purpose: 'OTHER', onProgress: (pct) => setProgress(`Subiendo ${i + 1} de ${files.length}: ${f.name} · ${pct}%`) });
+        ok++;
+      } catch (e) {
+        toast(`${f.name}: ${e instanceof Error ? e.message : 'no se pudo subir'}`, true);
+      }
+    }
+    setProgress(null);
+    qc.invalidateQueries({ queryKey: ['files'] });
+    qc.invalidateQueries({ queryKey: ['my-storage'] });
+    if (ok) toast(ok === 1 ? 'Archivo subido' : `${ok} archivos subidos`);
+  };
+  return (
+    <label className={`card card-pad row ${progress ? '' : 'list-button'}`} style={{ cursor: progress ? 'default' : 'pointer', justifyContent: 'center', gap: 10, borderStyle: 'dashed' }} onDragOver={(e) => e.preventDefault()} onDrop={(e) => (e.preventDefault(), onFiles(e.dataTransfer.files))}>
+      <Upload size={18} />
+      <span className="small">{progress ?? 'Subir archivos (o arrastralos acá): fotos, videos, PDF y documentos'}</span>
+      <input type="file" hidden multiple accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.ods,.odp,.txt" onChange={(e) => (onFiles(e.target.files), (e.target.value = ''))} disabled={progress !== null} />
+    </label>
+  );
+};
 
 /** Mi espacio: lo que subí contra el límite de mi plan. */
 const MyUsage = () => {
@@ -79,6 +111,7 @@ const FileList = ({ scope, uploaderId }: { scope: 'mine' | 'school'; uploaderId?
   return (
     <div className="stack">
       {scope === 'mine' && <MyUsage />}
+      {scope === 'mine' && <UploadBox />}
       <div style={{ position: 'relative' }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: 14 }} className="muted" />
         <input className="input" style={{ paddingLeft: 42 }} placeholder="Buscar por nombre" value={q} onChange={(e) => setQ(e.target.value)} />

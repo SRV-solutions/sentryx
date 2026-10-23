@@ -3,6 +3,8 @@ import { Link, useParams } from 'react-router-dom';
 import { InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Send, Paperclip, Hash, Users, EyeOff, Eye, VolumeX, Volume2, ShieldCheck, MoreVertical } from 'lucide-react';
 import { apiGet, apiSend, uploadFile } from '../../lib/api';
+import { FolderOpen } from 'lucide-react';
+import { FilePicker } from '../../school/FilePicker';
 import { useAuth } from '../../context/AuthContext';
 import { useSocketEvent } from '../../context/SocketContext';
 import { useSchool } from '../../school/SchoolContext';
@@ -118,6 +120,7 @@ export default function ChannelPage() {
     setText('');
     send.mutate({ body });
   };
+  const [picking, setPicking] = useState(false);
   const attach = async (f?: File) => {
     if (!f) return;
     try {
@@ -203,10 +206,14 @@ export default function ChannelPage() {
       ) : (
         <form className="composer" onSubmit={submit}>
           {session?.features?.fileUploads !== false && (
-            <label className="icon-btn" aria-label="Adjuntar">
-              <Paperclip size={20} />
-              <input type="file" hidden accept="image/*,application/pdf" onChange={(e) => attach(e.target.files?.[0])} />
-            </label>
+            <>
+              <label className="icon-btn" aria-label="Adjuntar">
+                <Paperclip size={20} />
+                <input type="file" hidden accept="image/*,application/pdf" onChange={(e) => attach(e.target.files?.[0])} />
+              </label>
+              <button type="button" className="icon-btn" aria-label="Compartir uno de mis archivos" title="Compartir uno de mis archivos" onClick={() => setPicking(true)}><FolderOpen size={20} /></button>
+              <FilePicker open={picking} onClose={() => setPicking(false)} max={1} onPick={(picked) => picked[0] && send.mutate({ body: `📎 ${picked[0].name}`, attachments: [{ fileId: picked[0].fileId }] })} />
+            </>
           )}
           <textarea
             className="textarea"

@@ -1,7 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Paperclip, X, Send, Save, Clock } from 'lucide-react';
+import { Paperclip, X, Send, Save, Clock, FolderOpen } from 'lucide-react';
+import { FilePicker } from '../../school/FilePicker';
 import { apiGet, apiSend, uploadFile, formatBytes, type UploadedFile } from '../../lib/api';
 import { Field, PageHeader, Skeleton, useToast, Chips, ErrorBox } from '../../ui';
 import type { AudienceType, AttachmentRef } from '../../school/types';
@@ -67,6 +68,7 @@ export default function AnnouncementComposePage() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [uploading, setUploading] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [scheduledAt, setScheduledAt] = useState(defaultSchedule);
   const [loaded, setLoaded] = useState(false);
 
@@ -207,10 +209,14 @@ export default function AnnouncementComposePage() {
               </button>
             </div>
           ))}
-          <label className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
-            <Paperclip size={16} /> {uploading ? 'Subiendo…' : 'Adjuntar archivo'}
-            <input type="file" hidden multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={(e) => onFiles(e.target.files)} disabled={uploading} />
-          </label>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <label className="btn btn-ghost btn-sm">
+              <Paperclip size={16} /> {uploading ? 'Subiendo…' : 'Adjuntar archivo'}
+              <input type="file" hidden multiple accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={(e) => onFiles(e.target.files)} disabled={uploading} />
+            </label>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicking(true)} disabled={files.length >= 10}><FolderOpen size={16} /> Elegir de mis archivos</button>
+          </div>
+          <FilePicker open={picking} onClose={() => setPicking(false)} max={10 - files.length} exclude={files.map((f) => f.fileId)} onPick={(picked) => setFiles((prev) => [...prev, ...picked.filter((p) => !prev.some((x) => x.fileId === p.fileId))])} />
         </div>
 
         <label className="check">

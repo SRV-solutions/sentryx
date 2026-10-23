@@ -6,6 +6,8 @@ import {
   Trash2, X, ClipboardCheck, BookOpenCheck, BarChart3, ExternalLink, CheckCheck,
 } from 'lucide-react';
 import { apiGet, apiSend, uploadFile, formatBytes, type UploadedFile } from '../../lib/api';
+import { FolderOpen } from 'lucide-react';
+import { FilePicker } from '../../school/FilePicker';
 import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Chips, Empty, ErrorBox, Field, Sheet, Skeleton, Tabs, fmtDate, fullName, timeAgo, useToast } from '../../ui';
 import type { PersonLite } from '../../school/types';
@@ -127,6 +129,7 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [progress, setProgress] = useState<number | null>(null);
   const [notify, setNotify] = useState(true);
+  const [picking, setPicking] = useState(false);
 
   const upload = async (list: FileList | null) => {
     for (const f of Array.from(list ?? [])) {
@@ -216,10 +219,14 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
             <input className="input grow" placeholder="Pegar link (YouTube, Drive, web…)" value={linkDraft} onChange={(e) => setLinkDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLink())} />
             <button type="button" className="btn btn-ghost" onClick={addLink} disabled={!linkDraft}><Link2 size={16} /></button>
           </div>
-          <label className="btn btn-ghost btn-sm" style={{ alignSelf: 'flex-start' }}>
-            <Paperclip size={16} /> Adjuntar archivos, fotos o videos
-            <input type="file" hidden multiple accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.ods,.odp,.txt" onChange={(e) => upload(e.target.files)} disabled={progress !== null} />
-          </label>
+          <div className="row wrap" style={{ gap: 8 }}>
+            <label className="btn btn-ghost btn-sm">
+              <Paperclip size={16} /> Adjuntar archivos, fotos o videos
+              <input type="file" hidden multiple accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,application/pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.odt,.ods,.odp,.txt" onChange={(e) => upload(e.target.files)} disabled={progress !== null} />
+            </label>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPicking(true)} disabled={files.length >= 15}><FolderOpen size={16} /> Elegir de mis archivos</button>
+          </div>
+          <FilePicker open={picking} onClose={() => setPicking(false)} max={15 - files.length} exclude={files.map((f) => f.fileId)} onPick={(picked) => setFiles((prev) => [...prev, ...picked.filter((p) => !prev.some((x) => x.fileId === p.fileId))])} />
           <span className="xs muted">Las fotos se optimizan automáticamente. Para videos largos conviene subirlos a YouTube (oculto) y pegar el link.</span>
         </div>
         <label className="check"><input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} /> Avisar a las familias del aula</label>

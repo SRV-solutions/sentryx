@@ -201,6 +201,7 @@ Cada curso o división es un **aula**, donde están sus docentes y alumnos:
 - **Comunicados:** los que recibió el curso, su nivel o toda la escuela.
 - **Integrantes:** docentes y alumnos. Por privacidad, las familias solo ven a sus hijos.
 - **Accesos directos del docente:** notas, asistencia y estado académico.
+- **Archivos:** desde *Archivos* se suben archivos directamente (botón o arrastrar) a "Mis archivos"; en cualquier aula, comunicado, mensaje o canal, **"Elegir de mis archivos"** comparte uno ya subido sin volver a subirlo (solo los propios; un archivo que ya pertenece a un comunicado o mensaje conserva su origen al compartirlo en un aula).
 
 Las familias entran al aula de sus hijos para leer materiales y comunicados.
 
