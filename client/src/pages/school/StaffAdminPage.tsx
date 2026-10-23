@@ -7,10 +7,11 @@ import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Card, Empty, ErrorBox, PageHeader, Skeleton, Tabs, fmtDate, useToast } from '../../ui';
 import { Entity, Action } from '../../school/permissions';
 import { PlanGate } from '../../school/PlanGate';
+import { ScheduleView } from '../../school/ScheduleView';
 import { PositionSheet, emptyForm, formOf, type PositionForm } from '../../school/PositionSheet';
 import { PlanFeature } from '../../school/plans';
 import {
-  KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, ReceiptKind, SITUATION_LABELS, StaffPosition, WeeklySchedule,
+  KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, ReceiptKind, SITUATION_LABELS, StaffPosition,
   currentPeriod, lastPeriods, periodLabel, money,
 } from '../../school/staffRecords';
 
@@ -85,7 +86,7 @@ const RecordsTab = () => {
                     )}
                   </div>
                 ))}
-                <WeeklySchedule positions={r.positions.filter((p) => p.active)} />
+                <ScheduleView positions={r.positions.filter((p) => p.active)} />
                 {canEdit && <button className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setForm(emptyForm(r.userId))}><Plus size={14} /> Agregar cargo u horas</button>}
               </div>
             )}

@@ -85,6 +85,13 @@ export const leadershipRoleCodes = async (schoolId: number) => {
 };
 
 /** Roles que puede otorgar una persona: solo de menor jerarquía que la propia (RL y superadmin: todos). */
+/** Roles que alguien puede ponerse o sacarse a sí mismo (ver access.ts → assertSelfRole). */
+export const selfGrantableRoleCodes = (session: { roles: string[]; superAdmin: boolean; schoolId: number }) => {
+  if (session.superAdmin) return staffRoleCodes(session.schoolId);
+  const own = highestRankOf(session.roles.filter((r) => isStaffRole(r as RoleCode)));
+  return grantableRoleCodes(session).filter((code) => roleRank(code) < own);
+};
+
 export const grantableRoleCodes = (session: { roles: string[]; superAdmin: boolean; schoolId: number }) => {
   const top = session.superAdmin || session.roles.includes(RoleCode.REPRESENTANTE_LEGAL);
   const own = session.superAdmin ? 1000 : highestRankOf(session.roles.filter((r) => isStaffRole(r as RoleCode)));

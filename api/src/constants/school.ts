@@ -56,6 +56,8 @@ export interface LevelSettings {
   passingGrade: number;
   /** Valor de cada tipo de inasistencia en faltas. */
   attendanceWeights: Record<Exclude<AttendanceStatus, 'PRESENTE'>, number>;
+  /** Horario del nivel: entrada, duración del módulo y recreos (Administración → Horarios). */
+  timetable?: { start?: string; moduleMinutes: number; breaks: Array<{ from: string; minutes: number; shift?: string | null; label?: string }> };
 }
 
 export const DEFAULT_LEVEL_SETTINGS: Record<LevelType, LevelSettings> = {

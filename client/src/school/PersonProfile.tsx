@@ -1,11 +1,15 @@
 import { FormEvent, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, Mail, Phone, IdCard, Pencil, BookOpen, Baby, ShieldCheck, Clock, MessageCircle, ChevronRight } from 'lucide-react';
+import { KeyRound, Mail, Phone, IdCard, Pencil, BookOpen, Baby, ShieldCheck, Clock, MessageCircle, ChevronRight, CalendarClock } from 'lucide-react';
 import { apiGet, apiSend } from '../lib/api';
 import { Avatar, Badge, Card, ErrorBox, Field, Sheet, Skeleton, timeAgo, useToast, fmtDate } from '../ui';
 import { CredentialsSheet, type Credential } from './CredentialsSheet';
 import type { SchoolRole } from './types';
+import { useSchool } from './SchoolContext';
+import { Entity, Action } from './permissions';
+import { ScheduleView } from './ScheduleView';
+import type { StaffPosition } from './staffRecords';
 
 export interface PersonDetail {
   id: number;
@@ -69,6 +73,30 @@ const AccessToggle = ({ p }: { p: PersonDetail }) => {
         </div>
       </Sheet>
     </>
+  );
+};
+
+/** Horario de una persona del personal (módulos, recreos, por materia/curso/cargo): ella misma o quien ve legajos. */
+const PersonSchedule = ({ p }: { p: PersonDetail }) => {
+  const { can } = useSchool();
+  const self = p.visibility === 'self';
+  const allowed = p.isStaff && (self || can(Entity.STAFF_RECORDS, Action.READ));
+  const q = useQuery({
+    queryKey: ['person-schedule', p.id, self],
+    enabled: allowed,
+    retry: false,
+    queryFn: async () =>
+      self
+        ? (await apiGet<{ positions: StaffPosition[] }>('/school/staff-records/me')).positions
+        : (await apiGet<Array<{ userId: number; positions: StaffPosition[] }>>(`/school/staff-records?userId=${p.id}`))[0]?.positions ?? [],
+  });
+  const positions = (q.data ?? []).filter((x) => x.active !== false && x.schedule.length);
+  if (!allowed || !positions.length) return null;
+  return (
+    <section className="stack" style={{ gap: 8 }}>
+      <h3 className="h3 row"><CalendarClock size={18} /> Horarios</h3>
+      <Card><ScheduleView positions={positions} /></Card>
+    </section>
   );
 };
 
@@ -244,6 +272,8 @@ export const PersonProfile = ({ userId, onNavigate }: { userId: number; onNaviga
           </div>
         </section>
       )}
+
+      <PersonSchedule p={p} />
 
       {p.visibility !== 'self' && p.account && (
         <Card>

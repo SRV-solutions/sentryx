@@ -18,6 +18,7 @@ import { KIND_LABELS, SITUATION_LABELS, money, type PayMode } from '../../../sch
 import type { StaffRecord } from '../StaffAdminPage';
 import { PositionSheet, emptyForm, formOf, roleTitle, type PositionForm } from '../../../school/PositionSheet';
 import { StaffImportButton } from './StaffImport';
+import { ScheduleView } from '../../../school/ScheduleView';
 
 export interface StaffRow {
   id: number;
@@ -296,6 +297,8 @@ const RolesTab = ({ person }: { person: StaffPerson }) => {
   const grantable = session?.grantableRoles ?? [];
   const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure'), staleTime: 5 * 60_000 });
   const self = person.userId === user?.userData.id;
+  const selfGrantable = session?.selfGrantableRoles ?? [];
+  const canEditRole = (role: string) => grantable.includes(role) && (!self || selfGrantable.includes(role));
   const [adding, setAdding] = useState<Pick<AddForm, 'role' | 'levelId' | 'divisionIds' | 'title'> | null>(null);
   const [error, setError] = useState('');
   const patch = useMutation({
@@ -318,13 +321,13 @@ const RolesTab = ({ person }: { person: StaffPerson }) => {
     onError: (e: Error) => setError(e.message),
   });
   const owned = person.memberships.filter((m) => m.active).map((m) => m.role);
-  const addable = grantable.filter((r) => !owned.includes(r));
+  const addable = grantable.filter((r) => !owned.includes(r) && (!self || selfGrantable.includes(r)));
   return (
     <div className="stack">
       <p className="xs muted">Una persona puede tener varios roles (ej: Rectoría y Representante Legal, o Secretaría y Preceptoría): sus permisos se suman y usa la misma cuenta. Cada rol puede tener su propio cargo y sueldo en “Cargos y sueldo”.</p>
-      {self && <div className="alert alert-info small">No podés modificar tus propios roles: pedíselo a otra autoridad.</div>}
+      {self && <div className="alert alert-info small">{selfGrantable.length === grantable.length ? 'Podés ponerte y sacarte cualquier rol.' : 'Tus roles de conducción los modifica otra autoridad. Sí podés sumarte o sacarte roles de menor jerarquía (ej: Docente).'}</div>}
       {person.memberships.map((m) => {
-        const editable = !self && grantable.includes(m.role);
+        const editable = canEditRole(m.role);
         return (
           <div key={m.id} className="card stack" style={{ padding: 12, gap: 8, opacity: m.active ? 1 : 0.6 }}>
             <div className="row-between wrap">
@@ -362,18 +365,18 @@ const RolesTab = ({ person }: { person: StaffPerson }) => {
                 </button>
               </>
             ) : (
-              !self && <span className="xs muted">{m.Level ? `Nivel: ${m.Level.name}. ` : ''}Este rol lo administra otra autoridad.</span>
+              <span className="xs muted">{m.Level ? `Nivel: ${m.Level.name}. ` : ''}Este rol lo administra otra autoridad.</span>
             )}
           </div>
         );
       })}
-      {!self && addable.length > 0 && !adding && (
+      {addable.length > 0 && !adding && (
         <button className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => (setError(''), setAdding({ role: addable[0], levelId: '', divisionIds: [], title: '' }))}><Plus size={14} /> Sumar otro rol</button>
       )}
       {adding && (
         <form className="card stack" style={{ padding: 12 }} onSubmit={(e: FormEvent) => (e.preventDefault(), add.mutate())}>
           <b className="small">Nuevo rol</b>
-          <RoleFields form={adding} setForm={setAdding} grantable={grantable} exclude={owned} />
+          <RoleFields form={adding} setForm={setAdding} grantable={self ? grantable.filter((r) => selfGrantable.includes(r)) : grantable} exclude={owned} />
           {error && <div className="alert alert-danger small">{error}</div>}
           <div className="row">
             <button type="button" className="btn btn-ghost grow" onClick={() => setAdding(null)}>Cancelar</button>
@@ -465,6 +468,12 @@ const PayTab = ({ person }: { person: StaffPerson }) => {
             <button key={m.id} className="btn btn-sm btn-ghost" onClick={() => setForm(fromRole(m))}><Plus size={14} /> Cargo de {roleTag(m)}</button>
           ))}
           <button className="btn btn-sm" onClick={() => setForm(emptyForm(person.userId))}><Plus size={14} /> Agregar cargo u horas</button>
+        </div>
+      )}
+      {active.length > 0 && (
+        <div className="stack" style={{ gap: 6 }}>
+          <b className="small">Horario</b>
+          <ScheduleView positions={active} />
         </div>
       )}
       {r && !r.seesOwnRecords && <div className="alert alert-info xs">Con su plan, esta persona no ve su legajo ni lo que cobra. Podés cambiarle el plan en <Link to="/planes">Planes</Link>.</div>}

@@ -3,10 +3,10 @@ import { Op } from 'sequelize';
 import { UserRole, User, Level, UserSession, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, forbidden } from '../lib/http';
 import { invalidateSchoolSession } from '../services/schoolSession';
-import { NON_STAFF_ROLES, RoleCode, isStaffRole } from '../constants/roles';
+import { NON_STAFF_ROLES, RoleCode, SchoolRole, isStaffRole } from '../constants/roles';
 import { roleLabel } from '../services/roleRegistry';
 import { sendWelcome } from '../services/accounts';
-import { assertCanGrant, userAttrsFor } from '../services/access';
+import { assertCanGrant, assertSelfRole, userAttrsFor } from '../services/access';
 import { touchAccess } from '../services/billing';
 import { audit } from '../services/audit';
 import { grantStaffRole, StaffMemberInput, schoolName, credentialOf, parseRole, findLevelId } from '../services/staffMembers';
@@ -86,7 +86,7 @@ export const updateStaffRole = asyncHandler(async (req, res) => {
   const session = req.schoolSession!;
   const userRole = await UserRole.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
   if (!userRole || !isStaffRole(userRole.role)) throw notFound();
-  if (userRole.userId === session.userId && !session.superAdmin) throw forbidden('No podés modificar tu propio rol. Pedíselo a otra autoridad.');
+  if (userRole.userId === session.userId) assertSelfRole(session, userRole.role as SchoolRole);
 
   // Debe poder administrar el rol actual y, si cambia, el nivel/divisiones nuevos.
   assertCanGrant(session, userRole.role, userRole.levelId ?? null, userRole.divisionIds ?? []);

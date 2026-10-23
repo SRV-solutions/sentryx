@@ -33,7 +33,16 @@ export const updateLevel = {
           numericMax: z.number().min(1).max(100),
           passingGrade: z.number().min(0).max(100),
           attendanceWeights: z.object({ AUSENTE: z.number().min(0).max(1), TARDE: z.number().min(0).max(1), RETIRO: z.number().min(0).max(1) }),
+          timetable: z.object({
+            start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).optional(),
+            moduleMinutes: z.number().int().min(20).max(120),
+            breaks: z
+              .array(z.object({ from: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'usá el formato HH:MM'), minutes: z.number().int().min(5).max(120), shift: z.string().max(30).nullish(), label: z.string().trim().max(40).optional() }))
+              .max(16),
+          }),
         })
+        // Se guarda lo que llega (se combina con lo que ya tenía el nivel).
+        .partial()
         .optional(),
     }),
   };

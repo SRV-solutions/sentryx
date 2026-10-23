@@ -5,7 +5,8 @@ import { apiGet, apiSend } from '../../lib/api';
 import { Badge, Card, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, fmtDate, useToast } from '../../ui';
 import { PlanGate } from '../../school/PlanGate';
 import { PlanFeature, ars, usePlan } from '../../school/plans';
-import { KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, SITUATION_LABELS, StaffPosition, WeeklySchedule, periodLabel, money } from '../../school/staffRecords';
+import { KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, SITUATION_LABELS, StaffPosition, periodLabel, money } from '../../school/staffRecords';
+import { ScheduleView } from '../../school/ScheduleView';
 
 const openReceipt = async (id: number) => {
   // Se abre la pestaña antes del pedido: los navegadores de celular bloquean ventanas abiertas después de un await.
@@ -118,7 +119,7 @@ export default function MyRecordPage() {
                 </div>
               )}
               <h3 className="h3" style={{ marginTop: 8 }}>Horario semanal</h3>
-              <WeeklySchedule positions={record.data.positions} />
+              <ScheduleView positions={record.data.positions} />
             </div>
           </Card>
         )}

@@ -12,20 +12,21 @@ import { StaffTab } from './admin/StaffTab';
 import { StudentsAdminTab } from './admin/StudentsAdminTab';
 import { AcademicYearTab } from './admin/AcademicYearTab';
 import { AuditTab } from './admin/AuditTab';
+import { TimetableTab } from './admin/TimetableTab';
 
 export default function AdminPage() {
   const { can } = useSchool();
   const tabs = [
     ...(can(Entity.SCHOOL, Action.UPDATE) ? [{ value: 'school' as const, label: 'Institución' }, { value: 'structure' as const, label: 'Estructura' }] : []),
     // La conducción de un nivel (Rectoría, Dirección…) configura la calificación de su nivel aunque no edite la estructura.
-    ...(can(Entity.GRADING_PERIODS, Action.UPDATE) ? [{ value: 'grading' as const, label: 'Calificaciones' }] : []),
+    ...(can(Entity.GRADING_PERIODS, Action.UPDATE) ? [{ value: 'grading' as const, label: 'Calificaciones' }, { value: 'timetable' as const, label: 'Horarios' }] : []),
     ...(can(Entity.SCHOOL, Action.UPDATE) ? [{ value: 'year' as const, label: 'Ciclo lectivo' }] : []),
     ...(can(Entity.USERS, Action.UPDATE) ? [{ value: 'staff' as const, label: 'Personal' }, { value: 'students' as const, label: 'Alumnos y familias' }] : []),
     { value: 'roles' as const, label: 'Roles y permisos' },
     ...(can(Entity.AUDIT_LOG, Action.READ) ? [{ value: 'audit' as const, label: 'Auditoría' }] : []),
   ];
   const [params] = useSearchParams();
-  const alias: Record<string, string> = { calificaciones: 'grading', estructura: 'structure', personal: 'staff', alumnos: 'students', ciclo: 'year', auditoria: 'audit' };
+  const alias: Record<string, string> = { calificaciones: 'grading', horarios: 'timetable', estructura: 'structure', personal: 'staff', alumnos: 'students', ciclo: 'year', auditoria: 'audit' };
   const wanted = alias[params.get('tab') ?? ''] ?? params.get('tab');
   const initial = tabs.find((t) => t.value === wanted)?.value;
   const [tab, setTab] = useState<(typeof tabs)[number]['value']>(initial ?? tabs[0]?.value ?? 'staff');
@@ -36,6 +37,7 @@ export default function AdminPage() {
       {tab === 'school' && <InstitutionTab />}
       {tab === 'structure' && <StructureTab />}
       {tab === 'grading' && <GradingTab />}
+      {tab === 'timetable' && <TimetableTab />}
       {tab === 'year' && <AcademicYearTab />}
       {tab === 'staff' && <StaffTab />}
       {tab === 'students' && <StudentsAdminTab />}

@@ -5,7 +5,7 @@ import { userSchools, SchoolSession } from '../services/schoolSession';
 import { roleCatalogForDisplay } from '../services/rbac';
 import { isStorageConfigured } from '../services/files';
 import { CATEGORY_LABELS, isStaffRole } from '../constants/school';
-import { roleLabel, grantableRoleCodes } from '../services/roleRegistry';
+import { roleLabel, grantableRoleCodes, selfGrantableRoleCodes } from '../services/roleRegistry';
 import { env } from '../config/env';
 import { audit } from '../services/audit';
 import { publicSchool, resolveLogo, isImageAsset } from '../services/branding';
@@ -61,6 +61,8 @@ export const getSession = asyncHandler(async (req, res) => {
       /** Funciones que dependen de la configuración del servidor (la app oculta lo que no está disponible). */
       features: { fileUploads: isStorageConfigured(), maxUploadMb: Math.max(env.FILE_MAX_MB, env.VIDEO_MAX_MB) },
       grantableRoles: session.can(Entity.USERS, Action.UPDATE) ? grantableRoleCodes(session) : [],
+      /** Roles que puede ponerse o sacarse a sí mismo (superadmin: todos; el resto: de menor jerarquía). */
+      selfGrantableRoles: session.can(Entity.USERS, Action.UPDATE) ? selfGrantableRoleCodes(session) : [],
       /** Niveles donde puede crear cursos (además de quien configura toda la institución). */
       courseLevelIds: session.courseLevelIds,
       canManageRoles: session.can(Entity.ROLES, Action.MANAGE),

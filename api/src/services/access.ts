@@ -16,6 +16,17 @@ import { Entity, Action } from '../constants/permissions';
 const isTopAuthority = (session: SchoolSession) => session.superAdmin || session.roles.includes(RoleCode.REPRESENTANTE_LEGAL);
 const ownRank = (session: SchoolSession) => (session.superAdmin ? 1000 : highestRankOf(session.roles.filter(isStaffRole)));
 
+/**
+ * Roles propios: el superadmin (dueño de la plataforma) se pone y se saca cualquiera. El resto solo
+ * roles de menor jerarquía que el suyo (una Rectora puede sumarse Docente, no Rectoría).
+ */
+export const assertSelfRole = (session: SchoolSession, role: SchoolRole) => {
+  if (session.superAdmin) return;
+  if (roleRank(role) >= highestRankOf(session.roles.filter(isStaffRole))) {
+    throw forbidden(`No podés asignarte ni modificar tu propio rol de ${roleLabel(role)}: pedíselo a otra autoridad. Sí podés sumarte roles de menor jerarquía (ej: Docente).`);
+  }
+};
+
 /** ¿Puede otorgar (o modificar) un rol de personal en ese nivel/divisiones? */
 export const assertCanGrant = (session: SchoolSession, role: SchoolRole, levelId: number | null, divisionIds: number[] = []) => {
   if (!session.can(Entity.USERS, Action.UPDATE)) throw forbidden();

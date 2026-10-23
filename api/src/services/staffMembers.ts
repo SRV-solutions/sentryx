@@ -3,7 +3,7 @@ import { RoleCode, SchoolRole, STAFF_ROLES, isStaffRole } from '../constants/rol
 import { roleLabel, isKnownSchoolRole, customRolesOf } from './roleRegistry';
 import { SchoolSession, invalidateSchoolSession } from './schoolSession';
 import { findOrCreatePerson, sendWelcome, PersonInput, isTechEmail } from './accounts';
-import { assertCanGrant } from './access';
+import { assertCanGrant, assertSelfRole } from './access';
 import { touchAccess } from './billing';
 import { audit } from './audit';
 import { badRequest, conflict, forbidden } from '../lib/http';
@@ -30,10 +30,8 @@ export const grantStaffRole = async (session: SchoolSession, input: StaffMemberI
 
   const result = await sequelize.transaction(async (transaction) => {
     const { user, tempPassword } = await findOrCreatePerson(personData, transaction);
-    // Nadie se otorga roles a sí mismo (salvo la Representante Legal / el superadmin).
-    if (user.id === session.userId && !session.superAdmin && !session.roles.includes(RoleCode.REPRESENTANTE_LEGAL)) {
-      throw forbidden('No podés otorgarte un rol a vos mismo.');
-    }
+    // Roles propios: solo de menor jerarquía (el superadmin, cualquiera).
+    if (user.id === session.userId) assertSelfRole(session, role);
     const [userRole, created] = await UserRole.findOrCreate({
       where: { userId: user.id, schoolId: session.schoolId, role, levelId },
       defaults: { userId: user.id, schoolId: session.schoolId, role, levelId, divisionIds, title },

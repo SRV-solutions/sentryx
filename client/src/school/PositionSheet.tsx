@@ -14,6 +14,7 @@ import { Entity, Action } from './permissions';
 import { Field, Sheet, useToast } from '../ui';
 import { usePerson } from './PersonProfile';
 import type { Structure } from './types';
+import { expandModules, timetableOf } from './timetable';
 import {
   DAYS, KIND_LABELS, SHIFTS, SITUATION_LABELS, PAY_MODE_LABELS, RATE_LABELS, monthlyPayOf, money,
   type PayMode, type PositionKind, type PositionSituation, type ScheduleSlot, type StaffPosition,
@@ -86,7 +87,7 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
     mutationFn: () => {
       const docente = isDocente(f!);
       const schedule = f!.schedule.map((s) => {
-        const base = usesModules(f!.kind) ? { day: s.day, from: s.from, to: toTime(toMin(s.from) + modulesOf(s) * f!.moduleMinutes), modules: modulesOf(s) } : { day: s.day, from: s.from, to: s.to };
+        const base = usesModules(f!.kind) ? { day: s.day, from: expand(s).start, to: expand(s).end, modules: modulesOf(s) } : { day: s.day, from: s.from, to: s.to };
         const t = docente && s.subjectId ? teaching.find((a) => a.subject.id === s.subjectId && a.division.id === s.divisionId) : undefined;
         return t ? { ...base, subjectId: t.subject.id, divisionId: t.division.id, label: `${t.subject.name} · ${t.division.name}` } : { ...base, label: f!.title };
       });
@@ -106,14 +107,21 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
   function modulesOf(s: ScheduleSlot) {
     return s.modules ?? Math.max(1, Math.round((toMin(s.to) - toMin(s.from)) / (f!.moduleMinutes || 40)));
   }
-  const endOf = (s: ScheduleSlot) => (modular ? toTime(toMin(s.from) + modulesOf(s) * f.moduleMinutes) : s.to);
+  // Horario del nivel de la franja (por el curso de la materia, o el nivel del cargo): recreos y módulo.
+  const levelTimetable = (levelId?: number | '') => timetableOf(structure.data?.levels.find((l) => l.id === levelId));
+  const ttFor = (s?: ScheduleSlot) => {
+    const division = s?.divisionId ? structure.data?.divisions.find((d) => d.id === s.divisionId) : undefined;
+    return levelTimetable(division?.levelId ?? f.levelId);
+  };
+  const expand = (s: ScheduleSlot) => expandModules(s.from, modulesOf(s), f.moduleMinutes, ttFor(s)?.breaks, f.shift || null);
+  const endOf = (s: ScheduleSlot) => (modular ? expand(s).end : s.to);
   const setSlot = (i: number, patch: Partial<ScheduleSlot>) => setF({ ...f, schedule: f.schedule.map((s, j) => (j === i ? { ...s, ...patch } : s)) });
   const removeSlot = (i: number) => (setCopying(null), setF({ ...f, schedule: f.schedule.filter((_x, j) => j !== i) }));
   const addSlot = () => {
     const last = f.schedule[f.schedule.length - 1];
     const slot: ScheduleSlot = last
       ? { ...last, day: last.day >= 5 ? 1 : last.day + 1 }
-      : { day: 1, from: '07:30', to: modular ? toTime(toMin('07:30') + 2 * f.moduleMinutes) : '12:00', ...(modular ? { modules: 2 } : {}), ...(docente && teaching[0] ? { subjectId: teaching[0].subject.id, divisionId: teaching[0].division.id } : {}) };
+      : { day: 1, from: ttFor()?.start ?? '07:30', to: modular ? toTime(toMin(ttFor()?.start ?? '07:30') + 2 * f.moduleMinutes) : '12:00', ...(modular ? { modules: 2 } : {}), ...(docente && teaching[0] ? { subjectId: teaching[0].subject.id, divisionId: teaching[0].division.id } : {}) };
     setF({ ...f, schedule: [...f.schedule, slot] });
   };
   const copyTo = (i: number, day: number) => setF({ ...f, schedule: [...f.schedule, { ...f.schedule[i], day }] });
@@ -122,7 +130,8 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
     const levelId = opt?.levelName ? structure.data?.levels.find((l) => l.name === opt.levelName)?.id ?? f.levelId : f.levelId;
     // Un cargo nuevo de docente arranca en horas cátedra.
     const kind = !f.id && opt?.role === 'DOCENTE' && f.kind === 'CARGO' ? 'HORAS_CATEDRA' : f.kind;
-    setF({ ...f, title, levelId, kind, payMode: !f.id && canPay && f.payMode === 'NONE' ? (opt?.role === 'DOCENTE' ? 'HORA_CATEDRA' : 'MENSUAL') : f.payMode });
+    const tt = levelTimetable(levelId);
+    setF({ ...f, title, levelId, kind, moduleMinutes: !f.id && tt ? tt.moduleMinutes : f.moduleMinutes, payMode: !f.id && canPay && f.payMode === 'NONE' ? (opt?.role === 'DOCENTE' ? 'HORA_CATEDRA' : 'MENSUAL') : f.payMode });
   };
 
   // Cuánto se cargó en el horario contra las horas semanales del cargo.
@@ -186,7 +195,11 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
             </select>
           </Field>
           <Field label="Nivel">
-            <select className="select" value={f.levelId} onChange={(e) => setF({ ...f, levelId: e.target.value ? Number(e.target.value) : '' })}>
+            <select className="select" value={f.levelId} onChange={(e) => {
+              const levelId = e.target.value ? Number(e.target.value) : '';
+              const tt = levelTimetable(levelId);
+              setF({ ...f, levelId, moduleMinutes: !f.id && tt ? tt.moduleMinutes : f.moduleMinutes });
+            }}>
               <option value="">Toda la institución</option>
               {structure.data?.levels.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
             </select>
@@ -196,7 +209,7 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
 
         <div className="card stack" style={{ padding: 12, gap: 10 }}>
           <div className="row-between wrap" style={{ gap: 8 }}>
-            <b className="small">Horario semanal{modular ? ` · módulos de ${f.moduleMinutes} min` : ''}</b>
+            <b className="small">Horario semanal{modular ? ` · módulos de ${f.moduleMinutes} min` : ''}{modular && ttFor(f.schedule[0])?.breaks.length ? ' · saltea los recreos del nivel' : ''}</b>
             <span className={`badge ${f.weeklyHours === 0 ? '' : missing === 0 ? 'badge-ok' : missing > 0 ? 'badge-warn' : 'badge-danger'}`}>
               {f.weeklyHours === 0
                 ? `Cargaste ${unit(f.kind, loaded)}`
@@ -260,6 +273,9 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
                 <button type="button" className={`btn btn-sm ${copying === i ? '' : 'btn-ghost'}`} title="Copiar esta franja a otros días" onClick={() => setCopying(copying === i ? null : i)}><Copy size={14} /> Copiar</button>
                 <button type="button" className="icon-btn" aria-label="Quitar franja" onClick={() => removeSlot(i)}><X size={16} /></button>
               </div>
+              {modular && expand(s).pieces.some((p) => p.kind === 'break') && (
+                <span className="xs muted">☕ Incluye {expand(s).pieces.filter((p) => p.kind === 'break').map((p) => `${p.label} ${p.from}–${p.to}`).join(', ')}: termina a las {endOf(s)}.</span>
+              )}
               {copying === i && (
                 <div className="row wrap" style={{ gap: 6 }}>
                   <span className="xs muted">Copiar {s.from}–{endOf(s)} a:</span>

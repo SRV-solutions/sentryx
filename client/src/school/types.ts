@@ -48,6 +48,8 @@ export interface SchoolSession {
   /** Roles de personal que puede otorgar (calculado por el servidor según la jerarquía). */
   /** Códigos del catálogo o de roles personalizados del colegio. */
   grantableRoles: string[];
+  /** Roles que puede ponerse o sacarse a sí mismo (superadmin: todos; el resto: de menor jerarquía). */
+  selfGrantableRoles?: string[];
   /** Niveles donde puede crear cursos (la conducción de un nivel). */
   courseLevelIds?: number[];
   canManageRoles?: boolean;
@@ -66,6 +68,8 @@ export interface LevelSettings {
   numericMax: number;
   passingGrade: number;
   attendanceWeights: Record<Exclude<AttendanceStatus, 'PRESENTE'>, number>;
+  /** Entrada, duración del módulo y recreos (Administración → Horarios). */
+  timetable?: import('./timetable').Timetable;
 }
 
 export interface Level { id: number; type: LevelType; name: string; settings: LevelSettings }
