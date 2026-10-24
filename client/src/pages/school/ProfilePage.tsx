@@ -11,6 +11,7 @@ import { usePerson } from '../../school/PersonProfile';
 import { ReportProblemSheet } from '../../school/ReportProblem';
 import { MyPlanCard } from '../../school/MyPlanCard';
 import { SessionsCard } from '../../school/SessionsCard';
+import { TutorialsCard } from '../../tutorials/TutorialsCard';
 import { TakeToPhoneSheet } from '../../school/TakeToPhoneSheet';
 import { Avatar, Badge, Card, Field, PageHeader, Sheet, useToast, PasswordInput, newPasswordProblem } from '../../ui';
 
@@ -222,6 +223,7 @@ export default function ProfilePage() {
 
       <PasswordCard />
 
+      <TutorialsCard />
       <SessionsCard />
 
       <button className="btn btn-block" onClick={() => setPhoneOpen(true)}><Smartphone size={16} /> Llevar Sentryx al celular (QR)</button>

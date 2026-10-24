@@ -6,6 +6,10 @@ export const AVATAR_MAX_BYTES = 300 * 1024;
 const USERNAME = z.string().regex(/^[a-zA-Z0-9_-]{3,30}$/, 'Usuario: 3 a 30 letras, números, guiones o guiones bajos.');
 
 /** PATCH /users/me — lista blanca: nadie puede cambiarse roles, email ni DNI desde su perfil. */
+/** PUT /users/me/tutorials */
+const tutorialIds = z.array(z.string().trim().min(1).max(60)).max(200);
+export const setMyTutorials = { body: z.object({ done: tutorialIds, skipped: tutorialIds }) };
+
 export const updateMyProfile = {
   body: z.object({
     firstName: z.string().trim().min(1).max(80).optional(),

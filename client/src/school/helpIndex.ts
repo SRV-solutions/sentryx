@@ -1,6 +1,7 @@
 import type { SchoolSession } from './types';
 import { Entity, Action } from './permissions';
 import { PlanFeature } from './plans';
+import { TUTORIALS } from '../tutorials/catalog';
 
 /**
  * Índice de todo lo que se puede hacer en Sentryx: lo usa el buscador global (Ctrl+K) y la página
@@ -91,6 +92,21 @@ export const HELP_INDEX: HelpEntry[] = [
   { id: 'plataforma-fact', title: 'Facturación global', description: 'Lo que paga cada colegio.', path: '/plataforma/facturacion', section: 'Plataforma', keywords: ['facturación global', 'cobros', 'todos los colegios'], show: (c) => c.isSuperAdmin },
   { id: 'plataforma-reportes', title: 'Reportes de usuarios', description: 'Problemas y sugerencias que reportan los usuarios.', path: '/plataforma/reportes', section: 'Plataforma', keywords: ['reportes', 'problemas', 'soporte', 'sugerencias'], show: (c) => c.isSuperAdmin },
 ];
+
+// --- Tutoriales de SOLVIX: también se encuentran buscando "tutorial", "ayuda", "necesito ayuda"... ---
+const HELP_WORDS = ['tutorial', 'tutoriales', 'ayuda', 'necesito ayuda', 'necesitas ayuda', 'como hago', 'cómo', 'guía', 'paso a paso', 'solvix', 'enseñame'];
+HELP_INDEX.push(
+  { id: 'tutoriales', title: 'Tutoriales y ayuda con SOLVIX', description: 'La guía con todos los tutoriales para tu rol: te muestro dónde tocar para hacer cada cosa.', path: '/perfil/me#tutoriales', section: 'Tutoriales', keywords: HELP_WORDS },
+  ...TUTORIALS.map((t) => ({
+    id: `tutorial-${t.id}`,
+    title: `Tutorial: ${t.title}`,
+    description: t.description,
+    path: `/inicio?tutorial=${t.id}`,
+    section: 'Tutoriales',
+    keywords: [...HELP_WORDS, ...t.keywords],
+    show: t.audience,
+  }))
+);
 
 const norm = (v: string) => v.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
 

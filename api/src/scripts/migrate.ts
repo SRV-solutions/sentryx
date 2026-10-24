@@ -451,6 +451,13 @@ const migrations: Array<{
       await addColumnIfMissing(qi, "LoginLinkToken", "ver", { type: DataTypes.INTEGER, allowNull: true });
     },
   },
+  {
+    // Tutoriales de SOLVIX: cuáles terminó y cuáles omitió cada persona.
+    name: "2026-10-24-user-tutorials",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "User", "tutorials", { type: DataTypes.JSONB, allowNull: false, defaultValue: { done: [], skipped: [] } });
+    },
+  },
 ];
 
 const run = async () => {

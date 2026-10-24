@@ -374,3 +374,45 @@ body { overflow-wrap: break-word; }
 .gsearch-item { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 8px 10px; border: 0; background: none; color: inherit; border-radius: 10px; cursor: pointer; font: inherit; }
 .gsearch-item.active, .gsearch-item:hover { background: var(--surface-2); }
 .gsearch-title { font-weight: 700; font-size: 14px; }
+
+/* ---------- SOLVIX, el astronauta de los tutoriales ---------- */
+.solvix { overflow: visible; color: var(--text); }
+.solvix * { transform-box: view-box; }
+.solvix-body { transform-origin: 60px 70px; animation: solvix-float 3.2s ease-in-out infinite; }
+.solvix-shadow { transform-origin: 60px 134px; animation: solvix-shadow 3.2s ease-in-out infinite; }
+.solvix-eyes { transform-origin: 60px 50px; animation: solvix-blink 4.6s infinite; }
+.solvix-antenna { animation: solvix-glow 1.6s ease-in-out infinite; }
+.solvix-led { animation: solvix-glow 1.1s ease-in-out infinite; }
+.solvix-arm-right { transform-origin: 89px 86px; transition: transform 0.3s ease; }
+.solvix-arm-left { transform-origin: 31px 86px; transition: transform 0.3s ease; }
+.solvix-head { transform-origin: 60px 82px; }
+.solvix-wave .solvix-arm-right { animation: solvix-wave 1.1s ease-in-out infinite; }
+.solvix-point .solvix-arm-right { animation: solvix-point 1.4s ease-in-out infinite; }
+.solvix-think .solvix-arm-right { transform: rotate(-38deg); }
+.solvix-think .solvix-head { animation: solvix-tilt 2.6s ease-in-out infinite; }
+.solvix-cheer .solvix-body { animation: solvix-jump 0.9s ease-in-out infinite; }
+.solvix-cheer .solvix-arm-right { animation: solvix-cheer-r 0.45s ease-in-out infinite alternate; }
+.solvix-cheer .solvix-arm-left { animation: solvix-cheer-l 0.45s ease-in-out infinite alternate; }
+@keyframes solvix-float { 0%, 100% { transform: translateY(0) rotate(-2deg); } 50% { transform: translateY(-6px) rotate(2deg); } }
+@keyframes solvix-shadow { 0%, 100% { transform: scaleX(1); opacity: 0.12; } 50% { transform: scaleX(0.8); opacity: 0.07; } }
+@keyframes solvix-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(0.12); } }
+@keyframes solvix-glow { 50% { opacity: 0.45; } }
+@keyframes solvix-wave { 0%, 100% { transform: rotate(-150deg); } 50% { transform: rotate(-115deg); } }
+@keyframes solvix-point { 0%, 100% { transform: rotate(-98deg); } 50% { transform: rotate(-110deg); } }
+@keyframes solvix-tilt { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-8deg); } }
+@keyframes solvix-jump { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(-12px) rotate(3deg); } }
+@keyframes solvix-cheer-r { from { transform: rotate(-165deg); } to { transform: rotate(-135deg); } }
+@keyframes solvix-cheer-l { from { transform: rotate(165deg); } to { transform: rotate(135deg); } }
+@media (prefers-reduced-motion: reduce) { .solvix * { animation: none !important; } }
+
+/* ---------- Tutorial: foco sobre el elemento y globo de SOLVIX ---------- */
+.tour-layer { position: fixed; inset: 0; z-index: 90; pointer-events: none; }
+.tour-dim { position: absolute; inset: 0; background: rgba(5, 10, 25, 0.45); animation: fade 0.2s ease; }
+.tour-spot { position: fixed; border-radius: 12px; box-shadow: 0 0 0 9999px rgba(5, 10, 25, 0.55), 0 0 0 3px var(--primary); transition: top 0.25s ease, left 0.25s ease, width 0.25s ease, height 0.25s ease; }
+.tour-spot::after { content: ''; position: absolute; inset: -6px; border-radius: 16px; border: 2px solid var(--primary); animation: tour-pulse 1.6s ease-out infinite; }
+@keyframes tour-pulse { from { opacity: 0.9; transform: scale(1); } to { opacity: 0; transform: scale(1.08); } }
+.tour-bubble { position: fixed; pointer-events: auto; padding: 14px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35); animation: up 0.2s ease; max-height: 80dvh; overflow-y: auto; }
+.tour-solvix { flex-shrink: 0; margin-top: -4px; }
+.tour-dots { display: flex; gap: 4px; justify-content: center; margin: 10px 0 8px; }
+.tour-dots span { width: 6px; height: 6px; border-radius: 3px; background: var(--border); transition: width 0.2s ease; }
+.tour-dots span.on { width: 16px; background: var(--primary); }

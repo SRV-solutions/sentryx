@@ -18,6 +18,20 @@ const IMAGE_SIGNATURES: Record<string, (data: Buffer) => boolean> = {
   'image/webp': (data) => data.subarray(0, 4).toString('ascii') === 'RIFF' && data.subarray(8, 12).toString('ascii') === 'WEBP',
 };
 
+// GET /users/me/tutorials — qué tutoriales de SOLVIX terminó u omitió
+export const getMyTutorials = asyncHandler(async (req, res) => {
+  const user = await User.findByPk(req.user!.id, { attributes: ['tutorials'] });
+  res.json(user?.tutorials ?? { done: [], skipped: [] });
+});
+
+// PUT /users/me/tutorials
+export const setMyTutorials = asyncHandler(async (req, res) => {
+  const body = req.body as { done: string[]; skipped: string[] };
+  const tutorials = { done: [...new Set(body.done)], skipped: [...new Set(body.skipped)].filter((id) => !body.done.includes(id)) };
+  await User.update({ tutorials }, { where: { id: req.user!.id } });
+  res.json(tutorials);
+});
+
 // GET /users/me
 export const getMyProfile = asyncHandler(async (req, res) => {
   res.json(await accountPayload(req.user!.id));

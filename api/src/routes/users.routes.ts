@@ -19,6 +19,8 @@ router.post('/reset-password', passwordResetLimiter, validate(AuthValidator.rese
 router.post('/login-link/redeem', loginLimiter, validate(SessionsController.redeemLoginLinkBody), SessionsController.redeemLoginLink);
 
 // Perfil propio
+router.get('/me/tutorials', authenticate, ProfileController.getMyTutorials);
+router.put('/me/tutorials', authenticate, validate(ProfileValidator.setMyTutorials), ProfileController.setMyTutorials);
 router.get('/me', authenticate, ProfileController.getMyProfile);
 router.patch('/me', authenticate, validate(ProfileValidator.updateMyProfile), ProfileController.updateMyProfile);
 router.put('/change-password', authenticate, validate(ProfileValidator.changeMyPassword), ProfileController.changeMyPassword);

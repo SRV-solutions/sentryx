@@ -20,6 +20,8 @@ class User extends Model<InferAttributes<User>, InferCreationAttributes<User>> {
   declare isActive: CreationOptional<boolean>;
   /** Versión de sesión: sube al cambiar/blanquear la contraseña e invalida los tokens anteriores. */
   declare tokenVersion: CreationOptional<number>;
+  /** Tutoriales de SOLVIX: cuáles terminó y cuáles omitió. */
+  declare tutorials: CreationOptional<{ done: string[]; skipped: string[] }>;
 
   get fullName(): NonAttribute<string> {
     return `${this.firstName} ${this.lastName}`;
@@ -46,6 +48,7 @@ User.init(
     mustChangePassword: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
     tokenVersion: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    tutorials: { type: DataTypes.JSONB, allowNull: false, defaultValue: { done: [], skipped: [] } },
   },
   {
     sequelize,

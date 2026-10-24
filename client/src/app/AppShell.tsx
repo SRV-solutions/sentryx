@@ -12,6 +12,7 @@ import { Sheet, timeAgo, Empty, useToast, Avatar } from '../ui';
 import { ReportProblemSheet } from '../school/ReportProblem';
 import { TakeToPhoneSheet } from '../school/TakeToPhoneSheet';
 import { StorageFullSheet } from '../school/StorageFullSheet';
+import { TutorialHost } from '../tutorials/TutorialHost';
 import { GlobalSearch } from './GlobalSearch';
 
 const SRV_LOGO = 'https://wearesrv.com/srv-logo-96.webp';
@@ -263,6 +264,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
       <ReportProblemSheet open={reportOpen} onClose={() => setReportOpen(false)} />
       <TakeToPhoneSheet open={phoneOpen} onClose={() => setPhoneOpen(false)} />
       {session && <StorageFullSheet />}
+      {session && <TutorialHost />}
 
       <Sheet open={bellOpen} onClose={() => setBellOpen(false)} title="Notificaciones">
         {unreadNotifications > 0 && (
