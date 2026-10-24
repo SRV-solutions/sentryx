@@ -7,6 +7,7 @@ import { useSchool } from '../../school/SchoolContext';
 import { Empty, ErrorBox, PageHeader, Skeleton, Tabs, Badge } from '../../ui';
 import type { PeriodKind } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
+import { AssignmentsByDivision, useAssignableLevels } from '../../school/TeachingAssignments';
 
 interface SubjectCard {
   id: number;
@@ -21,11 +22,18 @@ const KIND_LABEL: Record<PeriodKind, string> = { CONCEPTUAL: 'Conceptual', NUMER
 export default function SubjectsPage() {
   const { session, can } = useSchool();
   const canAll = can(Entity.GRADES, Action.READ);
-  const [view, setView] = useState<'mine' | 'all'>(session?.teaching.length ? 'mine' : 'all');
+  const { canAssign } = useAssignableLevels();
+  const [view, setView] = useState<'mine' | 'all' | 'assign'>(session?.teaching.length ? 'mine' : 'all');
   const q = useQuery({
     queryKey: ['my-subjects', view],
     queryFn: () => apiGet<SubjectCard[]>(`/school/grades/my-subjects${view === 'all' ? '?all=true' : ''}`),
+    enabled: view !== 'assign',
   });
+  const tabs = [
+    ...(session?.teaching.length ? [{ value: 'mine' as const, label: 'Mis materias' }] : []),
+    ...(canAll ? [{ value: 'all' as const, label: session?.teaching.length ? 'Todas (mi alcance)' : 'Todas' }] : []),
+    ...(canAssign ? [{ value: 'assign' as const, label: 'Asignar docentes' }] : []),
+  ];
 
   // Agrupado por división para que el docente con muchas materias se ubique rápido.
   const byDivision = (q.data ?? []).reduce<Record<string, SubjectCard[]>>((acc, s) => {
@@ -37,14 +45,19 @@ export default function SubjectsPage() {
   return (
     <div className="stack">
       <PageHeader title="Materias" subtitle="Cargá notas y seguí el estado académico de tus cursos." />
-      {canAll && session?.teaching.length ? (
-        <Tabs value={view} onChange={setView} items={[{ value: 'mine', label: 'Mis materias' }, { value: 'all', label: 'Todas (mi alcance)' }]} />
-      ) : null}
-      {q.error && <ErrorBox error={q.error} retry={() => q.refetch()} />}
-      {q.isLoading && <Skeleton count={4} h={90} />}
-      {q.data && !q.data.length && <Empty title="No tenés materias asignadas" text="Pedile a la dirección que te asigne materias y divisiones." icon={<BookOpenCheck size={36} strokeWidth={1.5} />} />}
+      {tabs.length > 1 && <Tabs value={view} onChange={setView} items={tabs} />}
+      {view === 'assign' && <AssignmentsByDivision />}
+      {view !== 'assign' && q.error && <ErrorBox error={q.error} retry={() => q.refetch()} />}
+      {view !== 'assign' && q.isLoading && <Skeleton count={4} h={90} />}
+      {view !== 'assign' && q.data && !q.data.length && (
+        <Empty
+          title={view === 'mine' ? 'No tenés materias asignadas' : 'Todavía no hay materias con docente'}
+          text={canAssign ? 'Asignalas en la pestaña "Asignar docentes".' : 'Pedile a la dirección que te asigne materias y divisiones.'}
+          icon={<BookOpenCheck size={36} strokeWidth={1.5} />}
+        />
+      )}
 
-      {Object.entries(byDivision).map(([title, subjects]) => (
+      {view !== 'assign' && Object.entries(byDivision).map(([title, subjects]) => (
         <section key={title} className="stack">
           <div className="row-between">
             <h2 className="h2">{title}</h2>

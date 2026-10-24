@@ -5,9 +5,9 @@
  *  - Docentes: cada franja es una materia que dicta (solo sus asignaciones).
  *  - Una franja se copia a otros días con un toque, y se ve cuántas horas faltan cargar.
  */
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, Plus, X } from 'lucide-react';
+import { Copy, Plus, Wand2, X } from 'lucide-react';
 import { apiGet, apiSend } from '../lib/api';
 import { useSchool } from './SchoolContext';
 import { Entity, Action } from './permissions';
@@ -73,7 +73,24 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
   const [f, setF] = useState<PositionForm | null>(form);
   const [error, setError] = useState('');
   const [copying, setCopying] = useState<number | null>(null);
-  if (form && (!f || f.id !== form.id || f.userId !== form.userId)) setF(form);
+  const mmApplied = useRef(false);
+  /** Armar horario automático: días, entrada, módulos u horas por día y materia. */
+  const [auto, setAuto] = useState<{ open: boolean; days: number[]; from: string; perDay: number; subject: string }>({ open: false, days: [1, 2, 3, 4, 5], from: '', perDay: 0, subject: '' });
+  // Un formulario nuevo (otro cargo u otra persona) reemplaza al anterior.
+  const lastForm = useRef<PositionForm | null>(form);
+  if (form && (form !== lastForm.current || !f)) {
+    lastForm.current = form;
+    mmApplied.current = false;
+    setF(form);
+    // Cargo nuevo sin horario: se abre "Armar horario automático".
+    setAuto((a) => ({ ...a, open: !form.id && !form.schedule.length, perDay: 0, from: '', subject: '' }));
+  }
+  // Cargo nuevo con nivel (ej: desde un rol): toma la duración del módulo del horario del nivel.
+  const levelMM = f && !f.id && f.levelId ? timetableOf(structure.data?.levels.find((l) => l.id === f.levelId))?.moduleMinutes : undefined;
+  if (f && levelMM && !mmApplied.current) {
+    mmApplied.current = true;
+    if (levelMM !== f.moduleMinutes) setF({ ...f, moduleMinutes: levelMM });
+  }
 
   // Cargos posibles: los roles activos de la persona (más el título que ya tenía, si era otro).
   const roleOptions = useMemo(() => {
@@ -135,6 +152,40 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
   };
 
   // Cuánto se cargó en el horario contra las horas semanales del cargo.
+  // ---------- Armar horario automático ----------
+  const autoSubjectKey = auto.subject || (teaching[0] ? `${teaching[0].subject.id}:${teaching[0].division.id}` : '');
+  const autoSubject = autoSubjectKey ? autoSubjectKey.split(':').map(Number) : null;
+  const autoBase = (): Partial<ScheduleSlot> => (docente && autoSubject ? { subjectId: autoSubject[0], divisionId: autoSubject[1] } : {});
+  const autoFrom = auto.from || ttFor(autoBase() as ScheduleSlot)?.start || '07:30';
+  const slotFor = (day: number, amount: number): ScheduleSlot => {
+    const base = { ...autoBase(), day, from: autoFrom } as ScheduleSlot;
+    if (modular) {
+      const slot = { ...base, modules: amount, to: autoFrom };
+      return { ...slot, from: expand(slot).start, to: expand(slot).end };
+    }
+    return { ...base, to: toTime(toMin(autoFrom) + Math.round(amount * 60)) };
+  };
+  const addAuto = (amounts: Array<[number, number]>) => {
+    const slots = amounts.filter(([, n]) => n > 0).map(([day, n]) => slotFor(day, n));
+    if (!slots.length) return;
+    setF({ ...f, schedule: [...f.schedule, ...slots] });
+    setAuto({ ...auto, open: false });
+  };
+  /** Reparte lo que falta cargar entre los días elegidos (los primeros días se llevan el resto). */
+  const distribute = (total: number) => {
+    const days = [...auto.days].sort();
+    const unitStep = modular ? 1 : 0.5;
+    const units = Math.round(total / unitStep);
+    const base = Math.floor(units / days.length);
+    const extra = units % days.length;
+    return days.map((d, i) => [d, (base + (i < extra ? 1 : 0)) * unitStep] as [number, number]);
+  };
+  const remainingNow = Math.max(0, f.weeklyHours - (modular ? f.schedule.reduce((sum, s) => sum + modulesOf(s), 0) : f.schedule.reduce((sum, s) => sum + Math.max(0, toMin(s.to) - toMin(s.from)), 0) / 60));
+  const perDayDefault = remainingNow ? Math.max(modular ? 1 : 0.5, Math.round((remainingNow / Math.max(1, auto.days.length)) * (modular ? 1 : 2)) / (modular ? 1 : 2)) : modular ? 2 : 4;
+  const perDay = auto.perDay || perDayDefault;
+  const autoPreview = perDay > 0 ? slotFor(auto.days[0] ?? 1, perDay) : null;
+  const autoBreaks = autoPreview && modular ? expand(autoPreview).pieces.filter((p) => p.kind === 'break') : [];
+
   const loaded = modular ? f.schedule.reduce((sum, s) => sum + modulesOf(s), 0) : Math.round((f.schedule.reduce((sum, s) => sum + Math.max(0, toMin(s.to) - toMin(s.from)), 0) / 60) * 10) / 10;
   const missing = Math.round((f.weeklyHours - loaded) * 10) / 10;
   const overlaps = f.schedule.some((a, i) => f.schedule.some((b, j) => j > i && a.day === b.day && toMin(a.from) < toMin(endOf(b)) && toMin(b.from) < toMin(endOf(a))));
@@ -220,6 +271,56 @@ export const PositionSheet = ({ form, onClose, personName }: { form: PositionFor
                     : `Te pasaste por ${unit(f.kind, -missing)}`}
             </span>
           </div>
+          {(() => {
+            const remaining = Math.max(0, f.weeklyHours - loaded);
+            if (!auto.open)
+              return (
+                <button type="button" className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => setAuto({ ...auto, open: true, perDay: 0, from: auto.from || autoFrom, subject: auto.subject || (docente && teaching[0] ? `${teaching[0].subject.id}:${teaching[0].division.id}` : '') })}>
+                  <Wand2 size={14} /> Armar horario automático
+                </button>
+              );
+            return (
+              <div className="card stack" style={{ padding: 12, gap: 10, borderColor: 'var(--primary)' }}>
+                <b className="small row" style={{ gap: 6 }}><Wand2 size={14} /> Armar horario automático</b>
+                <div className="row wrap" style={{ gap: 6 }}>
+                  {DAYS.slice(1).map((d, idx) => {
+                    const day = idx + 1;
+                    const on = auto.days.includes(day);
+                    return <button key={d} type="button" className={`chip ${on ? 'active' : ''}`} onClick={() => setAuto({ ...auto, days: on ? auto.days.filter((x) => x !== day) : [...auto.days, day] })}>{d}</button>;
+                  })}
+                </div>
+                <div className="row wrap" style={{ gap: 8, alignItems: 'flex-end' }}>
+                  <div className="field" style={{ margin: 0 }}><label className="xs">Entrada</label><input className="input" type="time" style={{ width: 110 }} value={auto.from || autoFrom} onChange={(e) => setAuto({ ...auto, from: e.target.value })} /></div>
+                  <div className="field" style={{ margin: 0 }}>
+                    <label className="xs">{modular ? 'Módulos por día' : 'Horas por día'}</label>
+                    <input className="input" type="number" min={modular ? 1 : 0.5} max={12} step={modular ? 1 : 0.5} style={{ width: 100 }} value={perDay} onChange={(e) => setAuto({ ...auto, perDay: Number(e.target.value) })} />
+                  </div>
+                  {docente && teaching.length > 0 && (
+                    <div className="field" style={{ margin: 0, flex: '1 1 200px' }}>
+                      <label className="xs">Materia</label>
+                      <select className="select" value={auto.subject || `${teaching[0].subject.id}:${teaching[0].division.id}`} onChange={(e) => setAuto({ ...auto, subject: e.target.value })}>
+                        {teaching.map((t) => <option key={`${t.subject.id}:${t.division.id}`} value={`${t.subject.id}:${t.division.id}`}>{t.subject.name} · {t.division.name}</option>)}
+                      </select>
+                    </div>
+                  )}
+                </div>
+                {autoPreview && auto.days.length > 0 && (
+                  <span className="xs muted">
+                    Cada día: {autoPreview.from}–{autoPreview.to}{modular ? ` (${perDay} ${perDay === 1 ? 'módulo' : 'módulos'})` : ''}
+                    {autoBreaks.length ? `, con ${autoBreaks.map((b) => `${b.label} ${b.from}–${b.to}`).join(' y ')}` : ''}. Suma {unit(f.kind, perDay * auto.days.length)} por semana.
+                  </span>
+                )}
+                <div className="row wrap" style={{ gap: 6 }}>
+                  <button type="button" className="btn btn-sm" disabled={!auto.days.length || perDay <= 0} onClick={() => addAuto(auto.days.map((d) => [d, perDay]))}><Plus size={14} /> Agregar a los días elegidos</button>
+                  {remaining > 0 && auto.days.length > 0 && (
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => addAuto(distribute(remaining))}>Repartir lo que falta ({unit(f.kind, remaining)})</button>
+                  )}
+                  <button type="button" className="btn btn-sm btn-ghost" onClick={() => setAuto({ ...auto, open: false })}>Cerrar</button>
+                </div>
+                {!f.weeklyHours && <span className="xs muted">Tip: cargá arriba el total semanal y usá "Repartir lo que falta".</span>}
+              </div>
+            );
+          })()}
           {f.weeklyHours === 0 && loaded > 0 && (
             <button type="button" className="btn btn-sm btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => setF({ ...f, weeklyHours: loaded })}>Usar {unit(f.kind, loaded)} como total semanal</button>
           )}

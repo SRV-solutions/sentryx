@@ -51,6 +51,7 @@ export const StructureTab = () => {
 
       <section className="stack">
         <h2 className="h2">Divisiones y docentes</h2>
+        <p className="small muted">También podés asignar docentes desde <b>Materias → Asignar docentes</b> o desde <b>Personal → Editar → Materias</b>.</p>
         <form className="row wrap" onSubmit={(e) => (e.preventDefault(), newDivision.name && createDivision.mutate())}>
           <input className="input" style={{ flex: '2 1 140px' }} placeholder="Nombre (ej: 3º B)" value={newDivision.name} onChange={(e) => setNewDivision({ ...newDivision, name: e.target.value })} />
           <input className="input" style={{ flex: '1 1 80px' }} type="number" min={0} max={7} value={newDivision.gradeYear} onChange={(e) => setNewDivision({ ...newDivision, gradeYear: Number(e.target.value) })} aria-label="Año" />

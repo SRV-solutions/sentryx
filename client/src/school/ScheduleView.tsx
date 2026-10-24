@@ -23,23 +23,59 @@ const amount = (items: ScheduleItem[]) => {
   return modules ? `${modules} ${modules === 1 ? 'módulo' : 'módulos'} · ${hoursLabel(min)}` : hoursLabel(min);
 };
 
-const Group = ({ title, subtitle, items }: { title: string; subtitle?: string; items: ScheduleItem[] }) => (
-  <div className="card" style={{ padding: 12 }}>
-    <div className="row-between wrap" style={{ gap: 6, marginBottom: 6 }}>
-      <span><b>{title}</b>{subtitle && <span className="xs muted"> · {subtitle}</span>}</span>
-      <span className="badge badge-info">{amount(items)}</span>
-    </div>
-    <div className="stack" style={{ gap: 2 }}>
-      {items.map((i, k) => (
-        <div key={k} className="row xs" style={{ gap: 8 }}>
-          <span style={{ width: 34, fontWeight: 700 }}>{SHORT_DAYS[i.day]}</span>
-          <span style={{ width: 92, fontVariantNumeric: 'tabular-nums' }}>{i.from}–{i.to}</span>
-          <span className="muted truncate">{[i.subject, i.course].filter(Boolean).join(' · ') || i.cargo}</span>
+/** Rangos corridos de cada día (dos módulos seguidos, o separados solo por un recreo, son un mismo rango). */
+const runsByDay = (items: ScheduleItem[]) => {
+  const out = new Map<number, Array<{ from: string; to: string; modules: number; minutes: number; gap: boolean }>>();
+  for (const i of [...items].sort((x, y) => x.day - y.day || toMin(x.from) - toMin(y.from))) {
+    const runs = out.get(i.day) ?? [];
+    const last = runs[runs.length - 1];
+    const dur = toMin(i.to) - toMin(i.from);
+    if (last && toMin(i.from) <= toMin(last.to) + 30) {
+      if (toMin(i.from) > toMin(last.to)) last.gap = true;
+      if (toMin(i.to) > toMin(last.to)) last.to = i.to;
+      last.modules += i.kind === 'module' ? 1 : 0;
+      last.minutes += dur;
+    } else runs.push({ from: i.from, to: i.to, modules: i.kind === 'module' ? 1 : 0, minutes: dur, gap: false });
+    out.set(i.day, runs);
+  }
+  return [...out.entries()];
+};
+
+const Group = ({ title, subtitle, items, detail }: { title: string; subtitle?: string; items: ScheduleItem[]; detail?: (i: ScheduleItem) => string | null }) => {
+  const parts = detail
+    ? [...items.reduce((m, i) => {
+        const k = detail(i);
+        if (k) m.set(k, [...(m.get(k) ?? []), i]);
+        return m;
+      }, new Map<string, ScheduleItem[]>())]
+    : [];
+  return (
+    <div className="card" style={{ padding: 12 }}>
+      <div className="row-between wrap" style={{ gap: 6, marginBottom: 8 }}>
+        <span><b>{title}</b>{subtitle && <span className="xs muted"> · {subtitle}</span>}</span>
+        <span className="badge badge-info">{amount(items)}</span>
+      </div>
+      <div className="stack" style={{ gap: 4 }}>
+        {runsByDay(items).map(([day, runs]) => (
+          <div key={day} className="row wrap small" style={{ gap: 6 }}>
+            <span style={{ width: 38, fontWeight: 800 }}>{SHORT_DAYS[day]}</span>
+            {runs.map((r, k) => (
+              <span key={k} className="badge" title={r.gap ? 'Incluye recreo' : undefined} style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {r.from}–{r.to}
+                <span className="muted" style={{ fontWeight: 500 }}> · {r.modules ? `${r.modules} mód.` : hoursLabel(r.minutes)}{r.gap ? ' ☕' : ''}</span>
+              </span>
+            ))}
+          </div>
+        ))}
+      </div>
+      {parts.length > 1 && (
+        <div className="row wrap" style={{ gap: 4, marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+          {parts.map(([k, list]) => <span key={k} className="chip" style={{ cursor: 'default' }}>{k} · {amount(list)}</span>)}
         </div>
-      ))}
+      )}
     </div>
-  </div>
-);
+  );
+};
 
 export const ScheduleView = ({ positions }: { positions: StaffPosition[] }) => {
   const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure'), staleTime: 5 * 60_000 });
@@ -104,17 +140,17 @@ export const ScheduleView = ({ positions }: { positions: StaffPosition[] }) => {
       )}
       {mode === 'subject' && (
         <div className="stack" style={{ gap: 8 }}>
-          {group((i) => i.subject ?? i.cargo).map(([name, list]) => <Group key={name} title={name} subtitle={[...new Set(list.map((i) => i.course).filter(Boolean))].join(', ')} items={list} />)}
+          {group((i) => i.subject ?? i.cargo).map(([name, list]) => <Group key={name} title={name} subtitle={[...new Set(list.map((i) => i.course).filter(Boolean))].join(', ')} items={list} detail={(i) => i.course} />)}
         </div>
       )}
       {mode === 'course' && (
         <div className="stack" style={{ gap: 8 }}>
-          {group((i) => i.course ?? `Sin curso · ${i.cargo}`).map(([name, list]) => <Group key={name} title={name} subtitle={[...new Set(list.map((i) => i.subject).filter(Boolean))].join(', ')} items={list} />)}
+          {group((i) => i.course ?? `Sin curso · ${i.cargo}`).map(([name, list]) => <Group key={name} title={name} subtitle={[...new Set(list.map((i) => i.subject).filter(Boolean))].join(', ')} items={list} detail={(i) => i.subject} />)}
         </div>
       )}
       {mode === 'cargo' && (
         <div className="stack" style={{ gap: 8 }}>
-          {group((i) => i.cargo).map(([name, list]) => <Group key={name} title={name} subtitle={list[0].level ?? undefined} items={list} />)}
+          {group((i) => i.cargo).map(([name, list]) => <Group key={name} title={name} subtitle={list[0].level ?? undefined} items={list} detail={(i) => (i.subject ? [i.subject, i.course].filter(Boolean).join(' · ') : null)} />)}
         </div>
       )}
       {breaks.length > 0 && mode === 'week' && <span className="xs muted"><Coffee size={11} /> Los recreos los configura la conducción en Administración → Horarios.</span>}

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, RequestHandler } from 'express';
 import { forbidden } from '../lib/http';
 import * as StructureController from '../controllers/structure.controller';
 import * as StructureValidator from '../validators/structure.validator';
@@ -21,8 +21,11 @@ router.patch('/divisions/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate
 router.delete('/divisions/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.deleteDivision), StructureController.deleteDivision);
 router.post('/subjects', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.createSubject), StructureController.createSubject);
 router.patch('/subjects/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.updateSubject), StructureController.updateSubject);
-router.post('/assignments', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.assignTeacher), StructureController.assignTeacher);
-router.delete('/assignments/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.removeAssignment), StructureController.removeAssignment);
+// Asignar docentes: quien configura la institución, o la conducción de un nivel en su nivel (lo controla el controlador).
+const canAssign: RequestHandler = (req, _res, next) =>
+  next(req.schoolSession?.can(Entity.SCHOOL, Action.UPDATE) || req.schoolSession?.courseLevelIds.length ? undefined : forbidden('No tenés permiso para asignar docentes.'));
+router.post('/assignments', canAssign, validate(StructureValidator.assignTeacher), StructureController.assignTeacher);
+router.delete('/assignments/:id', canAssign, validate(StructureValidator.removeAssignment), StructureController.removeAssignment);
 router.patch('/periods/:id', authorize(Entity.GRADING_PERIODS, Action.UPDATE), validate(StructureValidator.updatePeriod), StructureController.updatePeriod);
 router.post('/periods/:id/:action(close|reopen)', authorize(Entity.GRADING_PERIODS, Action.CLOSE), validate(StructureValidator.setPeriodStatus), StructureController.setPeriodStatus);
 

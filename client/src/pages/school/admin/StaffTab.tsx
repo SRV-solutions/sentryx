@@ -19,6 +19,7 @@ import type { StaffRecord } from '../StaffAdminPage';
 import { PositionSheet, emptyForm, formOf, roleTitle, type PositionForm } from '../../../school/PositionSheet';
 import { StaffImportButton } from './StaffImport';
 import { ScheduleView } from '../../../school/ScheduleView';
+import { PersonAssignments, useAssignableLevels } from '../../../school/TeachingAssignments';
 
 export interface StaffRow {
   id: number;
@@ -218,17 +219,19 @@ const RoleFields = <F extends Pick<AddForm, 'role' | 'levelId' | 'divisionIds' |
   );
 };
 
-type EditTab = 'datos' | 'roles' | 'sueldo';
+type EditTab = 'datos' | 'roles' | 'materias' | 'sueldo';
 
 /** Editar a una persona del personal: datos, roles y cargos con su sueldo. */
 const PersonEditSheet = ({ person, onClose }: { person: StaffPerson; onClose: () => void }) => {
   const { can } = useSchool();
   const showRecords = can(Entity.STAFF_RECORDS, Action.READ);
+  const { canAssign } = useAssignableLevels();
   const [tab, setTab] = useState<EditTab>(showRecords ? 'sueldo' : 'roles');
   const name = `${person.User.firstName} ${person.User.lastName}`;
   const items: Array<{ value: EditTab; label: string }> = [
     { value: 'datos', label: 'Datos' },
     { value: 'roles', label: `Roles (${person.memberships.length})` },
+    ...(canAssign ? [{ value: 'materias' as const, label: 'Materias' }] : []),
     ...(showRecords ? [{ value: 'sueldo' as const, label: 'Cargos y sueldo' }] : []),
   ];
   return (
@@ -238,6 +241,7 @@ const PersonEditSheet = ({ person, onClose }: { person: StaffPerson; onClose: ()
         <Tabs value={tab} onChange={setTab} items={items} />
         {tab === 'datos' && <DataTab userId={person.userId} />}
         {tab === 'roles' && <RolesTab person={person} />}
+        {tab === 'materias' && <PersonAssignments userId={person.userId} name={name} />}
         {tab === 'sueldo' && (
           <PlanGate feature={PlanFeature.STAFF_RECORDS} title="Cargos, horas y sueldo">
             <PayTab person={person} />

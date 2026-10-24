@@ -1,12 +1,14 @@
 /** Controlador de structure: la lógica de cada ruta de routes/structure.routes.ts. */
-import { Level, AcademicYear, Division, Subject, TeachingAssignment, GradingPeriod, User, Enrollment, sequelize } from '../models';
+import { Level, AcademicYear, Division, Subject, TeachingAssignment, GradingPeriod, User, Enrollment, UserRole, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, forbidden } from '../lib/http';
-import { invalidateSchoolSession, divisionWhere } from '../services/schoolSession';
+import { invalidateSchoolSession, divisionWhere, type SchoolSession } from '../services/schoolSession';
 import { DEFAULT_LEVEL_SETTINGS, LevelType, gradingModeOf, kindsForMode } from '../constants/school';
 import { Entity, Action } from '../constants/permissions';
 import { Grade } from '../models';
 import { ensurePeriods } from '../services/schoolSetup';
 import { audit } from '../services/audit';
+import { RoleCode, isStaffRole } from '../constants/roles';
+import { assertCanGrant, assertSelfRole } from '../services/access';
 
 /** Estructura visible para el usuario: niveles, divisiones (según alcance), materias y períodos del ciclo. */
 // GET /structure
@@ -84,6 +86,11 @@ export const setCurrentYear = asyncHandler(async (req, res) => {
     res.json(year);
   });
 
+/** Asignar docentes: quien configura la institución en cualquier nivel; la conducción de un nivel, en el suyo. */
+const assertAssignLevel = (session: SchoolSession, levelId: number) => {
+  if (!session.can(Entity.SCHOOL, Action.UPDATE) && !session.courseLevelIds.includes(levelId)) throw forbidden('Ese curso es de un nivel que no está a tu cargo.');
+};
+
 // POST /divisions
 export const createDivision = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
@@ -158,18 +165,38 @@ export const assignTeacher = asyncHandler(async (req, res) => {
     ]);
     if (!division || !subject) throw notFound('División o materia inexistente.');
     if (division.levelId !== subject.levelId) throw badRequest('La materia no corresponde al nivel de la división.');
-    const [assignment] = await TeachingAssignment.findOrCreate({
-      where: { divisionId: division.id, subjectId: subject.id, teacherId: req.body.teacherId },
-      defaults: { divisionId: division.id, subjectId: subject.id, teacherId: req.body.teacherId, schoolId: session.schoolId },
+    assertAssignLevel(session, division.levelId as number);
+    const teacherId = Number(req.body.teacherId);
+    // Tiene que ser parte del personal del colegio. Si no es docente (ej: la Rectora que da clases), se le suma el rol.
+    const roles = await UserRole.findAll({ where: { userId: teacherId, schoolId: session.schoolId, active: true } });
+    if (!roles.some((r) => isStaffRole(r.role))) throw badRequest('Esa persona no es parte del personal del colegio. Dala de alta en Personal.');
+    let addedDocente = false;
+    if (!roles.some((r) => r.role === RoleCode.DOCENTE)) {
+      assertCanGrant(session, RoleCode.DOCENTE, null);
+      if (teacherId === session.userId) assertSelfRole(session, RoleCode.DOCENTE);
+      const [docente, created] = await UserRole.findOrCreate({
+        where: { userId: teacherId, schoolId: session.schoolId, role: RoleCode.DOCENTE },
+        defaults: { userId: teacherId, schoolId: session.schoolId, role: RoleCode.DOCENTE, levelId: null, title: null },
+      });
+      if (!created) await docente.update({ active: true });
+      addedDocente = true;
+      await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'UserRole', entityId: docente.id, action: 'create', after: { userId: teacherId, role: RoleCode.DOCENTE, via: 'assignment' } });
+    }
+    const [assignment, created] = await TeachingAssignment.findOrCreate({
+      where: { divisionId: division.id, subjectId: subject.id, teacherId },
+      defaults: { divisionId: division.id, subjectId: subject.id, teacherId, schoolId: session.schoolId },
     });
-    invalidateSchoolSession(req.body.teacherId);
-    res.status(201).json(assignment);
+    if (created) await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'TeachingAssignment', entityId: assignment.id, action: 'create', after: { teacherId, divisionId: division.id, subjectId: subject.id } });
+    invalidateSchoolSession(teacherId);
+    res.status(201).json({ ...assignment.toJSON(), addedDocente, alreadyAssigned: !created });
   });
 
 // DELETE /assignments/:id
 export const removeAssignment = asyncHandler(async (req, res) => {
-    const a = await TeachingAssignment.findOne({ where: { id: req.params.id, schoolId: req.schoolSession!.schoolId } });
+    const a = await TeachingAssignment.findOne({ where: { id: req.params.id, schoolId: req.schoolSession!.schoolId }, include: [{ model: Division, attributes: ['levelId'] }] });
     if (a) {
+      assertAssignLevel(req.schoolSession!, a.Division!.levelId as number);
+      await audit({ schoolId: req.schoolSession!.schoolId, userId: req.schoolSession!.userId, entity: 'TeachingAssignment', entityId: a.id, action: 'delete', before: { teacherId: a.teacherId, divisionId: a.divisionId, subjectId: a.subjectId } });
       await a.destroy();
       invalidateSchoolSession(a.teacherId as number);
     }
