@@ -7,6 +7,10 @@ import { PlanGate } from '../../school/PlanGate';
 import { PlanFeature, ars, usePlan } from '../../school/plans';
 import { KIND_LABELS, RECEIPT_KIND_LABELS, Receipt, SITUATION_LABELS, StaffPosition, periodLabel, money } from '../../school/staffRecords';
 import { ScheduleView } from '../../school/ScheduleView';
+import { AbsenceItem, AbsenceSheet, useAbsences } from '../../school/absences';
+import { useSchool } from '../../school/SchoolContext';
+import { useAuth } from '../../context/AuthContext';
+import { UserX } from 'lucide-react';
 
 const openReceipt = async (id: number) => {
   // Se abre la pestaña antes del pedido: los navegadores de celular bloquean ventanas abiertas después de un await.
@@ -81,6 +85,29 @@ const ReceiptsCard = () => {
   );
 };
 
+/** Avisar una ausencia propia: les llega a estudiantes y familias de mis cursos y se ve en el aula y el calendario. */
+const MyAbsencesCard = () => {
+  const { session } = useSchool();
+  const { user } = useAuth();
+  const [open, setOpen] = useState(false);
+  const list = useAbsences({});
+  if (!session?.teaching.length) return null;
+  const mine = (list.data ?? []).filter((a) => a.teacher?.id === user?.userData.id);
+  return (
+    <Card>
+      <div className="stack" style={{ gap: 8 }}>
+        <div className="row-between wrap" style={{ gap: 8 }}>
+          <h2 className="h3 row" style={{ gap: 6 }}><UserX size={16} /> Mis ausencias</h2>
+          <button className="btn btn-sm" onClick={() => setOpen(true)}>Avisar que voy a faltar</button>
+        </div>
+        {!mine.length && <p className="small muted" style={{ margin: 0 }}>Si vas a faltar, avisá acá: les llega a los estudiantes y las familias de tus cursos, y se ve en el aula y en el calendario.</p>}
+        {mine.map((a) => <AbsenceItem key={a.id} a={a} />)}
+      </div>
+      {open && <AbsenceSheet open onClose={() => setOpen(false)} />}
+    </Card>
+  );
+};
+
 /** Mi legajo (plan Profesional): mis cargos, horas, horario y recibos de sueldo. */
 export default function MyRecordPage() {
   const { hasFeature } = usePlan();
@@ -92,6 +119,7 @@ export default function MyRecordPage() {
   return (
     <div className="stack-lg">
       <PageHeader title="Mi legajo" subtitle="Tus cargos, horas, horario y recibos de sueldo." />
+      <MyAbsencesCard />
       <PlanGate feature={PlanFeature.STAFF_RECORDS} title="Legajo y recibos de sueldo">
         {record.isLoading && <Skeleton count={2} h={90} />}
         {record.error && <ErrorBox error={record.error} />}

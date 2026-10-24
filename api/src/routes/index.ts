@@ -34,6 +34,7 @@ import staffRecordsRoutes from './staffRecords.routes';
 import eventsRoutes from './events.routes';
 import teachingRoutes from './teaching.routes';
 import playRoutes from './play.routes';
+import absencesRoutes from './absences.routes';
 
 /**
  * MAPA DE LA API
@@ -78,6 +79,7 @@ school.use(statsRoutes);
 school.use(attendanceRoutes);
 school.use(alertsRoutes);
 school.use(announcementsRoutes);
+school.use(absencesRoutes);
 school.use(threadsRoutes);
 school.use(channelsRoutes);
 school.use(classroomsRoutes);

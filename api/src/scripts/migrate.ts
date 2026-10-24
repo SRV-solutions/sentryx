@@ -458,6 +458,13 @@ const migrations: Array<{
       await addColumnIfMissing(qi, "User", "tutorials", { type: DataTypes.JSONB, allowNull: false, defaultValue: { done: [], skipped: [] } });
     },
   },
+  {
+    // Ausencias docentes (aula, calendario y aviso a estudiantes y familias).
+    name: "2026-10-24-teacher-absences",
+    up: async () => {
+      await (M.TeacherAbsence as unknown as { sync: () => Promise<unknown> }).sync();
+    },
+  },
 ];
 
 const run = async () => {

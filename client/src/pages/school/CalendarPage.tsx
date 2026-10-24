@@ -10,6 +10,8 @@ import { PlanGate } from '../../school/PlanGate';
 import { PlanFeature } from '../../school/plans';
 import { EventFormSheet } from '../../school/EventForm';
 import { SchoolEvent, dateOf } from '../../school/events';
+import { AbsenceItem, AbsenceSheet, useAbsences, useManagesAbsences } from '../../school/absences';
+import { UserX } from 'lucide-react';
 
 interface HolidayRow {
   key: string;
@@ -136,6 +138,12 @@ export default function CalendarPage() {
     return [...map.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [events.data, onlyMine]);
   const today = new Date().toISOString().slice(0, 10);
+  const absences = useAbsences({ from: `${month}-01`, to: lastDay(month) });
+  const manages = useManagesAbsences();
+  const [absenceOpen, setAbsenceOpen] = useState(false);
+  const staffList = useQuery({ queryKey: ['staff'], queryFn: () => apiGet<Array<{ userId: number; role: string; active: boolean; User: { firstName: string; lastName: string } }>>('/school/staff'), enabled: manages && can(Entity.USERS, Action.READ) });
+  const teacherOptions = [...new Map((staffList.data ?? []).filter((m) => m.active && m.role === 'DOCENTE').map((m) => [m.userId, { id: m.userId, name: `${m.User.lastName}, ${m.User.firstName}` }])).values()];
+  const canRegisterAbsence = !!session?.isStaff && (manages || !!session.teaching.length);
 
   return (
     <div className="stack-lg">
@@ -143,14 +151,24 @@ export default function CalendarPage() {
         title="Calendario"
         subtitle="Actos, feriados, reuniones y salidas."
         actions={
-          can(Entity.EVENTS, Action.CREATE) && (
+          (can(Entity.EVENTS, Action.CREATE) || canRegisterAbsence) && (
             <div className="row" style={{ gap: 6 }}>
-              <button className="btn btn-ghost" onClick={() => setHolidays(true)}><Flag size={16} /> <span className="hide-mobile">Feriados</span></button>
-              <button className="btn" onClick={() => setCreating(true)}><Plus size={18} /> Nuevo</button>
+              {canRegisterAbsence && <button className="btn btn-ghost" onClick={() => setAbsenceOpen(true)}><UserX size={16} /> <span className="hide-mobile">Ausencia docente</span></button>}
+              {can(Entity.EVENTS, Action.CREATE) && <button className="btn btn-ghost" onClick={() => setHolidays(true)}><Flag size={16} /> <span className="hide-mobile">Feriados</span></button>}
+              {can(Entity.EVENTS, Action.CREATE) && <button className="btn" onClick={() => setCreating(true)}><Plus size={18} /> Nuevo</button>}
             </div>
           )
         }
       />
+      {!!absences.data?.length && (
+        <Card>
+          <div className="stack" style={{ gap: 8 }}>
+            <h2 className="h3 row" style={{ gap: 6 }}><UserX size={16} /> Ausencias de docentes · {monthTitle(month)}</h2>
+            {absences.data.map((a) => <AbsenceItem key={a.id} a={a} />)}
+          </div>
+        </Card>
+      )}
+      {absenceOpen && <AbsenceSheet open onClose={() => setAbsenceOpen(false)} teachers={teacherOptions} />}
       <PlanGate feature={PlanFeature.EVENTS} title="Calendario de actos y eventos">
         {!!mine.data?.length && (
           <Card>

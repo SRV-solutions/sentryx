@@ -93,6 +93,13 @@ export const HELP_INDEX: HelpEntry[] = [
   { id: 'plataforma-reportes', title: 'Reportes de usuarios', description: 'Problemas y sugerencias que reportan los usuarios.', path: '/plataforma/reportes', section: 'Plataforma', keywords: ['reportes', 'problemas', 'soporte', 'sugerencias'], show: (c) => c.isSuperAdmin },
 ];
 
+// --- Horario del curso y ausencias docentes ---
+HELP_INDEX.push(
+  { id: 'horario-curso', title: 'Horario del curso', description: 'En cada aula, pestaña Horario: módulos, materias, docentes, recreos y quién falta.', path: '/aulas', section: 'Aulas', keywords: ['horario', 'horario del curso', 'qué materia tengo', 'módulos', 'recreo', 'profe falta', 'hora libre'] },
+  { id: 'ausencia-propia', title: 'Avisar que voy a faltar', description: 'En Mi legajo: les llega a estudiantes y familias de tus cursos y se ve en el aula y el calendario.', path: '/mi-legajo', section: 'Personal', keywords: ['falto', 'voy a faltar', 'ausencia', 'avisar ausencia', 'licencia', 'no voy'], show: (c) => !!c.session?.teaching.length },
+  { id: 'ausencia-docente', title: 'Registrar la ausencia de un docente', description: 'Desde Calendario o desde el aula (pestaña Horario): se avisa a estudiantes y familias y se marca en el horario.', path: '/calendario', section: 'Personal', keywords: ['ausencia docente', 'falta un profesor', 'falta la maestra', 'reemplazo', 'suplente', 'hora libre'], show: (c) => c.can(Entity.STAFF_RECORDS, Action.UPDATE) || c.can(Entity.SCHOOL, Action.UPDATE) || !!c.session?.roles.some((r) => r === 'PRECEPTOR' || r === 'JEFE_PRECEPTORES') },
+);
+
 // --- Tutoriales de SOLVIX: también se encuentran buscando "tutorial", "ayuda", "necesito ayuda"... ---
 const HELP_WORDS = ['tutorial', 'tutoriales', 'ayuda', 'necesito ayuda', 'necesitas ayuda', 'como hago', 'cómo', 'guía', 'paso a paso', 'solvix', 'enseñame'];
 HELP_INDEX.push(

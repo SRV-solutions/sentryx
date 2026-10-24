@@ -169,6 +169,7 @@ export const TUTORIALS: Tutorial[] = [
     steps: [
       { route: '/aulas', target: nav('/aulas'), pose: 'point', title: 'Aulas', text: 'Cada curso tiene su aula. Entrá a una para publicar material o tareas.' },
       { pose: 'think', title: 'Archivos', text: 'Podés subir archivos o elegir de "Mis archivos" algo que ya subiste. Máximo 1 GB por archivo.' },
+      { pose: 'point', title: '¿Vas a faltar?', text: 'Avisalo en Mi legajo → "Avisar que voy a faltar": les llega a tus alumnos y sus familias, y se marca en el horario del aula y en el calendario.' },
       { pose: 'cheer', title: '¡A enseñar!', text: 'Las familias y los alumnos lo ven al instante.' },
     ],
   },
@@ -196,6 +197,7 @@ export const TUTORIALS: Tutorial[] = [
       { route: '/familia', target: nav('/familia'), pose: 'point', title: 'Tus hijos', text: 'Entrás a cada hijo/a para ver notas publicadas, boletín y asistencia.' },
       { target: nav('/comunicados'), pose: 'point', title: 'Comunicados', text: 'Los avisos del colegio. Si piden confirmación, tocá "Confirmar" para que sepan que lo leíste.' },
       { target: nav('/mensajes'), pose: 'point', title: 'Mensajes', text: 'Escribile a la docente o a la escuela sobre tu hijo/a.' },
+      { target: nav('/aulas'), pose: 'think', title: 'Horario y ausencias', text: 'En el aula de tu hijo/a, la pestaña "Horario" muestra las materias de cada día y si falta algún docente. Si falta, también te llega un aviso.' },
       { pose: 'cheer', title: '¡Listo!', text: 'Activá las notificaciones para enterarte al instante.' },
     ],
   },
@@ -206,7 +208,7 @@ export const TUTORIALS: Tutorial[] = [
     keywords: ['estudiante', 'mi boletín', 'canales', 'juegos', 'aulas'],
     audience: (c) => student(c),
     steps: [
-      { route: '/aulas', target: nav('/aulas'), pose: 'point', title: 'Aulas', text: 'El material y las tareas de cada materia.' },
+      { route: '/aulas', target: nav('/aulas'), pose: 'point', title: 'Aulas', text: 'El material y las tareas de cada materia. En la pestaña "Horario" ves tus módulos, los recreos y si algún profe falta.' },
       { target: nav('/canales'), pose: 'point', title: 'Canales', text: 'Hablá con tu curso. Los canales los modera el personal.' },
       { target: nav('/juegos'), pose: 'point', title: 'Juegos', text: 'Las preguntas y juegos que te asignan tus docentes.' },
       { pose: 'cheer', title: '¡A estudiar!', text: 'Tu boletín aparece cuando el colegio lo publica.' },

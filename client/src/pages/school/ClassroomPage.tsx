@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowLeft, Plus, Paperclip, Link2, FileText, Film, Image as ImageIcon, Pin, CalendarClock, Megaphone,
@@ -13,6 +13,7 @@ import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Chips, Empty, ErrorBox, Field, Sheet, Skeleton, Tabs, fmtDate, fullName, timeAgo, useToast } from '../../ui';
 import type { PersonLite } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
+import { AbsenceItem, ClassroomTimetable, todayIso, useAbsences } from '../../school/absences';
 
 interface Classroom {
   division: { id: number; name: string; shift: string | null; level: { id: number; name: string; type: string } };
@@ -363,7 +364,10 @@ const Members = ({ room }: { room: Classroom }) => {
 export default function ClassroomPage() {
   const id = Number(useParams().id);
   const { can } = useSchool();
-  const [tab, setTab] = useState<'wall' | 'announcements' | 'members'>('wall');
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState<'wall' | 'horario' | 'announcements' | 'members'>(params.get('tab') === 'horario' ? 'horario' : 'wall');
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const soon = useAbsences({ divisionId: id, from: todayIso(), to: tomorrow });
   const q = useQuery({ queryKey: ['classroom', id], queryFn: () => apiGet<Classroom>(`/school/classrooms/${id}`) });
   const room = q.data;
 
@@ -388,8 +392,14 @@ export default function ClassroomPage() {
               </div>
             )}
           </div>
-          <Tabs value={tab} onChange={setTab} items={[{ value: 'wall', label: 'Muro' }, { value: 'announcements', label: 'Comunicados' }, { value: 'members', label: 'Integrantes' }]} />
+          {tab !== 'horario' && !!soon.data?.length && (
+            <div className="stack" style={{ gap: 6 }}>
+              {soon.data.map((a) => <AbsenceItem key={a.id} a={a} showDivisions={false} />)}
+            </div>
+          )}
+          <Tabs value={tab} onChange={setTab} items={[{ value: 'wall', label: 'Muro' }, { value: 'horario', label: 'Horario' }, { value: 'announcements', label: 'Comunicados' }, { value: 'members', label: 'Integrantes' }]} />
           {tab === 'wall' && <Wall room={room} />}
+          {tab === 'horario' && <ClassroomTimetable divisionId={room.division.id} teachers={[...new Map(room.subjects.map((s) => [s.teacher.id, { id: s.teacher.id, name: `${s.teacher.firstName} ${s.teacher.lastName}` }])).values()]} />}
           {tab === 'announcements' && <Announcements room={room} />}
           {tab === 'members' && <Members room={room} />}
         </>

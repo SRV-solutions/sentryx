@@ -26,6 +26,7 @@ import { AccessPeriod, BillingStatement } from './school/billing';
 import { Channel, ChannelMessage, ChannelRead, ChannelMute } from './school/channels';
 import { PlanAssignment, PlanRequest } from './school/plans';
 import { StaffPosition, PayrollReceipt } from './school/staff';
+import { TeacherAbsence } from './school/absences';
 import { SchoolEvent, EventManager, EventPost } from './school/events';
 import { SubjectProgram, ProgramUnit, Quiz, QuizAssignment, QuizAttempt, LiveGame, LivePlayer, LiveAnswer } from './school/teaching';
 
@@ -146,6 +147,7 @@ export const associateModels = () => {
 
   // --- Personal: legajo y recibos ---
   StaffPosition.belongsTo(User, { foreignKey: 'userId' });
+  TeacherAbsence.belongsTo(User, { foreignKey: 'teacherId', as: 'Teacher' });
   StaffPosition.belongsTo(Level, { foreignKey: 'levelId', constraints: false });
   PayrollReceipt.belongsTo(User, { foreignKey: 'userId' });
   PayrollReceipt.belongsTo(FileAsset, { foreignKey: 'fileId', constraints: false });
@@ -186,6 +188,6 @@ export {
   Attendance, AttendanceRule, Alert, Announcement, AnnouncementRecipient, Thread, ThreadParticipant, ThreadMessage,
   AuditLog, ActivityLog, SupportReport, DeviceToken, UserAvatar, FileAsset, ClassroomPost, AccessPeriod, BillingStatement,
   Channel, ChannelMessage, ChannelRead, ChannelMute,
-  PlanAssignment, PlanRequest, StaffPosition, PayrollReceipt, SchoolEvent, EventManager, EventPost,
+  PlanAssignment, PlanRequest, StaffPosition, PayrollReceipt, TeacherAbsence, SchoolEvent, EventManager, EventPost,
   SubjectProgram, ProgramUnit, Quiz, QuizAssignment, QuizAttempt, LiveGame, LivePlayer, LiveAnswer,
 };
