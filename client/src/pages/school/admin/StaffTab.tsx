@@ -235,7 +235,7 @@ const PersonEditSheet = ({ person, onClose }: { person: StaffPerson; onClose: ()
     ...(showRecords ? [{ value: 'sueldo' as const, label: 'Cargos y sueldo' }] : []),
   ];
   return (
-    <Sheet open onClose={onClose} title={name}>
+    <Sheet open onClose={onClose} title={name} size="xl">
       <div className="stack">
         <p className="xs muted" style={{ marginTop: -8 }}>{lastSeenText(person.lastSeenAt, person.User.lastLogin)}</p>
         <Tabs value={tab} onChange={setTab} items={items} />
