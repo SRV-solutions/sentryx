@@ -9,6 +9,10 @@ import { requireStaff } from '../middlewares/schoolSession';
 
 const router = Router();
 
+// Asignar docentes: quien configura la institución, o la conducción de un nivel en su nivel (lo controla el controlador).
+const canAssign: RequestHandler = (req, _res, next) =>
+  next(req.schoolSession?.can(Entity.SCHOOL, Action.UPDATE) || req.schoolSession?.courseLevelIds.length ? undefined : forbidden('No tenés permiso para asignar docentes.'));
+
 router.get('/structure', requireStaff, StructureController.getStructure);
 // Configuración de calificación: también la conducción del nivel (grading_periods:update); el controlador acota al alcance.
 router.patch('/levels/:id', authorize(Entity.GRADING_PERIODS, Action.UPDATE), validate(StructureValidator.updateLevel), StructureController.updateLevel);
@@ -19,11 +23,12 @@ router.post('/years/:id/current', authorize(Entity.SCHOOL, Action.UPDATE), valid
 router.post('/divisions', (req, _res, next) => next(req.schoolSession?.can(Entity.SCHOOL, Action.UPDATE) || req.schoolSession?.courseLevelIds.length ? undefined : forbidden('No tenés permiso para crear cursos.')), validate(StructureValidator.createDivision), StructureController.createDivision);
 router.patch('/divisions/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.updateDivision), StructureController.updateDivision);
 router.delete('/divisions/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.deleteDivision), StructureController.deleteDivision);
-router.post('/subjects', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.createSubject), StructureController.createSubject);
-router.patch('/subjects/:id', authorize(Entity.SCHOOL, Action.UPDATE), validate(StructureValidator.updateSubject), StructureController.updateSubject);
-// Asignar docentes: quien configura la institución, o la conducción de un nivel en su nivel (lo controla el controlador).
-const canAssign: RequestHandler = (req, _res, next) =>
-  next(req.schoolSession?.can(Entity.SCHOOL, Action.UPDATE) || req.schoolSession?.courseLevelIds.length ? undefined : forbidden('No tenés permiso para asignar docentes.'));
+// Materias: quien configura la institución, o la conducción de un nivel en su nivel (lo controla el controlador).
+router.post('/subjects/split-level', canAssign, validate(StructureValidator.splitLevelSubjects), StructureController.splitLevelSubjects);
+router.post('/subjects/:id/split', canAssign, validate(StructureValidator.splitSubject), StructureController.splitSubject);
+router.post('/subjects/copy', canAssign, validate(StructureValidator.copySubjects), StructureController.copySubjects);
+router.post('/subjects', canAssign, validate(StructureValidator.createSubject), StructureController.createSubject);
+router.patch('/subjects/:id', canAssign, validate(StructureValidator.updateSubject), StructureController.updateSubject);
 router.post('/assignments', canAssign, validate(StructureValidator.assignTeacher), StructureController.assignTeacher);
 router.delete('/assignments/:id', canAssign, validate(StructureValidator.removeAssignment), StructureController.removeAssignment);
 router.patch('/periods/:id', authorize(Entity.GRADING_PERIODS, Action.UPDATE), validate(StructureValidator.updatePeriod), StructureController.updatePeriod);

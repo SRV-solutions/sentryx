@@ -1,5 +1,6 @@
 /** Controlador de structure: la lógica de cada ruta de routes/structure.routes.ts. */
-import { Level, AcademicYear, Division, Subject, TeachingAssignment, GradingPeriod, User, Enrollment, UserRole, sequelize } from '../models';
+import { Op } from 'sequelize';
+import { Level, AcademicYear, Division, Subject, TeachingAssignment, GradingPeriod, User, Enrollment, UserRole, StaffPosition, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, forbidden } from '../lib/http';
 import { invalidateSchoolSession, divisionWhere, type SchoolSession } from '../services/schoolSession';
 import { DEFAULT_LEVEL_SETTINGS, LevelType, gradingModeOf, kindsForMode } from '../constants/school';
@@ -143,16 +144,138 @@ export const deleteDivision = asyncHandler(async (req, res) => {
 export const createSubject = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
     if (!(await Level.count({ where: { id: req.body.levelId, schoolId: session.schoolId } }))) throw notFound('Nivel inexistente.');
-    res.status(201).json(
-      await Subject.create({ ...req.body, code: req.body.code ?? null, gradeYear: req.body.gradeYear ?? null, schoolId: session.schoolId })
-    );
+    assertAssignLevel(session, req.body.levelId);
+    const { gradeYears, ...body } = req.body as { levelId: number; name: string; code?: string | null; gradeYear?: number | null; gradeYears?: number[] };
+    const years: Array<number | null> = gradeYears?.length ? [...new Set(gradeYears)] : [body.gradeYear ?? null];
+    const created: Subject[] = [];
+    const skipped: string[] = [];
+    for (const gradeYear of years) {
+      // Misma materia en el mismo año: no se duplica.
+      if (await subjectExists(session.schoolId, body.levelId, body.name, gradeYear)) {
+        skipped.push(gradeYear === null ? 'todos los años' : `${gradeYear}º`);
+        continue;
+      }
+      created.push(await Subject.create({ levelId: body.levelId, name: body.name.trim(), code: body.code ?? null, gradeYear, schoolId: session.schoolId }));
+    }
+    if (!created.length) throw badRequest(`"${body.name}" ya existe en ${skipped.join(', ')}.`);
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Subject', action: 'create', after: { name: body.name, levelId: body.levelId, years } });
+    res.status(201).json({ created, skipped });
+  });
+
+const subjectExists = async (schoolId: number, levelId: number, name: string, gradeYear: number | null) =>
+  !!(await Subject.findOne({
+    where: { schoolId, levelId, gradeYear, active: true, name: sequelize.where(sequelize.fn('lower', sequelize.col('name')), name.trim().toLowerCase()) } as never,
+  }));
+
+/**
+ * Separa una materia común a todo el nivel en una materia por año: crea (o reutiliza) "Matemática" de
+ * 1º, 2º, 3º… y mueve a cada una lo de los cursos de ese año (docentes, notas, publicaciones, archivos,
+ * programas, canales y horarios). La materia común queda archivada. No se pierde nada.
+ */
+const splitSubjectByYear = async (schoolId: number, subject: Subject) => {
+  const divisions = await Division.findAll({ where: { schoolId, levelId: subject.levelId }, attributes: ['id', 'gradeYear'] });
+  const years = [...new Set(divisions.map((d) => d.gradeYear))].sort((a, b) => a - b);
+  const moved: Record<number, number> = {};
+  await sequelize.transaction(async (transaction) => {
+    for (const year of years) {
+      const divisionIds = divisions.filter((d) => d.gradeYear === year).map((d) => d.id);
+      let target = await Subject.findOne({
+        where: { schoolId, levelId: subject.levelId, gradeYear: year, active: true, name: sequelize.where(sequelize.fn('lower', sequelize.col('name')), subject.name.toLowerCase()) } as never,
+        transaction,
+      });
+      target ??= await Subject.create({ schoolId, levelId: subject.levelId, name: subject.name, code: subject.code, gradeYear: year }, { transaction });
+      moved[year] = target.id;
+      const rep = { from: subject.id, to: target.id, divisionIds };
+      // Asignaciones y notas: si ya existe la misma en la materia del año, se conserva esa.
+      await sequelize.query(
+        `UPDATE "TeachingAssignment" t SET "subjectId" = :to WHERE t."subjectId" = :from AND t."divisionId" IN (:divisionIds)
+           AND NOT EXISTS (SELECT 1 FROM "TeachingAssignment" x WHERE x."divisionId" = t."divisionId" AND x."teacherId" = t."teacherId" AND x."subjectId" = :to)`,
+        { replacements: rep, transaction }
+      );
+      await sequelize.query(
+        `UPDATE "Grade" g SET "subjectId" = :to WHERE g."subjectId" = :from AND g."divisionId" IN (:divisionIds)
+           AND NOT EXISTS (SELECT 1 FROM "Grade" x WHERE x."studentId" = g."studentId" AND x."periodId" = g."periodId" AND x."subjectId" = :to)`,
+        { replacements: rep, transaction }
+      );
+      for (const table of ['ClassroomPost', 'FileAsset', 'SubjectProgram', 'Channel']) {
+        await sequelize.query(`UPDATE "${table}" SET "subjectId" = :to WHERE "subjectId" = :from AND "divisionId" IN (:divisionIds)`, { replacements: rep, transaction });
+      }
+      // Horarios del personal (franjas con materia y curso).
+      const positions = await StaffPosition.findAll({ where: { schoolId, schedule: { [Op.contains]: [{ subjectId: subject.id }] } as never }, transaction });
+      for (const p of positions) {
+        const schedule = p.schedule.map((s) => (s.subjectId === subject.id && s.divisionId && divisionIds.includes(s.divisionId) ? { ...s, subjectId: target!.id } : s));
+        await p.update({ schedule }, { transaction });
+      }
+    }
+    // Lo que quedó (asignaciones duplicadas, etc.) sigue en la común, que pasa a archivada.
+    await subject.update({ active: false }, { transaction });
+  });
+  return moved;
+};
+
+// POST /subjects/:id/split — una materia común → una por año
+export const splitSubject = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const subject = await Subject.findOne({ where: { id: req.params.id, schoolId: session.schoolId, active: true } });
+    if (!subject) throw notFound();
+    if (subject.gradeYear !== null) throw badRequest(`"${subject.name}" ya es de ${subject.gradeYear}º.`);
+    assertAssignLevel(session, subject.levelId as number);
+    const moved = await splitSubjectByYear(session.schoolId, subject);
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Subject', entityId: subject.id, action: 'split', after: moved });
+    invalidateSchoolSession();
+    res.json({ years: Object.keys(moved).length });
+  });
+
+// POST /subjects/split-level — todas las materias comunes de un nivel → una por año
+export const splitLevelSubjects = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const levelId = Number(req.body.levelId);
+    if (!(await Level.count({ where: { id: levelId, schoolId: session.schoolId } }))) throw notFound('Nivel inexistente.');
+    assertAssignLevel(session, levelId);
+    const common = await Subject.findAll({ where: { schoolId: session.schoolId, levelId, gradeYear: null, active: true } });
+    for (const s of common) await splitSubjectByYear(session.schoolId, s);
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Subject', action: 'split-level', after: { levelId, subjects: common.length } });
+    invalidateSchoolSession();
+    res.json({ subjects: common.length });
+  });
+
+// POST /subjects/copy — las materias de un año (o las comunes) a otros años, sin duplicar.
+export const copySubjects = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const { levelId, fromYear, toYears } = req.body as { levelId: number; fromYear: number | null; toYears: number[] };
+    if (!(await Level.count({ where: { id: levelId, schoolId: session.schoolId } }))) throw notFound('Nivel inexistente.');
+    assertAssignLevel(session, levelId);
+    const source = await Subject.findAll({ where: { schoolId: session.schoolId, levelId, gradeYear: fromYear, active: true } });
+    let created = 0;
+    for (const year of toYears.filter((y) => y !== fromYear)) {
+      for (const s of source) {
+        if (await subjectExists(session.schoolId, levelId, s.name, year)) continue;
+        await Subject.create({ schoolId: session.schoolId, levelId, name: s.name, code: s.code, gradeYear: year });
+        created++;
+      }
+    }
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Subject', action: 'copy', after: { levelId, fromYear, toYears, created } });
+    res.status(201).json({ created });
   });
 
 // PATCH /subjects/:id
 export const updateSubject = asyncHandler(async (req, res) => {
-    const subject = await Subject.findOne({ where: { id: req.params.id, schoolId: req.schoolSession!.schoolId } });
+    const session = req.schoolSession!;
+    const subject = await Subject.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
     if (!subject) throw notFound();
-    res.json(await subject.update(req.body));
+    assertAssignLevel(session, subject.levelId as number);
+    // Pasarla a un año: no puede quedar asignada en cursos de otro año.
+    if (req.body.gradeYear !== undefined && req.body.gradeYear !== null && req.body.gradeYear !== subject.gradeYear) {
+      const other = await TeachingAssignment.count({ where: { subjectId: subject.id }, include: [{ model: Division, where: { gradeYear: { [Op.ne]: req.body.gradeYear } } }] });
+      if (other) throw badRequest(`"${subject.name}" tiene docentes asignados en cursos de otro año: quitá esas asignaciones o creá una materia nueva para ${req.body.gradeYear}º.`);
+    }
+    if (req.body.name && (await subjectExists(session.schoolId, subject.levelId as number, req.body.name, req.body.gradeYear !== undefined ? req.body.gradeYear : subject.gradeYear)) && req.body.name.trim().toLowerCase() !== subject.name.toLowerCase()) {
+      throw badRequest(`Ya existe "${req.body.name}" en ese año.`);
+    }
+    const before = subject.toJSON();
+    await subject.update(req.body);
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Subject', entityId: subject.id, action: 'update', before, after: subject.toJSON() });
+    res.json(subject);
   });
 
 // ----- Asignaciones docentes -----
@@ -165,6 +288,7 @@ export const assignTeacher = asyncHandler(async (req, res) => {
     ]);
     if (!division || !subject) throw notFound('División o materia inexistente.');
     if (division.levelId !== subject.levelId) throw badRequest('La materia no corresponde al nivel de la división.');
+    if (subject.gradeYear !== null && subject.gradeYear !== division.gradeYear) throw badRequest(`"${subject.name}" es de ${subject.gradeYear}º y ${division.name} es de ${division.gradeYear}º.`);
     assertAssignLevel(session, division.levelId as number);
     const teacherId = Number(req.body.teacherId);
     // Tiene que ser parte del personal del colegio. Si no es docente (ej: la Rectora que da clases), se le suma el rol.

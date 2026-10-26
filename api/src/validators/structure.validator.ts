@@ -67,7 +67,16 @@ export const updateDivision = { params: idParam, body: divisionBody.partial() };
 export const deleteDivision = { params: idParam };
 
 /** POST /subjects */
-export const createSubject = { body: subjectBody };
+/** POST /subjects — gradeYears: crearla en varios años a la vez (ej: Matemática en 1º a 5º). */
+export const createSubject = { body: subjectBody.extend({ gradeYears: z.array(z.number().int().min(0).max(7)).max(10).optional() }) };
+
+/** POST /subjects/:id/split */
+export const splitSubject = { params: idParam };
+/** POST /subjects/split-level */
+export const splitLevelSubjects = { body: z.object({ levelId: z.number().int().positive() }) };
+
+/** POST /subjects/copy — copia las materias de un año a otros (fromYear null = las comunes a todo el nivel). */
+export const copySubjects = { body: z.object({ levelId: z.number().int().positive(), fromYear: z.number().int().min(0).max(7).nullable(), toYears: z.array(z.number().int().min(0).max(7)).min(1).max(10) }) };
 
 /** PATCH /subjects/:id */
 export const updateSubject = { params: idParam, body: subjectBody.partial().extend({ active: z.boolean().optional() }) };

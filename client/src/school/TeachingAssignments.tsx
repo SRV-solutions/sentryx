@@ -11,6 +11,7 @@ import { useSchool } from './SchoolContext';
 import { Entity, Action } from './permissions';
 import { Card, Chips, Empty, Skeleton, useToast } from '../ui';
 import type { Structure } from './types';
+import { subjectsForDivision } from './SubjectsEditor';
 
 interface StaffLite { userId: number; role: string; active: boolean; User: { firstName: string; lastName: string } }
 interface Person { userId: number; name: string; docente: boolean }
@@ -92,7 +93,8 @@ export const AssignmentsByDivision = () => {
       </div>
       {!subjects.length && <p className="small muted">{level.name} todavía no tiene materias: se crean en Administración → Estructura.</p>}
       {divisions.map((d) => {
-        const missing = subjects.filter((sub) => !d.TeachingAssignments?.some((a) => a.subjectId === sub.id)).length;
+        const own = subjectsForDivision(subjects, d);
+        const missing = own.filter((sub) => !d.TeachingAssignments?.some((a) => a.subjectId === sub.id)).length;
         return (
           <Card key={d.id}>
             <div className="stack" style={{ gap: 8 }}>
@@ -100,7 +102,8 @@ export const AssignmentsByDivision = () => {
                 <b>{d.name}</b>
                 <span className={`badge ${missing ? 'badge-warn' : 'badge-ok'}`}>{missing ? `${missing} sin docente` : 'Completo'}</span>
               </div>
-              {subjects.map((sub) => {
+              {!own.length && <span className="small muted">Este curso todavía no tiene materias de su año: se crean en Administración → Estructura.</span>}
+              {own.map((sub) => {
                 const as = d.TeachingAssignments?.filter((a) => a.subjectId === sub.id) ?? [];
                 return (
                   <div key={sub.id} className="row wrap" style={{ gap: 6, paddingTop: 6, borderTop: '1px solid var(--border)' }}>
@@ -134,7 +137,7 @@ export const PersonAssignments = ({ userId, name }: { userId: number; name: stri
   const levelIds = new Set(levels.map((l) => l.id));
   const mine = s.divisions.flatMap((d) => (d.TeachingAssignments ?? []).filter((a) => a.teacherId === userId).map((a) => ({ a, d, subject: s.subjects.find((x) => x.id === a.subjectId) })));
   const division = s.divisions.find((d) => d.id === divisionId);
-  const subjects = division ? s.subjects.filter((x) => x.levelId === division.levelId && !mine.some((m) => m.d.id === division.id && m.a.subjectId === x.id)) : [];
+  const subjects = division ? subjectsForDivision(s.subjects, division).filter((x) => !mine.some((m) => m.d.id === division.id && m.a.subjectId === x.id)) : [];
   const levelName = (id: number) => s.levels.find((l) => l.id === id)?.name ?? '';
   return (
     <div className="stack">

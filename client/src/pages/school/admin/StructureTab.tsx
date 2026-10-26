@@ -7,6 +7,7 @@ import { Card, ErrorBox, Skeleton, useToast, Chips } from '../../../ui';
 import { type Structure } from '../../../school/types';
 import type { StaffRow } from './StaffTab';
 import { DefaultStructureCard, EditDivisionButton } from './AcademicSetupCards';
+import { SubjectsEditor, subjectsForDivision } from '../../../school/SubjectsEditor';
 
 export const StructureTab = () => {
   const qc = useQueryClient();
@@ -15,14 +16,12 @@ export const StructureTab = () => {
   const staff = useQuery({ queryKey: ['staff'], queryFn: () => apiGet<StaffRow[]>('/school/staff') });
   const [levelId, setLevelId] = useState<number | null>(null);
   const [newDivision, setNewDivision] = useState({ name: '', gradeYear: 1, shift: 'Mañana' });
-  const [newSubject, setNewSubject] = useState('');
 
   const level = s.data?.levels.find((l) => l.id === (levelId ?? s.data?.levels[0]?.id));
   const refresh = () => qc.invalidateQueries({ queryKey: ['structure'] });
   const onErr = (e: Error) => toast(e.message, true);
 
   const createDivision = useMutation({ mutationFn: () => apiSend('POST', '/school/divisions', { levelId: level!.id, ...newDivision }), onSuccess: () => (refresh(), setNewDivision({ ...newDivision, name: '' }), toast('División creada')), onError: onErr });
-  const createSubject = useMutation({ mutationFn: () => apiSend('POST', '/school/subjects', { levelId: level!.id, name: newSubject }), onSuccess: () => (refresh(), setNewSubject(''), toast('Materia creada')), onError: onErr });
   const assign = useMutation({ mutationFn: (b: { divisionId: number; subjectId: number; teacherId: number }) => apiSend('POST', '/school/assignments', b), onSuccess: refresh, onError: onErr });
   const unassign = useMutation({ mutationFn: (id: number) => apiSend('DELETE', `/school/assignments/${id}`), onSuccess: refresh, onError: onErr });
 
@@ -38,16 +37,7 @@ export const StructureTab = () => {
       <p className="small muted">El modo de calificación, la escala y los períodos de cada nivel se configuran en la pestaña <b>Calificaciones</b>.</p>
       <Chips value={level.id} onChange={setLevelId} items={s.data.levels.map((l) => ({ value: l.id, label: l.name }))} />
 
-      <section className="stack">
-        <h2 className="h2">Materias</h2>
-        <div className="chips" style={{ flexWrap: 'wrap' }}>
-          {subjects.map((x) => <span key={x.id} className="chip">{x.name}</span>)}
-        </div>
-        <form className="row" onSubmit={(e) => (e.preventDefault(), newSubject.trim().length >= 2 && createSubject.mutate())}>
-          <input className="input grow" placeholder="Nueva materia (ej: Matemática)" value={newSubject} onChange={(e) => setNewSubject(e.target.value)} />
-          <button className="btn"><Plus size={18} /></button>
-        </form>
-      </section>
+      <SubjectsEditor key={level.id} level={level} structure={s.data} />
 
       <section className="stack">
         <h2 className="h2">Divisiones y docentes</h2>
@@ -67,7 +57,7 @@ export const StructureTab = () => {
                 <div className="h3">{d.name}</div>
                 <span className="row xs muted" style={{ gap: 4 }}>{d.studentCount ?? 0} alumnos · {d.shift}<EditDivisionButton division={d} /></span>
               </div>
-              {subjects.map((sub) => {
+              {subjectsForDivision(subjects, d).map((sub) => {
                 const as = d.TeachingAssignments?.filter((a) => a.subjectId === sub.id) ?? [];
                 return (
                   <div key={sub.id} className="row wrap" style={{ gap: 6 }}>
