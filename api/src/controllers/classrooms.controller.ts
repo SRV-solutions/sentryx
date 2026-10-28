@@ -1,7 +1,7 @@
 /** Controlador de classrooms: la lógica de cada ruta de routes/classrooms.routes.ts. */
 import { z } from 'zod';
-import { Op, QueryTypes } from 'sequelize';
-import { Division, Level, TeachingAssignment, Subject, User, Enrollment, Student, ClassroomPost, FileAsset, sequelize } from '../models';
+import { Op, QueryTypes, WhereOptions } from 'sequelize';
+import { Division, Level, TeachingAssignment, Subject, User, Enrollment, Student, ClassroomPost, FileAsset, SchoolEvent, sequelize } from '../models';
 import { asyncHandler, notFound, forbidden, badRequest } from '../lib/http';
 import { SchoolSession, canSeeDivision } from '../services/schoolSession';
 import { canPostInDivision, guardianInDivision } from './files.controller';
@@ -11,6 +11,8 @@ import { Entity, Action } from '../constants/permissions';
 import { postBody } from '../validators/classrooms.validator';
 import { DATED_KINDS, POST_KIND_LABELS } from '../models/school/classroom';
 import { divisionWhere } from '../services/schoolSession';
+import { PlanFeature } from '../constants/plans';
+import { nationalHolidays } from '../services/holidays';
 
 /** Personal con alcance sobre la división o familia de un alumno del aula. */
 const classroomAccess = async (session: SchoolSession, divisionId: number) => {
@@ -109,7 +111,7 @@ export const getClassroom = asyncHandler(async (req, res) => {
       })),
       studentCount: enrollments.length,
       students: asGuardian
-        ? enrollments.filter((e) => session.childIds.includes(e.Student!.id)).map((e) => e.Student)
+        ? enrollments.filter((e) => session.childIds.includes(e.Student!.id) || e.Student!.id === session.self?.studentId).map((e) => e.Student)
         : enrollments.map((e) => e.Student),
       canPost,
       canAnnounce: session.can(Entity.ANNOUNCEMENTS, Action.CREATE) && !asGuardian,
@@ -177,6 +179,95 @@ export const getAgenda = asyncHandler(async (req, res) => {
     res.json(posts.map((p) => ({ id: p.id, kind: p.kind, kindLabel: POST_KIND_LABELS[p.kind], title: p.title, dueDate: p.dueDate, division: (p as ClassroomPost & { Division?: Division }).Division, subject: (p as ClassroomPost & { Subject?: Subject | null }).Subject ?? null })));
   });
 
+const EVENT_KIND_LABELS: Record<string, string> = { ACTO: 'Acto', FERIADO: 'Feriado', NO_LABORABLE: 'No laborable', EVENTO: 'Evento', REUNION: 'Reunión', SALIDA: 'Salida', OTRO: 'Otro' };
+const SOURCE_ORDER = { HOLIDAY: 0, EVENT: 1, POST: 2 } as const;
+const ddmmyyyy = (iso: string) => iso.split('-').reverse().join('/');
+
+interface CalendarItem {
+  id: string;
+  source: keyof typeof SOURCE_ORDER;
+  kind: string;
+  kindLabel: string;
+  title: string;
+  date: string;
+  endDate: string | null;
+  startTime: string | null;
+  endTime: string | null;
+  subject: { id: number; name: string } | null;
+  description: string | null;
+  location: string | null;
+  link: string | null;
+  cancelled: boolean;
+}
+
+/**
+ * Calendario del aula: evaluaciones/TP/tareas del curso, actos y eventos del colegio que alcanzan a la división
+ * y feriados nacionales. No depende del plan Integral: los feriados se calculan acá (salvo que el colegio ya los
+ * haya importado, para no duplicarlos) y los eventos se muestran igual; solo el link al detalle del calendario
+ * requiere el plan.
+ */
+// GET /classrooms/:id/calendar?from&to
+export const getCalendar = asyncHandler(async (req, res) => {
+  const session = req.schoolSession!;
+  const { division, asGuardian } = await classroomAccess(session, Number(req.params.id));
+  const { from, to } = req.query as unknown as { from: string; to: string };
+
+  const years = Array.from({ length: Number(to.slice(0, 4)) - Number(from.slice(0, 4)) + 1 }, (_, i) => Number(from.slice(0, 4)) + i);
+  const holidays = years.flatMap(nationalHolidays).filter((h) => h.kind !== 'EFEMERIDE' && h.date >= from && h.date <= to);
+  // Arreglo vacío = "para todos" (todos los niveles / todos los cursos).
+  const emptyOr = (column: 'levelIds' | 'divisionIds', id: number) => ({ [Op.or]: [sequelize.where(sequelize.fn('cardinality', sequelize.col(column)), 0), { [column]: { [Op.contains]: [id] } }] });
+
+  const [posts, events, imported] = await Promise.all([
+    ClassroomPost.findAll({
+      where: { divisionId: division.id, kind: DATED_KINDS, dueDate: { [Op.gte]: from, [Op.lte]: to } },
+      include: [{ model: Subject, attributes: ['id', 'name'] }],
+      attributes: ['id', 'kind', 'title', 'body', 'dueDate', 'subjectId'],
+      order: [['dueDate', 'ASC'], ['id', 'ASC']],
+      limit: 500,
+    }),
+    SchoolEvent.findAll({
+      where: {
+        schoolId: session.schoolId,
+        date: { [Op.lte]: to },
+        // Las familias y estudiantes no ven los eventos internos del personal.
+        ...(asGuardian ? { audience: 'COMMUNITY' } : {}),
+        [Op.and]: [
+          // Solapa con el rango aunque empiece antes (eventos de varios días).
+          sequelize.where(sequelize.fn('COALESCE', sequelize.col('endDate'), sequelize.col('date')), { [Op.gte]: from }),
+          emptyOr('levelIds', division.levelId as number),
+          emptyOr('divisionIds', division.id),
+        ],
+      } as WhereOptions,
+      attributes: ['id', 'title', 'kind', 'date', 'endDate', 'startTime', 'endTime', 'location', 'description', 'cancelled'],
+      order: [['date', 'ASC'], ['startTime', 'ASC']],
+      limit: 500,
+    }),
+    // Feriados que el colegio ya importó (aunque los haya acotado a otro nivel): esos mandan sobre el cálculo.
+    holidays.length
+      ? SchoolEvent.findAll({ where: { schoolId: session.schoolId, holidayKey: holidays.map((h) => h.key), kind: { [Op.ne]: 'ACTO' } }, attributes: ['holidayKey'], raw: true })
+      : Promise.resolve([] as Array<Pick<SchoolEvent, 'holidayKey'>>),
+  ]);
+
+  const importedKeys = new Set(imported.map((e) => e.holidayKey));
+  const withLink = session.hasFeature(PlanFeature.EVENTS);
+  const items: CalendarItem[] = [
+    ...holidays.filter((h) => !importedKeys.has(h.key)).map((h): CalendarItem => ({
+      id: `holiday-${h.key}`, source: 'HOLIDAY', kind: h.kind, kindLabel: EVENT_KIND_LABELS[h.kind], title: h.name, date: h.date, endDate: null, startTime: null, endTime: null,
+      subject: null, description: h.originalDate ? `Feriado trasladado (fecha original: ${ddmmyyyy(h.originalDate)}).` : null, location: null, link: null, cancelled: false,
+    })),
+    ...events.map((e): CalendarItem => ({
+      id: `event-${e.id}`, source: 'EVENT', kind: e.kind, kindLabel: EVENT_KIND_LABELS[e.kind] ?? e.kind, title: e.title, date: e.date, endDate: e.endDate && e.endDate !== e.date ? e.endDate : null,
+      startTime: e.startTime, endTime: e.endTime, subject: null, description: e.description || null, location: e.location, link: withLink ? `/calendario/${e.id}` : null, cancelled: e.cancelled,
+    })),
+    ...posts.map((p): CalendarItem => ({
+      id: `post-${p.id}`, source: 'POST', kind: p.kind, kindLabel: POST_KIND_LABELS[p.kind], title: p.title, date: p.dueDate as string, endDate: null, startTime: null, endTime: null,
+      subject: (p as ClassroomPost & { Subject?: Subject | null }).Subject ?? null, description: p.body ? p.body.slice(0, 2000) : null, location: null, link: null, cancelled: false,
+    })),
+  ].sort((a, b) => a.date.localeCompare(b.date) || SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source] || (a.startTime ?? '').localeCompare(b.startTime ?? ''));
+
+  res.json({ from, to, items });
+});
+
 // POST /classrooms/:id/posts
 export const createPost = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
@@ -242,24 +333,29 @@ export const deletePost = asyncHandler(async (req, res) => {
     res.status(204).end();
   });
 
-/** Comunicados que llegaron a esta aula (a la división, a su nivel o a toda la escuela). */
+/**
+ * Comunicados que llegaron a esta aula (a la división, a su nivel o a toda la escuela). Solo los ya enviados:
+ * borradores y programados no se filtran. Familias y estudiantes ven únicamente los que recibieron (un comunicado
+ * dirigido solo a estudiantes no le aparece a la familia, ni viceversa); el personal ve todos los del curso.
+ */
 // GET /classrooms/:id/announcements
 export const listClassroomAnnouncements = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
-    const { division } = await classroomAccess(session, Number(req.params.id));
+    const { division, asGuardian } = await classroomAccess(session, Number(req.params.id));
     const page = (req.query as unknown as { page: number }).page;
     const rows = await sequelize.query(
-      `SELECT a.id, a.title, LEFT(a.body, 200) AS preview, a.priority, a."requiresAck", a."audienceLabel", a."createdAt",
+      `SELECT a.id, a.title, LEFT(a.body, 200) AS preview, a.priority, a.category, a."requiresAck", a."allowReplies", a."audienceLabel",
+              COALESCE(a."sentAt", a."createdAt") AS "createdAt",
               json_build_object('id', u.id, 'firstName', u."firstName", 'lastName', u."lastName", 'avatar', u.avatar) AS author,
               r."readAt", r."ackAt", (r.id IS NOT NULL) AS "isRecipient"
          FROM "Announcement" a
          JOIN "User" u ON u.id = a."authorId"
-         LEFT JOIN "AnnouncementRecipient" r ON r."announcementId" = a.id AND r."userId" = :uid
-        WHERE a."schoolId" = :sid
+         ${asGuardian ? 'JOIN' : 'LEFT JOIN'} "AnnouncementRecipient" r ON r."announcementId" = a.id AND r."userId" = :uid
+        WHERE a."schoolId" = :sid AND a.status = 'SENT'
           AND ( a.audience->>'type' = 'SCHOOL'
              OR (a.audience->>'type' = 'LEVEL' AND a.audience->'ids' @> CAST(:level AS jsonb))
              OR (a.audience->>'type' = 'DIVISION' AND a.audience->'ids' @> CAST(:division AS jsonb)) )
-        ORDER BY a."createdAt" DESC
+        ORDER BY COALESCE(a."sentAt", a."createdAt") DESC, a.id DESC
         LIMIT 20 OFFSET :offset`,
       {
         replacements: { uid: session.userId, sid: session.schoolId, level: `[${division.levelId}]`, division: `[${division.id}]`, offset: (page - 1) * 20 },

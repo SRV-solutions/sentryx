@@ -4,6 +4,7 @@ import { AnnouncementRecipient, Announcement, Alert, Attendance, Division, Stude
 import { asyncHandler } from '../lib/http';
 import { divisionWhere } from '../services/schoolSession';
 import { Entity, Action } from '../constants/permissions';
+import { countStudentsWithoutEmail } from '../services/studentEmail';
 
 /** Resumen de inicio según rol. Todo en paralelo y con consultas agregadas: pensado para cargar rápido en 3G. */
 // GET /dashboard
@@ -41,7 +42,11 @@ export const getDashboard = asyncHandler(async (req, res) => {
       const [children, attendance, publications] = await Promise.all([
         Student.findAll({
           where: { id: ownIds },
-          attributes: ['id', 'firstName', 'lastName', 'photoUrl'],
+          attributes: [
+            'id', 'firstName', 'lastName', 'photoUrl', 'emailChangeRequestedAt', 'emailChangeReason',
+            // En la misma consulta: tiene cuenta pero con email técnico (no puede recuperar la contraseña).
+            [sequelize.literal(`EXISTS (SELECT 1 FROM "User" u WHERE u.id = "Student"."userId" AND u.email LIKE '%@sin-email.local')`), 'accountWithoutEmail'],
+          ],
           include: [
             {
               model: Enrollment,
@@ -78,10 +83,15 @@ export const getDashboard = asyncHandler(async (req, res) => {
           division,
           attendance: { days, absences: Math.round(total * 100) / 100, percent: days ? Math.round((1 - total / days) * 1000) / 10 : 100, absentToday: Number(a?.absentToday ?? 0) > 0 },
           lastReportCardAt: lastPub?.publishedAt ?? null,
+          accountWithoutEmail: !!c.get('accountWithoutEmail'),
         };
       });
       if (session.isGuardian) result.children = mapped;
-      else result.me = mapped[0] ?? null;
+      else {
+        // El estudiante ve en el inicio si la conducción le pidió cambiar su email (hasta que lo cambie).
+        const self = children[0];
+        result.me = mapped[0] ? { ...mapped[0], emailChangeRequested: !!self?.emailChangeRequestedAt, emailChangeReason: self?.emailChangeReason ?? null } : null;
+      }
     }
 
     if (session.isStaff) {
@@ -97,6 +107,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
           raw: true,
         })) as unknown as Array<{ severity: string; n: string }>;
         result.alerts = Object.fromEntries(rows.map((r) => [r.severity, Number(r.n)]));
+        result.studentsWithoutEmail = await countStudentsWithoutEmail(session);
       }
       if (session.can(Entity.ATTENDANCE, Action.READ) && session.academicYearId) {
         const divisions = await Division.findAll({ where: { ...divisionWhere(session), academicYearId: session.academicYearId }, attributes: ['id'], raw: true });

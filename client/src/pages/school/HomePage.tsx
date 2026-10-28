@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Megaphone, MessageCircle, BellRing, ClipboardCheck, BookOpenCheck, ChevronRight, BellPlus, CheckCircle2, Hash, FileText, School, CalendarClock } from 'lucide-react';
+import { Megaphone, MessageCircle, BellRing, ClipboardCheck, BookOpenCheck, ChevronRight, BellPlus, CheckCircle2, Hash, FileText, School, CalendarClock, MailWarning } from 'lucide-react';
 import type { AgendaItem } from './ClassroomPage';
 import { apiGet } from '../../lib/api';
 import { useSchool } from '../../school/SchoolContext';
@@ -22,6 +22,8 @@ interface Dashboard {
     division?: { id: number; name: string; Level?: { name: string } };
     attendance: { days: number; absences: number; percent: number; absentToday: boolean };
     lastReportCardAt: string | null;
+    /** Tiene cuenta propia (Secundario) pero sin email: no podría recuperar la contraseña. */
+    accountWithoutEmail?: boolean;
   }>;
   me?: {
     id: number;
@@ -31,8 +33,14 @@ interface Dashboard {
     division?: { id: number; name: string; Level?: { name: string } };
     attendance: { days: number; absences: number; percent: number; absentToday: boolean };
     lastReportCardAt: string | null;
+    accountWithoutEmail?: boolean;
+    /** La escuela le pidió que cambie el email (ej: cargaron cualquier cosa); se borra cuando lo cambia. */
+    emailChangeRequested?: boolean;
+    emailChangeReason?: string | null;
   } | null;
   mySubjects?: number;
+  /** Estudiantes de Secundario (en el alcance) sin email o sin cuenta; solo con alerts:read. */
+  studentsWithoutEmail?: number;
   alerts?: Partial<Record<'CRITICAL' | 'WARNING' | 'INFO', number>>;
   attendanceToday?: { divisions: number; taken: number; absent: number };
 }
@@ -127,9 +135,51 @@ export default function HomePage() {
             </Link>
           )}
 
+          {/* Cuentas sin email: sin email no hay recupero de contraseña (solo cambio). */}
+          {!!d.studentsWithoutEmail && (
+            <Link to="/alertas?tab=emails" className="alert alert-warn card-link">
+              <MailWarning size={20} />
+              <div className="grow">
+                <b>{d.studentsWithoutEmail === 1 ? '1 estudiante no tiene' : `${d.studentsWithoutEmail} estudiantes no tienen`} email en su cuenta</b>
+                <div className="small">Si se olvidan la contraseña no van a poder recuperarla. Avisales a las familias.</div>
+              </div>
+              <ChevronRight size={18} />
+            </Link>
+          )}
+          {d.children?.filter((c) => c.accountWithoutEmail).map((c) => (
+            <Link key={c.id} to={`/familia/${c.id}?tab=datos`} className="alert alert-warn card-link">
+              <MailWarning size={20} />
+              <div className="grow">
+                <b>{c.firstName} no tiene email en su cuenta</b>
+                <div className="small">Cargalo para que pueda recuperar su contraseña si la olvida.</div>
+              </div>
+              <ChevronRight size={18} />
+            </Link>
+          ))}
+          {d.me?.accountWithoutEmail && !d.me.emailChangeRequested && (
+            <Link to={`/familia/${d.me.id}?tab=datos`} className="alert alert-warn card-link">
+              <MailWarning size={20} />
+              <div className="grow">
+                <b>Tu cuenta no tiene email</b>
+                <div className="small">Cargalo para poder recuperar tu contraseña si la olvidás.</div>
+              </div>
+              <ChevronRight size={18} />
+            </Link>
+          )}
+          {d.me?.emailChangeRequested && (
+            <Link to={`/familia/${session?.self?.studentId ?? d.me.id}?tab=datos`} className="alert alert-warn card-link">
+              <MailWarning size={20} />
+              <div className="grow">
+                <b>La escuela te pidió que actualices tu email</b>
+                <div className="small">{d.me.emailChangeReason ? `Motivo: ${d.me.emailChangeReason}` : 'Tiene que ser un email tuyo y real. Cambialo desde Mi perfil → Datos.'}</div>
+              </div>
+              <ChevronRight size={18} />
+            </Link>
+          )}
+
           <div className="grid grid-2 grid-4">
             <Stat to="/comunicados" icon={<Megaphone size={18} />} value={d.unreadAnnouncements} label="Comunicados sin leer" />
-            <Stat to="/mensajes" icon={<MessageCircle size={18} />} value={d.unreadThreads} label="Conversaciones nuevas" />
+            <Stat to="/comunicados?tab=conversaciones" icon={<MessageCircle size={18} />} value={d.unreadThreads} label="Conversaciones nuevas" />
             {d.alerts && (
               <Stat to="/alertas" icon={<BellRing size={18} />} value={(d.alerts.CRITICAL ?? 0) + (d.alerts.WARNING ?? 0)} label="Alertas activas" tone={d.alerts.CRITICAL ? 'var(--danger)' : undefined} />
             )}
@@ -201,9 +251,9 @@ export default function HomePage() {
               <Card pad={false}>
                 <div className="list">
                   <Link to="/canales" className="list-item"><Hash size={18} /><span className="grow">Canales del curso</span><ChevronRight size={16} /></Link>
-                  <Link to="/mensajes/nuevo" className="list-item"><MessageCircle size={18} /><span className="grow">Escribirle a un docente</span><ChevronRight size={16} /></Link>
+                  <Link to="/comunicados/nuevo" className="list-item"><MessageCircle size={18} /><span className="grow">Escribirle a un docente</span><ChevronRight size={16} /></Link>
                   {d.me.division && <Link to={`/aulas/${d.me.division.id}`} className="list-item"><School size={18} /><span className="grow">Materiales y tareas</span><ChevronRight size={16} /></Link>}
-                  <Link to={`/familia/${d.me.id}`} className="list-item"><FileText size={18} /><span className="grow">Mi boletín y asistencia</span><ChevronRight size={16} /></Link>
+                  <Link to={`/familia/${session?.self?.studentId ?? d.me.id}`} className="list-item"><FileText size={18} /><span className="grow">Mi perfil<span className="xs muted" style={{ display: 'block' }}>Materias y notas, asistencia y convivencia</span></span><ChevronRight size={16} /></Link>
                 </div>
               </Card>
             </section>

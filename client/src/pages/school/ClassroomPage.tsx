@@ -11,9 +11,10 @@ import { FilePicker } from '../../school/FilePicker';
 import { uploadLimitLabel } from '../../school/plans';
 import { useSchool } from '../../school/SchoolContext';
 import { Avatar, Badge, Chips, Empty, ErrorBox, Field, Sheet, Skeleton, Tabs, fmtDate, fullName, timeAgo, useToast } from '../../ui';
-import type { PersonLite } from '../../school/types';
+import { ANNOUNCEMENT_CATEGORY_LABELS, type AnnouncementCategory, type PersonLite } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
 import { AbsenceItem, ClassroomTimetable, todayIso, useAbsences } from '../../school/absences';
+import { ClassroomCalendar } from '../../school/ClassroomCalendar';
 
 interface Classroom {
   division: { id: number; name: string; shift: string | null; level: { id: number; name: string; type: string } };
@@ -51,6 +52,7 @@ interface AnnouncementRow {
   title: string;
   preview: string;
   priority: string;
+  category?: AnnouncementCategory;
   requiresAck: boolean;
   audienceLabel: string;
   createdAt: string;
@@ -164,6 +166,10 @@ const Composer = ({ room, onClose }: { room: Classroom; onClose: () => void }) =
       toast('Publicado en el aula ✅');
       qc.invalidateQueries({ queryKey: ['classroom-posts', room.division.id] });
       qc.invalidateQueries({ queryKey: ['classrooms'] });
+      // Las tareas, TP y evaluaciones con fecha también aparecen en la agenda, el inicio y el calendario del aula.
+      qc.invalidateQueries({ queryKey: ['classroom-agenda'] });
+      qc.invalidateQueries({ queryKey: ['agenda-home'] });
+      qc.invalidateQueries({ queryKey: ['classroom-calendar'] });
       onClose();
     },
     onError: (e: Error) => toast(e.message, true),
@@ -318,6 +324,8 @@ const Announcements = ({ room }: { room: Classroom }) => {
                 <div className="row-between"><span className="h3">{a.title}</span><span className="xs muted">{timeAgo(a.createdAt)}</span></div>
                 <div className="small muted" style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.preview}</div>
                 <div className="row wrap" style={{ gap: 6, marginTop: 6 }}>
+                  {a.category && a.category !== 'INSTITUCIONAL' && ANNOUNCEMENT_CATEGORY_LABELS[a.category] && <Badge tone="info">{ANNOUNCEMENT_CATEGORY_LABELS[a.category]}</Badge>}
+                  {a.priority === 'URGENT' && <Badge tone="danger">Urgente</Badge>}
                   <Badge>{a.audienceLabel}</Badge>
                   {a.requiresAck && a.isRecipient && (a.ackAt ? <Badge tone="ok"><CheckCheck size={12} /> Confirmado</Badge> : <Badge tone="warn">Requiere confirmación</Badge>)}
                 </div>
@@ -331,6 +339,12 @@ const Announcements = ({ room }: { room: Classroom }) => {
 };
 
 const Members = ({ room }: { room: Classroom }) => {
+  const { session } = useSchool();
+  // Estudiante con cuenta: escribe por sí mismo (sin "¿sobre quién?"); la familia, sobre su hijo en esta aula.
+  const selfId = session?.self?.studentId;
+  const isSelf = !!selfId && room.students.some((s) => s.id === selfId);
+  const child = room.students.find((s) => s.id !== selfId);
+  const writeTo = (teacherId: number) => `/comunicados/nuevo?para=${teacherId}${!isSelf && child ? `&alumno=${child.id}` : ''}`;
   const teachers = [...new Map(room.subjects.map((s) => [s.teacher.id, { t: s.teacher, subjects: room.subjects.filter((x) => x.teacher.id === s.teacher.id).map((x) => x.subject.name) }])).values()];
   return (
     <div className="stack">
@@ -340,13 +354,13 @@ const Members = ({ room }: { room: Classroom }) => {
           <div key={t.id} className="list-item">
             <Avatar name={fullName(t)} src={t.avatar} size="sm" />
             <div className="grow"><div className="h3">{fullName(t)}</div><div className="xs muted">{subjects.join(' · ')}</div></div>
-            {room.asGuardian && <Link to={`/mensajes/nuevo?alumno=${room.students[0]?.id ?? ''}`} className="btn btn-sm btn-ghost">Escribir</Link>}
+            {room.asGuardian && <Link to={writeTo(t.id)} className="btn btn-sm btn-ghost">Escribir</Link>}
           </div>
         ))}
       </div>
       <h2 className="h2">{room.asGuardian ? `Alumnos (${room.studentCount})` : `Alumnos · ${room.studentCount}`}</h2>
       {room.asGuardian ? (
-        <p className="small muted">Por privacidad, las familias solo ven a sus hijos. {room.students.map((s) => s.firstName).join(' y ')} {room.students.length > 1 ? 'cursan' : 'cursa'} en esta aula.</p>
+        <p className="small muted">{isSelf ? 'Por privacidad, la lista completa del curso la ven solo los docentes y la preceptoría.' : `Por privacidad, las familias solo ven a sus hijos. ${room.students.map((s) => s.firstName).join(' y ')} ${room.students.length > 1 ? 'cursan' : 'cursa'} en esta aula.`}</p>
       ) : (
         <div className="card list" style={{ overflow: 'hidden' }}>
           {room.students.map((s) => (
@@ -365,7 +379,10 @@ export default function ClassroomPage() {
   const id = Number(useParams().id);
   const { can } = useSchool();
   const [params] = useSearchParams();
-  const [tab, setTab] = useState<'wall' | 'horario' | 'announcements' | 'members'>(params.get('tab') === 'horario' ? 'horario' : 'wall');
+  const [tab, setTab] = useState<'wall' | 'horario' | 'calendario' | 'announcements' | 'members'>(() => {
+    const t = params.get('tab');
+    return t === 'horario' || t === 'calendario' ? t : t === 'comunicados' ? 'announcements' : t === 'integrantes' ? 'members' : 'wall';
+  });
   const tomorrow = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
   const soon = useAbsences({ divisionId: id, from: todayIso(), to: tomorrow });
   const q = useQuery({ queryKey: ['classroom', id], queryFn: () => apiGet<Classroom>(`/school/classrooms/${id}`) });
@@ -397,9 +414,10 @@ export default function ClassroomPage() {
               {soon.data.map((a) => <AbsenceItem key={a.id} a={a} showDivisions={false} />)}
             </div>
           )}
-          <Tabs value={tab} onChange={setTab} items={[{ value: 'wall', label: 'Muro' }, { value: 'horario', label: 'Horario' }, { value: 'announcements', label: 'Comunicados' }, { value: 'members', label: 'Integrantes' }]} />
+          <Tabs value={tab} onChange={setTab} items={[{ value: 'wall', label: 'Muro' }, { value: 'horario', label: 'Horario' }, { value: 'calendario', label: 'Calendario' }, { value: 'announcements', label: 'Comunicados' }, { value: 'members', label: 'Integrantes' }]} />
           {tab === 'wall' && <Wall room={room} />}
           {tab === 'horario' && <ClassroomTimetable divisionId={room.division.id} teachers={[...new Map(room.subjects.map((s) => [s.teacher.id, { id: s.teacher.id, name: `${s.teacher.firstName} ${s.teacher.lastName}` }])).values()]} />}
+          {tab === 'calendario' && <ClassroomCalendar divisionId={room.division.id} />}
           {tab === 'announcements' && <Announcements room={room} />}
           {tab === 'members' && <Members room={room} />}
         </>

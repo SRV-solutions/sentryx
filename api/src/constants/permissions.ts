@@ -34,6 +34,7 @@ export enum Entity {
   EVENTS = 'events', // calendario institucional, actos y sus encargados
   SUBJECT_PROGRAMS = 'subject_programs', // programas de las materias
   QUIZZES = 'quizzes', // juegos de preguntas
+  CONDUCT = 'conduct', // convivencia: historial de cada alumno (no se edita ni se borra)
   // --- Plataforma (equipo Sentryx) ---
   SCHOOLS = 'schools', // alta, edición y suspensión de colegios
   PLATFORM_BILLING = 'platform_billing',
@@ -115,6 +116,8 @@ export const PERMISSION_CATALOG: PermissionDefinition[] = [
   { entity: Entity.REPORT_CARDS, action: Action.PUBLISH, group: 'Calificaciones', description: 'Publicar boletines a las familias' },
   { entity: Entity.ATTENDANCE, action: Action.READ, group: 'Asistencia', description: 'Ver asistencia de su alcance' },
   { entity: Entity.ATTENDANCE, action: Action.UPDATE, group: 'Asistencia', description: 'Tomar y corregir asistencia' },
+  { entity: Entity.CONDUCT, action: Action.READ, group: 'Convivencia', description: 'Ver el historial de convivencia de los alumnos de su alcance (incluidos los registros internos)' },
+  { entity: Entity.CONDUCT, action: Action.CREATE, group: 'Convivencia', description: 'Cargar registros de convivencia (observaciones, amonestaciones, actas…)' },
   { entity: Entity.ALERTS, action: Action.READ, group: 'Alertas', description: 'Ver el panel de alertas' },
   { entity: Entity.ALERTS, action: Action.UPDATE, group: 'Alertas', description: 'Atender y resolver alertas' },
   { entity: Entity.ALERT_RULES, action: Action.UPDATE, group: 'Alertas', description: 'Configurar reglas de alerta (normativa)' },

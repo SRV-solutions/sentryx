@@ -1,7 +1,7 @@
 import { FormEvent, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, InfiniteData } from '@tanstack/react-query';
-import { ArrowLeft, Send, UserPlus, Paperclip, Lock, Users, ChevronRight, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Send, UserPlus, Paperclip, Lock, Users, ChevronRight, CheckCheck, Reply } from 'lucide-react';
 import { apiGet, apiSend, uploadFile } from '../../lib/api';
 import { FolderOpen } from 'lucide-react';
 import { FilePicker } from '../../school/FilePicker';
@@ -13,10 +13,15 @@ import { ErrorBox, Sheet, Skeleton, useToast, fmtDate, Avatar, timeAgo } from '.
 import { PersonSheet } from '../../school/PersonProfile';
 import type { AttachmentRef } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
+import { CategoryBadge } from '../../school/announcements';
 
 interface Message { id: number; senderId: number; body: string; attachments: AttachmentRef[]; createdAt: string }
 interface ThreadData {
-  thread: { id: number; subject: string; closedAt: string | null; student: { id: number; firstName: string; lastName: string } | null };
+  thread: {
+    id: number; subject: string; closedAt: string | null; student: { id: number; firstName: string; lastName: string } | null;
+    /** Hilo nacido de responder un comunicado: privado entre quien respondió y quien lo envió. */
+    announcement?: { id: number; title: string; category: string } | null;
+  };
   participants: Array<{ id: number; firstName: string; lastName: string; avatar: string | null; roleLabel: string; lastReadAt: string | null }>;
   messages: Message[];
   hasMore: boolean;
@@ -49,7 +54,11 @@ export default function ThreadPage() {
     if (q.isSuccess) {
       qc.invalidateQueries({ queryKey: ['badge', 'threads'] });
       qc.invalidateQueries({ queryKey: ['threads'] });
+      // Abrir una respuesta la marca leída: el contador de "Respuestas" del comunicado también cambia.
+      const ann = q.data?.pages[0]?.thread.announcement;
+      if (ann) qc.invalidateQueries({ queryKey: ['announcement', ann.id] });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q.isSuccess, qc]);
 
   const first = q.data?.pages[0];
@@ -113,7 +122,7 @@ export default function ThreadPage() {
   return (
     <div className="page-narrow" style={{ margin: '0 auto', width: '100%' }}>
       <div className="row" style={{ marginBottom: 8 }}>
-        <Link to="/mensajes" className="icon-btn" aria-label="Volver"><ArrowLeft size={20} /></Link>
+        <Link to="/comunicados?tab=conversaciones" className="icon-btn" aria-label="Volver a conversaciones"><ArrowLeft size={20} /></Link>
         <button
           className="row grow"
           style={{ background: 'none', border: 0, padding: 0, color: 'inherit', textAlign: 'left', cursor: 'pointer', minWidth: 0, gap: 10 }}
@@ -142,6 +151,18 @@ export default function ThreadPage() {
           <button className="icon-btn" onClick={() => setDeriveOpen(true)} aria-label="Sumar a un colega"><UserPlus size={20} /></button>
         )}
       </div>
+
+      {first.thread.announcement && (
+        <Link to={`/comunicados/${first.thread.announcement.id}`} className="card card-link row" style={{ padding: '10px 12px', marginBottom: 8, gap: 10 }}>
+          <Reply size={18} className="accent" style={{ flexShrink: 0 }} />
+          <span className="grow" style={{ minWidth: 0 }}>
+            <span className="xs muted" style={{ display: 'block' }}>Respuesta al comunicado</span>{' '}
+            <span className="small truncate" style={{ display: 'block', fontWeight: 700 }}>«{first.thread.announcement.title}»</span>
+          </span>
+          <CategoryBadge category={first.thread.announcement.category} />
+          <ChevronRight size={16} className="muted" style={{ flexShrink: 0 }} />
+        </Link>
+      )}
 
       {q.hasNextPage && (
         <button className="btn btn-sm btn-ghost btn-block" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>

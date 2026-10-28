@@ -14,9 +14,7 @@ const HomePage = lazy(() => import('./pages/school/HomePage'));
 const AnnouncementsPage = lazy(() => import('./pages/school/AnnouncementsPage'));
 const AnnouncementDetailPage = lazy(() => import('./pages/school/AnnouncementDetailPage'));
 const AnnouncementComposePage = lazy(() => import('./pages/school/AnnouncementComposePage'));
-const ThreadsPage = lazy(() => import('./pages/school/ThreadsPage'));
 const ThreadPage = lazy(() => import('./pages/school/ThreadPage'));
-const NewThreadPage = lazy(() => import('./pages/school/NewThreadPage'));
 const FamilyPage = lazy(() => import('./pages/school/FamilyPage'));
 const StudentPage = lazy(() => import('./pages/school/StudentPage'));
 const StudentsPage = lazy(() => import('./pages/school/StudentsPage'));
@@ -93,6 +91,20 @@ const RequireSuperAdmin = ({ children }: { children: ReactNode }) => {
   return isSuperAdmin ? <>{children}</> : <Navigate to="/" replace />;
 };
 
+/** Comunicados y mensajes son lo mismo: las direcciones viejas (notificaciones, enlaces guardados) llevan a Comunicados. */
+const LegacyMessages = () => <Navigate to="/comunicados?tab=conversaciones" replace />;
+const LegacyNewMessage = () => {
+  const { search } = useLocation();
+  return <Navigate to={`/comunicados/nuevo${search}`} replace />;
+};
+
+/** "Mi perfil" del estudiante: su ficha (materias, notas, asistencia, convivencia). */
+const MyStudentProfile = () => {
+  const { session, loading } = useSchool();
+  if (loading) return <Spinner center />;
+  return <Navigate to={session?.self ? `/familia/${session.self.studentId}` : '/perfil/me'} replace />;
+};
+
 /** Destino inicial según el tipo de usuario. */
 const Landing = () => {
   const { session, loading, noSchool } = useSchool();
@@ -121,17 +133,19 @@ export default function App() {
             <Route index element={<Landing />} />
             <Route path="/inicio" element={<HomePage />} />
             <Route path="/comunicados" element={<AnnouncementsPage />} />
-            <Route path="/comunicados/nuevo" element={<Need perm={[Entity.ANNOUNCEMENTS, Action.CREATE]}><AnnouncementComposePage /></Need>} />
+            {/* Todos pueden enviar: el personal a su alcance; familias y estudiantes a sus contactos (docentes, preceptoría…). */}
+            <Route path="/comunicados/nuevo" element={<AnnouncementComposePage />} />
             <Route path="/comunicados/:id/editar" element={<Need perm={[Entity.ANNOUNCEMENTS, Action.CREATE]}><AnnouncementComposePage /></Need>} />
             <Route path="/comunicados/:id" element={<AnnouncementDetailPage />} />
-            <Route path="/mensajes" element={<ThreadsPage />} />
-            <Route path="/mensajes/nuevo" element={<NewThreadPage />} />
+            <Route path="/mensajes" element={<LegacyMessages />} />
+            <Route path="/mensajes/nuevo" element={<LegacyNewMessage />} />
             <Route path="/mensajes/:id" element={<ThreadPage />} />
             <Route path="/aulas" element={<ClassroomsPage />} />
             <Route path="/aulas/:id" element={<ClassroomPage />} />
             <Route path="/archivos" element={<FilesPage />} />
             <Route path="/familia" element={<FamilyPage />} />
             <Route path="/familia/:id" element={<StudentPage />} />
+            <Route path="/mi-perfil" element={<MyStudentProfile />} />
             <Route path="/boletin/:id" element={<ReportCardPrintPage />} />
             <Route path="/alumnos" element={<Need perm={[Entity.USERS, Action.READ]}><StudentsPage /></Need>} />
             <Route path="/alumnos/:id" element={<Need perm={[Entity.USERS, Action.READ]}><StudentPage /></Need>} />

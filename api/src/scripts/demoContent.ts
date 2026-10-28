@@ -12,8 +12,10 @@ import { QueryTypes } from 'sequelize';
 import * as M from '../models';
 import { getSchoolSession } from '../services/schoolSession';
 import { resolveRecipients, audienceLabel, contactsForGuardian } from '../services/audience';
+import { roleLabelFor } from '../services/announcementReplies';
 import { ensureChannels } from '../controllers/channels.controller';
 import type { Audience } from '../models/school/communication';
+import type { AnnouncementCategory } from '../constants/school';
 
 const { sequelize } = M;
 const DAY = 86_400_000;
@@ -32,12 +34,18 @@ export const addDemoContent = async (schoolId: number, domain: string) => {
     M.Division.findOne({ where: { schoolId, academicYearId: year.id }, include: [{ model: M.Level, where: { type }, attributes: [] }], order: [['gradeYear', 'DESC'], ['name', 'ASC']] });
 
   // ---------------- Comunicados ----------------
-  const announce = async (alias: string, audience: Audience, title: string, body: string, opts: { urgent?: boolean; ack?: boolean; daysAgo: number; readShare: number }) => {
+  const announce = async (
+    alias: string,
+    audience: Audience,
+    title: string,
+    body: string,
+    opts: { urgent?: boolean; ack?: boolean; daysAgo: number; readShare: number; category: AnnouncementCategory; allowReplies?: boolean }
+  ) => {
     const authorId = await userId(alias);
-    if (!authorId) return;
+    if (!authorId) return null;
     const session = await getSchoolSession(authorId, schoolId, false);
     const recipients = await resolveRecipients(session, audience);
-    if (!recipients.size) return;
+    if (!recipients.size) return null;
     const announcement = await M.Announcement.create({
       schoolId,
       authorId,
@@ -47,11 +55,13 @@ export const addDemoContent = async (schoolId: number, domain: string) => {
       audienceLabel: (await audienceLabel(session, audience)) ?? '',
       requiresAck: !!opts.ack,
       priority: opts.urgent ? 'URGENT' : 'NORMAL',
+      category: opts.category,
+      allowReplies: !!opts.allowReplies,
       attachments: [],
       recipientCount: recipients.size,
     });
     const createdAt = ago(opts.daysAgo);
-    await backdate('Announcement', announcement.id, createdAt);
+    await sequelize.query(`UPDATE "Announcement" SET "createdAt" = :date, "sentAt" = :date WHERE id = :id`, { replacements: { date: createdAt, id: announcement.id } });
     // Una parte ya lo leyó (y, si pedía confirmación, la mitad de esos confirmó).
     await M.AnnouncementRecipient.bulkCreate(
       [...recipients.entries()].map(([recipientId, studentIds], i) => {
@@ -60,6 +70,38 @@ export const addDemoContent = async (schoolId: number, domain: string) => {
         return { announcementId: announcement.id, userId: recipientId, studentIds, readAt, ackAt: opts.ack && read && i % 2 === 0 ? readAt : null };
       })
     );
+    return { announcement, authorId, recipients };
+  };
+
+  /** Una familia responde un comunicado: conversación privada con quien lo envió (como POST /announcements/:id/reply). */
+  const replyTo = async (sent: Awaited<ReturnType<typeof announce>>, messages: Array<{ fromFamily: boolean; body: string; hoursAgo: number }>) => {
+    if (!sent) return;
+    const family = [...sent.recipients.entries()].find(([, studentIds]) => studentIds.length);
+    if (!family) return;
+    const [familyId, [studentId]] = family;
+    const familySession = await getSchoolSession(familyId, schoolId, false);
+    const last = messages[messages.length - 1];
+    const thread = await M.Thread.create({
+      schoolId,
+      studentId,
+      announcementId: sent.announcement.id,
+      subject: `Re: ${sent.announcement.title}`.slice(0, 160),
+      createdById: familyId,
+      closedAt: null,
+      lastMessagePreview: last.body.slice(0, 160),
+    });
+    await sequelize.query(`UPDATE "Thread" SET "lastMessageAt" = :at, "createdAt" = :first WHERE id = :id`, {
+      replacements: { at: ago(0, last.hoursAgo), first: ago(0, messages[0].hoursAgo), id: thread.id },
+    });
+    await M.ThreadParticipant.bulkCreate([
+      { threadId: thread.id, userId: familyId, roleLabel: await roleLabelFor(familySession, familyId, studentId), lastReadAt: ago(0, last.hoursAgo) },
+      { threadId: thread.id, userId: sent.authorId, roleLabel: await roleLabelFor(familySession, sent.authorId, studentId), lastReadAt: last.fromFamily ? null : ago(0, last.hoursAgo) },
+    ]);
+    for (const m of messages) {
+      const message = await M.ThreadMessage.create({ threadId: thread.id, senderId: m.fromFamily ? familyId : sent.authorId, body: m.body, attachments: [] });
+      await backdate('ThreadMessage', message.id, ago(0, m.hoursAgo));
+    }
+    await M.AnnouncementRecipient.update({ readAt: ago(0, messages[0].hoursAgo) }, { where: { announcementId: sent.announcement.id, userId: familyId, readAt: null } });
   };
 
   const [inicial, primario, secundario] = await Promise.all([levelId('INICIAL'), levelId('PRIMARIO'), levelId('SECUNDARIO')]);
@@ -71,16 +113,20 @@ export const addDemoContent = async (schoolId: number, domain: string) => {
     { type: 'SCHOOL', ids: [] },
     '¡Bienvenidos a Sentryx!',
     'A partir de hoy, todas las comunicaciones de la escuela llegan por acá: comunicados, mensajes con docentes, boletines y asistencia.\n\nPara recibir los avisos en el celular, abran Sentryx en el navegador y elijan "Agregar a la pantalla de inicio".\n\n¡Gracias por acompañarnos!',
-    { daysAgo: 9, readShare: 0.85 }
+    { daysAgo: 9, readShare: 0.85, category: 'INSTITUCIONAL' }
   );
   if (primario) {
-    await announce(
+    const meeting = await announce(
       'directora',
       { type: 'LEVEL', ids: [primario] },
       'Reunión de familias: primer informe',
       'Los esperamos el jueves a las 18 h en el SUM para conversar sobre el primer informe del año. Pedimos que confirmen la lectura de este comunicado.',
-      { ack: true, daysAgo: 4, readShare: 0.7 }
+      { ack: true, daysAgo: 4, readShare: 0.7, category: 'EVENTO', allowReplies: true }
     );
+    await replyTo(meeting, [
+      { fromFamily: true, body: 'Buenas tardes. El jueves trabajo hasta las 19 h. ¿Puedo pasar otro día a buscar el informe?', hoursAgo: 70 },
+      { fromFamily: false, body: '¡Hola! Sí, claro. Pueden pasar el viernes de 8 a 12 por la dirección y lo conversamos.', hoursAgo: 66 },
+    ]);
   }
   if (secundario) {
     await announce(
@@ -88,7 +134,7 @@ export const addDemoContent = async (schoolId: number, domain: string) => {
       { type: 'LEVEL', ids: [secundario] },
       'Mañana no hay clases en Secundario',
       'Por trabajos de la distribuidora eléctrica en la cuadra, mañana no habrá clases presenciales en Secundario. Los docentes van a dejar actividades en las aulas virtuales. Por favor confirmen que recibieron el aviso.',
-      { urgent: true, ack: true, daysAgo: 1, readShare: 0.6 }
+      { urgent: true, ack: true, daysAgo: 1, readShare: 0.6, category: 'INSTITUCIONAL' }
     );
   }
   if (sala && inicial) {
@@ -99,7 +145,7 @@ export const addDemoContent = async (schoolId: number, domain: string) => {
       { type: 'DIVISION', ids: [sala.id] },
       `${sala.name}: traer una foto familiar`,
       'Para el proyecto "Mi familia", les pedimos que el lunes traigan una foto familiar impresa (puede ser una fotocopia). ¡Gracias!',
-      { daysAgo: 2, readShare: 0.5 }
+      { daysAgo: 2, readShare: 0.5, category: 'AULICO', allowReplies: true }
     );
   }
 

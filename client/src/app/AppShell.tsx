@@ -42,7 +42,9 @@ const useBadges = (enabled: boolean) => {
     enabled,
     refetchInterval: 120_000,
   });
-  return { announcements: announcements.data?.count ?? 0, threads: threads.data?.count ?? 0, channels: channels.data?.count ?? 0 };
+  const unreadAnnouncements = announcements.data?.count ?? 0;
+  const unreadThreads = threads.data?.count ?? 0;
+  return { announcements: unreadAnnouncements, threads: unreadThreads, comms: unreadAnnouncements + unreadThreads, channels: channels.data?.count ?? 0 };
 };
 
 export const AppShell = ({ children, title }: { children: ReactNode; title?: string }) => {
@@ -60,6 +62,8 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
   const [phoneOpen, setPhoneOpen] = useState(false);
 
   const nav = useMemo(() => buildNav({ session, can, isSuperAdmin }), [session, can, isSuperAdmin]);
+  // El estudiante ya tiene "Mi perfil" (su ficha: materias, notas, convivencia); su cuenta es "Mi cuenta".
+  const accountLabel = session?.self && !session.isStaff ? 'Mi cuenta' : 'Mi perfil';
   const badges = useBadges(!!session);
 
   const notifications = useQuery({
@@ -76,6 +80,9 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
       qc.invalidateQueries({ queryKey: ['badge'] });
       if (n.type === 'announcement') qc.invalidateQueries({ queryKey: ['announcements'] });
       if (n.type === 'alert') qc.invalidateQueries({ queryKey: ['alerts'] });
+      if (n.type === 'conduct') qc.invalidateQueries({ queryKey: ['student-conduct'] });
+      // Aviso de cuenta sin email: el banner del inicio y la tarjeta del perfil.
+      if (n.type === 'account') ['dashboard', 'student'].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
       if (document.visibilityState === 'visible' && n.type !== 'message') toast(n.title);
     },
     [qc, toast]
@@ -84,6 +91,9 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
   const onThread = useCallback(() => {
     qc.invalidateQueries({ queryKey: ['badge', 'threads'] });
     qc.invalidateQueries({ queryKey: ['threads'] });
+    // Las respuestas a comunicados son hilos: refresca contadores de respuestas y "Ver conversación".
+    qc.invalidateQueries({ queryKey: ['announcement'] });
+    qc.invalidateQueries({ queryKey: ['announcements'] });
   }, [qc]);
   useSocketEvent('thread_message', onThread);
   useSocketEvent('thread_updated', onThread);
@@ -173,7 +183,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
         })}
         <div style={{ marginTop: 'auto' }}>
           <NavLink to="/perfil/me" className={({ isActive }) => (isActive ? 'active' : '')}>
-            <Avatar name={meName} src={user?.userData.avatar} size="sm" /> <span className="truncate">Mi perfil</span>
+            <Avatar name={meName} src={user?.userData.avatar} size="sm" /> <span className="truncate">{accountLabel}</span>
           </NavLink>
           <a href="#" onClick={(e) => (e.preventDefault(), setPhoneOpen(true))}>
             <Smartphone size={19} /> Llevar al celular
@@ -215,7 +225,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
             <Bell size={20} />
             {unreadNotifications > 0 && <span className="dot" style={{ position: 'absolute', top: 9, right: 9 }} />}
           </button>
-          <Link to="/perfil/me" className="icon-btn hide-desktop" aria-label="Mi perfil">
+          <Link to="/perfil/me" className="icon-btn hide-desktop" aria-label={accountLabel}>
             <Avatar name={meName} src={user?.userData.avatar} size="sm" />
           </Link>
         </header>

@@ -24,3 +24,23 @@ export const updateRule = { params: idParam, body: z.object({}).passthrough() };
 
 /** DELETE /alerts/rules/:id */
 export const deleteRule = { params: idParam };
+
+/** GET /alerts/no-email */
+export const listNoEmail = {
+  query: z.object({
+    divisionId: z.coerce.number().int().positive().optional(),
+    /** missing: sin cuenta o sin email (por defecto) · present: con email real · all: todos */
+    status: z.enum(['missing', 'present', 'all']).default('missing'),
+  }),
+};
+
+/** POST /alerts/no-email/notify (sin studentIds: todos los de su alcance) */
+export const notifyNoEmail = { body: z.object({ studentIds: z.array(z.number().int().positive()).min(1).max(2000).optional(), force: z.boolean().default(false) }) };
+
+/** POST /alerts/student-emails/request-change */
+export const requestEmailChange = {
+  body: z.object({
+    studentIds: z.array(z.number().int().positive()).min(1).max(500),
+    reason: z.string().trim().max(300).nullish(),
+  }),
+};

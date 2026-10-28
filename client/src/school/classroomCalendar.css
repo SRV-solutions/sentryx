@@ -1,0 +1,45 @@
+/* Calendario del aula (school/ClassroomCalendar.tsx). Colores por tipo con los tokens del tema (claro/oscuro). */
+.ccal-head { display: flex; align-items: center; gap: 8px; }
+.ccal-title { flex: 1; min-width: 0; font-size: 17px; font-weight: 900; text-transform: capitalize; }
+.ccal-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--text-3); }
+.ccal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ccal-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; border: 1px solid currentColor; }
+
+.ccal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; }
+.ccal-dow { padding: 6px 0; text-align: center; font-size: 11px; font-weight: 800; color: var(--text-3); background: var(--surface-2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.ccal-cell { min-height: 96px; min-width: 0; padding: 4px; display: flex; flex-direction: column; gap: 3px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); background: var(--surface); }
+.ccal-cell.is-out { background: var(--surface-2); }
+.ccal-cell.is-out .ccal-num { opacity: 0.45; }
+.ccal-cell.is-weekend:not(.is-out) { background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
+/* Feriado / no laborable: fondo rayado para que se lea de un vistazo que no hay clases. */
+.ccal-cell.is-off { background: repeating-linear-gradient(135deg, var(--surface-2) 0 6px, transparent 6px 12px), var(--surface); }
+.ccal-num { align-self: flex-start; font-size: 12px; font-weight: 800; color: var(--text-2); width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 50%; background: none; border: 0; padding: 0; cursor: pointer; }
+.ccal-cell.is-today .ccal-num { background: var(--primary); color: var(--primary-ink); }
+.ccal-more { font-size: 11px; font-weight: 700; color: var(--text-3); background: none; border: 0; padding: 0 4px; text-align: left; cursor: pointer; }
+
+.ccal-chip { display: block; width: 100%; min-width: 0; padding: 2px 6px; border: 0; border-left: 3px solid transparent; border-radius: 6px; font: inherit; font-size: 11px; font-weight: 700; line-height: 1.35; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+/* Eventos de varios días: el chip se "pega" con el del día siguiente. */
+.ccal-chip.cont-left { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -5px; width: calc(100% + 5px); }
+.ccal-chip.cont-right { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: -5px; width: calc(100% + 5px); }
+.ccal-chip.cont-left.cont-right { width: calc(100% + 10px); }
+.ccal-chip.is-cancelled, .ccal-agenda-item.is-cancelled .ccal-agenda-title { text-decoration: line-through; opacity: 0.6; }
+
+.ccal-t-eval { background: var(--danger-bg); color: var(--danger); border-left-color: var(--danger); }
+.ccal-t-tp { background: var(--warn-bg); color: var(--warn); border-left-color: var(--warn); }
+.ccal-t-tarea { background: var(--info-bg); color: var(--primary); border-left-color: var(--primary); }
+.ccal-t-off { background: var(--surface-2); color: var(--text-3); border-left-color: var(--text-3); }
+.ccal-t-event { background: color-mix(in srgb, var(--accent) 16%, var(--surface)); color: var(--text); border-left-color: var(--accent); }
+
+/* Agenda (celular): lista agrupada por día. */
+.ccal-agenda { display: flex; flex-direction: column; }
+.ccal-agenda-day { display: flex; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+.ccal-agenda-day:last-child { border-bottom: 0; }
+.ccal-agenda-day.is-today .ccal-agenda-date .num { color: var(--primary); }
+.ccal-agenda-date { width: 42px; flex-shrink: 0; text-align: center; }
+.ccal-agenda-date .num { font-size: 22px; font-weight: 900; line-height: 1; }
+.ccal-agenda-date .dow { font-size: 11px; text-transform: uppercase; color: var(--text-3); font-weight: 700; }
+.ccal-agenda-items { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ccal-agenda-item { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 8px 10px; border: 0; border-left: 4px solid transparent; border-radius: 10px; font: inherit; text-align: left; cursor: pointer; }
+.ccal-agenda-item.ccal-t-event, .ccal-agenda-item.ccal-t-off { color: var(--text); }
+.ccal-agenda-title { font-size: 14px; font-weight: 700; }
+.ccal-agenda-meta { font-size: 12px; opacity: 0.85; }

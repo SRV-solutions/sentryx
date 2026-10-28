@@ -14,6 +14,7 @@ import schoolRoutes, { schoolsRouter } from './school.routes';
 import structureRoutes from './structure.routes';
 import staffRoutes from './staff.routes';
 import studentsRoutes from './students.routes';
+import conductRoutes from './conduct.routes';
 import peopleRoutes from './people.routes';
 import gradesRoutes from './grades.routes';
 import attendanceRoutes from './attendance.routes';
@@ -72,6 +73,7 @@ school.use(schoolRoutes);
 school.use(structureRoutes);
 school.use(academicRoutes); // antes de students: /students/transfer no debe tomarse como /students/:id
 school.use(staffRoutes);
+school.use(conductRoutes); // /students/:id/conduct (convivencia); antes de students por claridad
 school.use(studentsRoutes);
 school.use(peopleRoutes);
 school.use('/grades', gradesRoutes);

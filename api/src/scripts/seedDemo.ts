@@ -86,8 +86,10 @@ const run = async () => {
     ['Carla', 'Ortiz', 'preceptora', 'PRECEPTOR', 'SECUNDARIO'],
     ['Diego', 'Navarro', 'administracion', 'ADMINISTRACION', null],
   ];
+  const staffUsers: Record<string, M.User> = {};
   for (const [f, l, user, role, level] of staff) {
     const u = await mkUser(f, l, `${user}@${DOMAIN}`);
+    staffUsers[user] = u;
     await M.UserRole.create({
       userId: u.id,
       schoolId: school.id,
@@ -118,6 +120,10 @@ const run = async () => {
   }
 
   let s = 0;
+  const inDays = (n: number) => new Date(Date.now() + n * 86400_000).toISOString().slice(0, 10);
+  // Alumnos de Secundario (para la demo de convivencia) y cuentas sin email (para Alertas → Sin email).
+  const secondary: Array<{ student: M.Student; division: M.Division; subjects: M.Subject[]; teacher: M.User }> = [];
+  const noEmailAccounts: string[] = [];
   for (const type of levels) {
     const subjects = await Promise.all(
       plan[type].subjects.map((name) =>
@@ -177,8 +183,15 @@ const run = async () => {
         // Secundario: el alumno tiene cuenta propia (ingresa con su DNI) para el chat con docentes y el canal del curso.
         if (type === 'SECUNDARIO') {
           studentAccounts++;
+          // 3 cuentas con email técnico (ingresan con DNI y no pueden recuperar la contraseña); estudiante1 conserva el suyo.
+          const withoutEmail = studentAccounts % 4 === 3;
+          const email = withoutEmail
+            ? USE_DEMO_DNI ? `${student.dni}@sin-email.local` : `estudiante${studentAccounts}-${SCHOOL_SLUG}@sin-email.local`
+            : `estudiante${studentAccounts}@${DOMAIN}`;
+          if (withoutEmail) noEmailAccounts.push(`${student.firstName} ${student.lastName} (${name})`);
+          secondary.push({ student, division, subjects, teacher: teachers[gradeYear % teachers.length] });
           const account = await M.User.create({
-            firstName: student.firstName, lastName: student.lastName, email: `estudiante${studentAccounts}@${DOMAIN}`, dni: USE_DEMO_DNI ? student.dni : null,
+            firstName: student.firstName, lastName: student.lastName, email, dni: USE_DEMO_DNI ? student.dni : null,
             username: `estudiante${studentAccounts}-${SCHOOL_SLUG}`.slice(0, 40), password: hash, phone: null, biography: null, avatar: null, lastLogin: null,
           });
           await student.update({ userId: account.id });
@@ -230,8 +243,23 @@ const run = async () => {
       await M.ClassroomPost.create({
         schoolId: school.id, divisionId: division.id, subjectId: subjects[subjects.length - 1].id, authorId: teachers[(gradeYear + 1) % teachers.length].id,
         kind: 'TAREA', title: 'Trabajo práctico Nº 1', body: 'Leer el capítulo 1 y responder las preguntas de la página 12.',
-        links: [], fileIds: [], dueDate: new Date(Date.now() + 7 * 86400_000).toISOString().slice(0, 10), pinned: false,
+        links: [], fileIds: [], dueDate: inDays(7), pinned: false,
       });
+      // TP y evaluación de las próximas semanas: arman el Calendario del aula y la agenda.
+      if (type !== 'INICIAL') {
+        await M.ClassroomPost.bulkCreate([
+          {
+            schoolId: school.id, divisionId: division.id, subjectId: subjects[1].id, authorId: teachers[(1 + gradeYear) % teachers.length].id,
+            kind: 'TP', title: `TP integrador de ${subjects[1].name}`, body: 'Trabajo en grupos de hasta 4. Entregar impreso o subido al aula.',
+            links: [], fileIds: [], dueDate: inDays(12), pinned: false,
+          },
+          {
+            schoolId: school.id, divisionId: division.id, subjectId: subjects[2].id, authorId: teachers[(2 + gradeYear) % teachers.length].id,
+            kind: 'EVALUACION', title: `Evaluación de ${subjects[2].name}`, body: 'Entran los temas de la unidad 2. Repasen las actividades del aula.',
+            links: [], fileIds: [], dueDate: inDays(19), pinned: false,
+          },
+        ]);
+      }
       // Boletín del primer período publicado.
       await M.ReportCardPublication.create({
         schoolId: school.id,
@@ -240,6 +268,29 @@ const run = async () => {
         publishedById: teachers[0].id,
       });
     }
+  }
+
+  // Convivencia de ejemplo (Secundario): una amonestación con cantidad y su rectificación, y un registro interno.
+  const preceptora = staffUsers['preceptora'];
+  const rectora = staffUsers['rectora'];
+  const conduct = (i: number, data: { kind: M.ConductRecord['kind']; daysAgo: number; description: string; by: M.User; quantity?: number; measures?: string; visibleToFamily?: boolean; refId?: number; subject?: boolean }) => {
+    const x = secondary[i % secondary.length];
+    const visibleToFamily = data.visibleToFamily ?? true;
+    return M.ConductRecord.create({
+      schoolId: school.id, studentId: x.student.id, academicYearId: year.id, divisionId: x.division.id, occurredOn: inDays(-data.daysAgo), kind: data.kind,
+      quantity: data.quantity ?? null, subjectId: data.subject ? x.subjects[0].id : null, description: data.description, measures: data.measures ?? null,
+      visibleToFamily, refId: data.refId ?? null, notifiedAt: visibleToFamily ? new Date() : null, createdById: data.by.id,
+    });
+  };
+  if (secondary.length) {
+    // secondary[0] es estudiante1 (el usuario de demo): ve su historial en Mi perfil → Convivencia.
+    await conduct(0, { kind: 'OBSERVACION', daysAgo: 20, by: secondary[0].teacher, subject: true, description: 'Usó el celular durante la clase después de que se le pidiera guardarlo.', measures: 'Se conversó con el estudiante.' });
+    await conduct(0, { kind: 'RECONOCIMIENTO', daysAgo: 6, by: rectora, description: 'Coordinó con sus compañeros la colecta solidaria del curso. ¡Felicitaciones!' });
+    await conduct(0, { kind: 'LLAMADO_ATENCION', daysAgo: 3, by: preceptora, visibleToFamily: false, description: 'Registro interno: llegó tarde al aula tres veces esta semana sin justificativo.' });
+    const amonestacion = await conduct(1, { kind: 'AMONESTACION', daysAgo: 14, by: preceptora, quantity: 3, description: 'Falta de respeto a un compañero durante el recreo.', measures: 'Reunión con la familia y acta de compromiso.' });
+    await conduct(1, { kind: 'RECTIFICACION', daysAgo: 13, by: rectora, refId: amonestacion.id, quantity: 2, description: 'Se corrige la cantidad: corresponden 2 amonestaciones, no 3.' });
+    await conduct(2, { kind: 'ACTA', daysAgo: 9, by: preceptora, description: 'Acuerdo de convivencia firmado con el estudiante y su familia.', measures: 'Seguimiento semanal de preceptoría.' });
+    await conduct(7, { kind: 'SUSPENSION', daysAgo: 30, by: rectora, quantity: 1, description: 'Daño intencional a material de la escuela.', measures: 'Reposición del material y trabajo reflexivo.' });
   }
 
   // Superadmin de la plataforma (equipo Sentryx): consola de colegios y facturación de todos.
@@ -290,6 +341,7 @@ const run = async () => {
   for (const [role, email, description] of oneUserPerRole) console.log(`   ${role.padEnd(28)} ${email.padEnd(36)} ${description}`);
   console.log(SHOW_PLANS ? '\n   Planes: directivos, docente1, familia1 y familia19 en Integral; docente2 en Ampliado; el resto en Básico.' : '\n   Planes: todos en Básico ($660 por persona). Se cambian desde "Planes".');
   console.log(`\n   Además: docente1..8, familia1..${s} y estudiante1..${studentAccounts} @${DOMAIN}.`);
+  if (noEmailAccounts.length) console.log(`   Sin email (ingresan con DNI; ver Alertas → Sin email): ${noEmailAccounts.join(', ')}.`);
   await M.sequelize.close();
 };
 

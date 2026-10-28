@@ -301,8 +301,9 @@ export const PersonProfile = ({ userId, onNavigate }: { userId: number; onNaviga
         <Link to={`/alumnos/${p.studentId}?tab=datos`} className="btn btn-ghost btn-block" onClick={onNavigate}>Ver ficha del alumno</Link>
       )}
 
-      {staffView && p.isGuardian && p.children[0] && (
-        <Link to={`/mensajes/nuevo?alumno=${p.children[0].id}`} className="btn btn-ghost btn-block" onClick={onNavigate}><MessageCircle size={16} /> Escribirle por {p.children[0].firstName}</Link>
+      {/* A esta persona puntual (audiencia USERS), no "al alumno": eso les llegaría a todas sus familias y quizás no a ella. */}
+      {staffView && p.isGuardian && (
+        <Link to={`/comunicados/nuevo?para=${p.id}&nombre=${encodeURIComponent(name)}`} className="btn btn-ghost btn-block" onClick={onNavigate}><MessageCircle size={16} /> Escribirle a {p.firstName}</Link>
       )}
 
       {editing && <EditPersonSheet p={p} onClose={() => setEditing(false)} />}

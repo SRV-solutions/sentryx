@@ -36,5 +36,23 @@ export const updatePost = { params: idParam, body: postBody.omit({ notifyFamilie
 /** DELETE /classroom-posts/:id */
 export const deletePost = { params: idParam };
 
+const DAY = 86_400_000;
+const isoUtc = (d: Date) => d.toISOString().slice(0, 10);
+/** Último día del mes de una fecha ISO (Date.UTC con día 0 = último del mes anterior). */
+const monthEnd = (date: string) => isoUtc(new Date(Date.UTC(Number(date.slice(0, 4)), Number(date.slice(5, 7)), 0)));
+
+/** GET /classrooms/:id/calendar?from&to — sin fechas, el mes en curso; como mucho 100 días. */
+export const calendar = {
+  params: idParam,
+  query: z
+    .object({ from: z.string().date().optional(), to: z.string().date().optional() })
+    .transform(({ from, to }) => {
+      const start = from ?? `${(to ?? isoUtc(new Date())).slice(0, 7)}-01`;
+      return { from: start, to: to ?? monthEnd(start) };
+    })
+    .refine((q) => q.to >= q.from, { message: 'La fecha final no puede ser anterior a la inicial.', path: ['to'] })
+    .refine((q) => (Date.parse(q.to) - Date.parse(q.from)) / DAY <= 100, { message: 'El rango no puede superar los 100 días.', path: ['to'] }),
+};
+
 /** GET /classrooms/:id/announcements */
 export const listClassroomAnnouncements = { params: idParam, query: z.object({ page: z.coerce.number().int().min(1).default(1) }) };

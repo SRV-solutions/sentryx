@@ -6,9 +6,10 @@ import {
   CreationOptional,
   ForeignKey,
   NonAttribute,
+  Op,
 } from 'sequelize';
 import { sequelize } from '../../config/database';
-import { AudienceType } from '../../constants/school';
+import { AudienceType, AudienceTarget, AnnouncementCategory } from '../../constants/school';
 
 export interface Attachment {
   /** FileAsset (formato actual). */
@@ -25,6 +26,12 @@ export interface Audience {
   ids: number[];
   /** Incluir también al personal de ese alcance. */
   includeStaff?: boolean;
+  /** SCHOOL/LEVEL/DIVISION/STUDENTS: familias, estudiantes (con cuenta) o ambos. Sin valor = FAMILIES. */
+  target?: AudienceTarget;
+  /** "Sumar más gente": personas puntuales además de la audiencia (colegas, familias o estudiantes del alcance). */
+  extraUserIds?: number[];
+  /** Comunicado personal de una familia o estudiante: sobre qué alumno escribe (contexto de las respuestas). */
+  aboutStudentId?: number;
 }
 
 export const ANNOUNCEMENT_STATUSES = ['DRAFT', 'SCHEDULED', 'SENT', 'ARCHIVED'] as const;
@@ -42,6 +49,10 @@ export class Announcement extends Model<InferAttributes<Announcement>, InferCrea
   declare attachments: CreationOptional<Attachment[]>;
   declare requiresAck: CreationOptional<boolean>;
   declare priority: CreationOptional<'NORMAL' | 'URGENT'>;
+  /** Tipo (ANNOUNCEMENT_CATEGORIES): institucional, académico, áulico, asistencia, convivencia… */
+  declare category: CreationOptional<AnnouncementCategory>;
+  /** Los destinatarios pueden responder. Cada respuesta abre una conversación privada SOLO con quien lo envió. */
+  declare allowReplies: CreationOptional<boolean>;
   declare recipientCount: CreationOptional<number>;
   /** Borrador (solo lo ve el autor), programado (se envía solo), enviado o archivado (sale de la bandeja). */
   declare status: CreationOptional<AnnouncementStatus>;
@@ -62,6 +73,8 @@ Announcement.init(
     attachments: { type: DataTypes.JSONB, allowNull: false, defaultValue: [] },
     requiresAck: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     priority: { type: DataTypes.ENUM('NORMAL', 'URGENT'), allowNull: false, defaultValue: 'NORMAL' },
+    category: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'INSTITUCIONAL' },
+    allowReplies: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
     recipientCount: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
     status: { type: DataTypes.STRING(12), allowNull: false, defaultValue: 'SENT' },
     scheduledAt: { type: DataTypes.DATE, allowNull: true },
@@ -70,7 +83,12 @@ Announcement.init(
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
   },
-  { sequelize, modelName: 'Announcement', tableName: 'Announcement', indexes: [{ fields: ['schoolId', 'createdAt'] }, { fields: ['status', 'scheduledAt'] }] }
+  {
+    sequelize,
+    modelName: 'Announcement',
+    tableName: 'Announcement',
+    indexes: [{ fields: ['schoolId', 'createdAt'] }, { fields: ['status', 'scheduledAt'] }, { name: 'announcement_author_created', fields: ['authorId', 'createdAt'] }],
+  }
 );
 
 /** Destinatario materializado: permite bandeja por usuario y "quién leyó / quién confirmó" en una consulta. */
@@ -104,11 +122,17 @@ AnnouncementRecipient.init(
   }
 );
 
-/** Conversación familia ↔ institución, siempre en el contexto de un alumno. */
+/**
+ * Conversación privada. Dos orígenes:
+ * - respuesta a un comunicado (announcementId): siempre entre quien lo envió y quien responde, una por persona;
+ * - conversación iniciada directamente (anteriores y app móvil): familia/estudiante ↔ escuela sobre un alumno.
+ */
 export class Thread extends Model<InferAttributes<Thread>, InferCreationAttributes<Thread>> {
   declare id: CreationOptional<number>;
   declare schoolId: ForeignKey<number>;
   declare studentId: ForeignKey<number | null>;
+  /** Comunicado al que responde (null = conversación directa). Único por (announcementId, createdById). */
+  declare announcementId: CreationOptional<number | null>;
   declare subject: string;
   declare createdById: ForeignKey<number>;
   declare lastMessageAt: CreationOptional<Date>;
@@ -122,12 +146,23 @@ Thread.init(
   {
     id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
     subject: { type: DataTypes.STRING(160), allowNull: false },
+    announcementId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'Announcement', key: 'id' }, onDelete: 'CASCADE' },
     lastMessageAt: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW },
     lastMessagePreview: { type: DataTypes.STRING(160), allowNull: false, defaultValue: '' },
     closedAt: { type: DataTypes.DATE, allowNull: true },
     createdAt: DataTypes.DATE,
   },
-  { sequelize, modelName: 'Thread', tableName: 'Thread', updatedAt: false, indexes: [{ fields: ['schoolId', 'lastMessageAt'] }] }
+  {
+    sequelize,
+    modelName: 'Thread',
+    tableName: 'Thread',
+    updatedAt: false,
+    indexes: [
+      { fields: ['schoolId', 'lastMessageAt'] },
+      // Una sola conversación por persona que responde un comunicado.
+      { name: 'thread_announcement_creator', unique: true, fields: ['announcementId', 'createdById'], where: { announcementId: { [Op.ne]: null } } },
+    ],
+  }
 );
 
 export class ThreadParticipant extends Model<InferAttributes<ThreadParticipant>, InferCreationAttributes<ThreadParticipant>> {

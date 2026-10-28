@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import { FlatList, KeyboardAvoidingView, Pressable, View } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useInfiniteQuery, useMutation, useQueryClient, InfiniteData } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
@@ -16,7 +17,7 @@ import type { RootStackParamList } from '../../navigation';
 
 export default function ThreadScreen() {
   const { id } = useRoute<RouteProp<RootStackParamList, 'Thread'>>().params;
-  const nav = useNavigation();
+  const nav = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { user } = useAuth();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
@@ -85,6 +86,13 @@ export default function ThreadScreen() {
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={keyboardBehavior} keyboardVerticalOffset={90}>
       {q.error && <View style={{ padding: 16 }}><ErrorBox error={q.error} retry={q.refetch} /></View>}
       {q.isLoading && !q.data && <View style={{ padding: 16 }}><Skeleton count={5} h={56} /></View>}
+      {thread?.announcement && (
+        <Pressable onPress={() => nav.navigate('AnnouncementDetail', { id: thread.announcement!.id })} accessibilityRole="link" style={({ pressed }) => [{ flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: 12, marginTop: 10, paddingHorizontal: 12, paddingVertical: 8, borderRadius: radius.md, backgroundColor: colors.infoBg }, pressed && { opacity: 0.8 }]}>
+          <Feather name="corner-up-left" size={14} color={colors.primary} />
+          <T kind="xs" color={colors.primary} numberOfLines={1} style={{ flex: 1, fontWeight: '700' }}>Respuesta al comunicado «{thread.announcement.title}»</T>
+          <Feather name="chevron-right" size={14} color={colors.primary} />
+        </Pressable>
+      )}
       {thread?.student && (
         <View style={{ padding: 12, paddingBottom: 0 }}>
           <T kind="xs" muted style={{ textAlign: 'center' }}>Sobre {thread.student.firstName} {thread.student.lastName} · {participants.map((p) => `${p.firstName} (${p.roleLabel})`).join(', ')}</T>

@@ -97,6 +97,8 @@ const ALL_SCHOOL_PERMISSIONS: PermissionPair[] = [
   [Entity.ALERTS, Action.READ],
   [Entity.ALERTS, Action.UPDATE],
   [Entity.ALERT_RULES, Action.UPDATE],
+  [Entity.CONDUCT, Action.READ],
+  [Entity.CONDUCT, Action.CREATE],
   [Entity.PLANS, Action.READ],
   [Entity.PLANS, Action.UPDATE],
   [Entity.STAFF_RECORDS, Action.READ],
@@ -167,7 +169,7 @@ export const ROLE_CATALOG: RoleDefinition[] = [
       [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.CREATE_SCHOOL_WIDE], [Entity.ANNOUNCEMENTS, Action.READ_STATS],
       [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
       // Lee notas pero NO publica boletines: eso lo decide la conducción (Dirección, Rectoría, Vicedirección).
-      [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ],
+      [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ALERTS, Action.READ], [Entity.CONDUCT, Action.READ],
       [Entity.PLANS, Action.READ], [Entity.STAFF_RECORDS, Action.READ], [Entity.STAFF_RECORDS, Action.UPDATE],
       [Entity.EVENTS, Action.READ], [Entity.EVENTS, Action.CREATE], [Entity.EVENTS, Action.UPDATE], [Entity.EVENTS, Action.DELETE],
       [Entity.SUBJECT_PROGRAMS, Action.READ],
@@ -193,7 +195,7 @@ export const ROLE_CATALOG: RoleDefinition[] = [
       [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.READ_STATS], [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
       [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE],
       [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ATTENDANCE, Action.UPDATE],
-      [Entity.ALERTS, Action.READ], [Entity.ALERTS, Action.UPDATE],
+      [Entity.ALERTS, Action.READ], [Entity.ALERTS, Action.UPDATE], [Entity.CONDUCT, Action.READ], [Entity.CONDUCT, Action.CREATE],
       [Entity.EVENTS, Action.READ], [Entity.QUIZZES, Action.CREATE],
     ],
   },
@@ -205,7 +207,7 @@ export const ROLE_CATALOG: RoleDefinition[] = [
       [Entity.ANNOUNCEMENTS, Action.CREATE], [Entity.ANNOUNCEMENTS, Action.READ_STATS], [Entity.MESSAGES, Action.MANAGE], [Entity.CHANNELS, Action.MODERATE],
       [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE],
       [Entity.GRADES, Action.READ], [Entity.ATTENDANCE, Action.READ], [Entity.ATTENDANCE, Action.UPDATE],
-      [Entity.ALERTS, Action.READ], [Entity.ALERTS, Action.UPDATE],
+      [Entity.ALERTS, Action.READ], [Entity.ALERTS, Action.UPDATE], [Entity.CONDUCT, Action.READ], [Entity.CONDUCT, Action.CREATE],
       [Entity.EVENTS, Action.READ], [Entity.QUIZZES, Action.CREATE],
     ],
   },
@@ -217,17 +219,19 @@ export const ROLE_CATALOG: RoleDefinition[] = [
       [Entity.CLASSROOM_POSTS, Action.CREATE], [Entity.CLASSROOM_POSTS, Action.UPDATE], [Entity.GRADES, Action.UPDATE],
       // Las maestras de grado/sala toman la asistencia de su curso (desde la web o el celular); el alcance sigue siendo solo sus divisiones.
       [Entity.ATTENDANCE, Action.READ], [Entity.ATTENDANCE, Action.UPDATE], [Entity.ALERTS, Action.READ],
+      // Convivencia: registra lo que pasa en sus horas (solo alumnos de sus cursos).
+      [Entity.CONDUCT, Action.READ], [Entity.CONDUCT, Action.CREATE],
       [Entity.EVENTS, Action.READ], [Entity.SUBJECT_PROGRAMS, Action.CREATE], [Entity.QUIZZES, Action.CREATE],
     ],
   },
   {
     code: RoleCode.TUTOR, name: 'Familia', scope: RoleScope.SCHOOL, category: 'FAMILIA', rank: 0, schoolWide: false, leadership: false,
-    description: 'Ve a sus hijos: comunicados, boletín publicado, asistencia, aula y mensajes con la escuela.',
+    description: 'Ve a sus hijos: comunicados (recibe, envía y responde), boletín publicado, asistencia, aula y convivencia.',
     defaultPermissions: [],
   },
   {
     code: RoleCode.ESTUDIANTE, name: 'Estudiante', scope: RoleScope.SCHOOL, category: 'ESTUDIANTE', rank: 0, schoolWide: false, leadership: false,
-    description: 'Secundario: su boletín publicado, aulas, canales de su curso y mensajes con sus docentes.',
+    description: 'Secundario: su perfil (materias, notas publicadas, convivencia), aulas, canales de su curso y comunicados con sus docentes.',
     defaultPermissions: [],
   },
 ];

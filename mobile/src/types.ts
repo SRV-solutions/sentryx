@@ -76,6 +76,14 @@ export interface ChildSummary {
   lastReportCardAt: string | null;
 }
 
+/** Tipos de comunicado (espejo de ANNOUNCEMENT_CATEGORIES de la API). */
+export type AnnouncementCategory = 'INSTITUCIONAL' | 'ACADEMICO' | 'AULICO' | 'ASISTENCIA' | 'CONVIVENCIA' | 'ADMINISTRATIVO' | 'EVENTO' | 'CONSULTA';
+export const ANNOUNCEMENT_CATEGORY_LABELS: Record<AnnouncementCategory, string> = {
+  INSTITUCIONAL: 'Institucional', ACADEMICO: 'Académico', AULICO: 'Áulico', ASISTENCIA: 'Asistencia', CONVIVENCIA: 'Convivencia', ADMINISTRATIVO: 'Administrativo', EVENTO: 'Eventos y actos', CONSULTA: 'Consulta',
+};
+/** Etiqueta tolerante: la caché persistida puede traer comunicados sin categoría o una categoría nueva que la app no conoce. */
+export const announcementCategoryLabel = (c?: string | null) => (c ? ANNOUNCEMENT_CATEGORY_LABELS[c as AnnouncementCategory] ?? null : null);
+
 export interface Paginated<T> { data: T[]; pagination: { totalItems: number; currentPage: number; totalPages: number } }
 export interface AttachmentRef { name: string; url: string; size?: number; type?: string }
 
@@ -93,6 +101,10 @@ export interface InboxItem {
   ackAt: string | null;
   children: string[];
   status?: 'SENT' | 'ARCHIVED';
+  // Opcionales: la caché persistida (hasta 7 días) puede traer la forma anterior.
+  category?: AnnouncementCategory;
+  allowReplies?: boolean;
+  myThreadId?: number | null;
 }
 export interface AnnouncementDetail {
   id: number;
@@ -106,6 +118,20 @@ export interface AnnouncementDetail {
   attachments: AttachmentRef[];
   myReceipt: { readAt: string | null; ackAt: string | null } | null;
   stats: { total: number; read: number; ack: number } | null;
+  category?: AnnouncementCategory;
+  allowReplies?: boolean;
+  canReply?: boolean;
+  myThreadId?: number | null;
+  /** Solo para quien lo mandó: cada respuesta es una conversación privada con esa persona. */
+  replies?: { total: number; unread: number; items: AnnouncementReply[] } | null;
+}
+export interface AnnouncementReply {
+  threadId: number;
+  user: { id: number; firstName: string; lastName: string; avatar: string | null };
+  roleLabel: string;
+  lastMessageAt: string;
+  lastMessagePreview: string;
+  unread: number;
 }
 
 export interface ThreadRow {
@@ -119,10 +145,11 @@ export interface ThreadRow {
   closedAt: string | null;
   unread: number;
   others: Array<{ userId: number; name: string; avatar: string | null; roleLabel: string }> | null;
+  announcementId?: number | null;
 }
-export interface Message { id: number; senderId: number; body: string; attachments: AttachmentRef[]; createdAt: string }
+export interface Message { id: number; threadId?: number; senderId: number; body: string; attachments: AttachmentRef[]; createdAt: string }
 export interface ThreadData {
-  thread: { id: number; subject: string; closedAt: string | null; student: { id: number; firstName: string; lastName: string } | null };
+  thread: { id: number; subject: string; closedAt: string | null; student: { id: number; firstName: string; lastName: string } | null; announcement?: { id: number; title: string; category: AnnouncementCategory } | null };
   participants: Array<{ id: number; firstName: string; lastName: string; avatar: string | null; roleLabel: string; lastReadAt: string | null }>;
   messages: Message[];
   hasMore: boolean;

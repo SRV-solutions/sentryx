@@ -10,6 +10,7 @@ import { createDefaultStructure as buildDefaultStructure, applyGradingScheme as 
 import { ensurePeriods } from '../services/schoolSetup';
 import { transferStudents as moveStudents, withdrawStudent as withdraw, reactivateStudent as reactivate, promotionPlan as buildPromotionPlan, applyPromotion as promote } from '../services/studentLifecycle';
 import { audit } from '../services/audit';
+import { accountSummary } from '../services/studentAccounts';
 import { LEAVE_REASONS } from '../models/school/people';
 import { sequelize } from '../models';
 
@@ -157,8 +158,9 @@ export const withdrawStudent = asyncHandler(async (req, res) => {
 
 // POST /students/:id/reactivate
 export const reactivateStudent = asyncHandler(async (req, res) => {
-  const student = await reactivate(req.schoolSession!, Number(req.params.id), req.body.divisionId as number);
-  res.json({ ok: true, studentId: student.id });
+  const { student, account, credential } = await reactivate(req.schoolSession!, Number(req.params.id), req.body.divisionId as number);
+  // Secundario: su cuenta se reactiva o se crea; si se creó, la contraseña temporal va en la hoja de credenciales.
+  res.json({ ok: true, studentId: student.id, studentAccount: accountSummary(account), credentials: credential ? [credential] : [] });
 });
 
 // GET /promotions/plan

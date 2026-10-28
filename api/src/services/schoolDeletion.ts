@@ -83,6 +83,9 @@ export const deleteSchoolPermanently = async (opts: { schoolId: number; confirmS
     const exclusive = ((await sequelize.query(EXCLUSIVE_SQL, { replacements: r, type: QueryTypes.SELECT, transaction })) as Array<{ id: number }>).map((u) => u.id);
     const run = (sql: string, replacements: Record<string, unknown> = r) => sequelize.query(sql, { replacements, transaction });
 
+    // El historial de convivencia no se puede borrar (trigger en la base), salvo en esta eliminación definitiva.
+    await run(`SET LOCAL sentryx.purge = 'on'`);
+
     // 1) Tablas que no se borran solas con el colegio (sus claves no son en cascada). De hijas a padres.
     await run(`DELETE FROM "LiveGame" WHERE "schoolId" = :sid`);
     await run(`DELETE FROM "QuizAssignment" WHERE "schoolId" = :sid`);

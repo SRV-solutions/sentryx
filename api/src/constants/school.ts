@@ -30,9 +30,64 @@ export type AlertRuleType = (typeof ALERT_RULE_TYPES)[number];
 export const SEVERITIES = ['INFO', 'WARNING', 'CRITICAL'] as const;
 export type Severity = (typeof SEVERITIES)[number];
 
-/** GUARDIANS: familias elegidas una por una (ids = userId de cada madre/padre/tutor). */
-export const AUDIENCE_TYPES = ['SCHOOL', 'LEVEL', 'DIVISION', 'STUDENTS', 'GUARDIANS', 'STAFF'] as const;
+/**
+ * A quién va un comunicado:
+ * SCHOOL todos los niveles · LEVEL niveles (ids) · DIVISION cursos (ids) · STUDENTS alumnos elegidos (ids = studentId)
+ * GUARDIANS familias elegidas una por una (ids = userId de cada madre/padre/tutor) · STAFF personal (ids = niveles, opcional)
+ * USERS personas elegidas una por una (ids = userId: colegas, familias o estudiantes con cuenta).
+ */
+export const AUDIENCE_TYPES = ['SCHOOL', 'LEVEL', 'DIVISION', 'STUDENTS', 'GUARDIANS', 'STAFF', 'USERS'] as const;
 export type AudienceType = (typeof AUDIENCE_TYPES)[number];
+
+/**
+ * Para SCHOOL/LEVEL/DIVISION/STUDENTS: a quién de cada alumno le llega. Los estudiantes solo reciben si tienen cuenta
+ * (Secundario). Sin valor = FAMILIES (lo que hacían todos los comunicados anteriores).
+ */
+export const AUDIENCE_TARGETS = ['FAMILIES', 'STUDENTS', 'BOTH'] as const;
+export type AudienceTarget = (typeof AUDIENCE_TARGETS)[number];
+export const AUDIENCE_TARGET_LABELS: Record<AudienceTarget, string> = { FAMILIES: 'familias', STUDENTS: 'estudiantes', BOTH: 'familias y estudiantes' };
+
+/**
+ * Tipo de comunicado (además de la prioridad Normal/Urgente). Ordena la bandeja, define el color y permite filtrar.
+ * INSTITUCIONAL novedades generales · ACADEMICO evaluaciones, notas, boletines · AULICO lo del aula/materia (tareas,
+ * materiales, "te tomo la semana que viene") · ASISTENCIA faltas y llegadas tarde · CONVIVENCIA disciplinario ·
+ * ADMINISTRATIVO cuotas, documentación, trámites · EVENTO actos, salidas, reuniones · CONSULTA lo que escriben
+ * familias y estudiantes a la escuela.
+ */
+export const ANNOUNCEMENT_CATEGORIES = ['INSTITUCIONAL', 'ACADEMICO', 'AULICO', 'ASISTENCIA', 'CONVIVENCIA', 'ADMINISTRATIVO', 'EVENTO', 'CONSULTA'] as const;
+export type AnnouncementCategory = (typeof ANNOUNCEMENT_CATEGORIES)[number];
+export const ANNOUNCEMENT_CATEGORY_LABELS: Record<AnnouncementCategory, string> = {
+  INSTITUCIONAL: 'Institucional',
+  ACADEMICO: 'Académico',
+  AULICO: 'Áulico',
+  ASISTENCIA: 'Asistencia',
+  CONVIVENCIA: 'Convivencia',
+  ADMINISTRATIVO: 'Administrativo',
+  EVENTO: 'Eventos y actos',
+  CONSULTA: 'Consulta',
+};
+/** Lo que pueden elegir familias y estudiantes al escribirle a la escuela. */
+export const NON_STAFF_CATEGORIES: AnnouncementCategory[] = ['CONSULTA', 'ACADEMICO', 'ASISTENCIA', 'ADMINISTRATIVO'];
+
+/**
+ * Convivencia: tipo de registro en el historial del alumno (Secundario). El historial no se edita ni se borra:
+ * un error se corrige con un registro RECTIFICACION que apunta al original (refId).
+ * quantity: cantidad de amonestaciones o días de suspensión, según el tipo.
+ */
+export const CONDUCT_KINDS = ['OBSERVACION', 'LLAMADO_ATENCION', 'APERCIBIMIENTO', 'AMONESTACION', 'SUSPENSION', 'ACTA', 'RECONOCIMIENTO', 'RECTIFICACION'] as const;
+export type ConductKind = (typeof CONDUCT_KINDS)[number];
+export const CONDUCT_KIND_LABELS: Record<ConductKind, string> = {
+  OBSERVACION: 'Observación',
+  LLAMADO_ATENCION: 'Llamado de atención',
+  APERCIBIMIENTO: 'Apercibimiento',
+  AMONESTACION: 'Amonestación',
+  SUSPENSION: 'Suspensión',
+  ACTA: 'Acta / acuerdo de convivencia',
+  RECONOCIMIENTO: 'Reconocimiento',
+  RECTIFICACION: 'Rectificación',
+};
+/** Tipos que llevan cantidad: amonestaciones (cuántas) y suspensión (días). */
+export const CONDUCT_KINDS_WITH_QUANTITY: ConductKind[] = ['AMONESTACION', 'SUSPENSION'];
 
 /**
  * Modo de calificación por defecto del nivel (lo define la conducción del nivel; cada período se puede cambiar igual):

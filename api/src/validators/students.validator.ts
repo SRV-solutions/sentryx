@@ -75,3 +75,9 @@ export const createDivisionAccounts = { body: z.object({ divisionId: z.number().
 
 /** PATCH /students/:id/account */
 export const setAccountStatus = { params: idParam, body: z.object({ active: z.boolean() }) };
+
+/** GET /students/:id/subjects (yearId opcional: ciclos anteriores, como el boletín) */
+export const getStudentSubjects = { params: idParam, query: z.object({ yearId: z.coerce.number().int().positive().optional() }) };
+
+/** PUT /students/:id/email */
+export const setStudentEmail = { params: idParam, body: z.object({ email: z.string().trim().toLowerCase().email('escribí un email válido').max(120) }) };

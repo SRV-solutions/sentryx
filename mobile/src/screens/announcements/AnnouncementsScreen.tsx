@@ -12,7 +12,7 @@ import { useTheme, radius } from '../../theme';
 import { Avatar, Badge, Chip, Empty, ErrorBox, IconButton, Input, Row, Skeleton, T } from '../../ui';
 import { timeAgo, fullName } from '../../lib/format';
 import { useRealtimeEvent } from '../../lib/realtime';
-import { InboxItem, Paginated, Perm } from '../../types';
+import { InboxItem, Paginated, Perm, announcementCategoryLabel } from '../../types';
 import { WEB_URL } from '../../config';
 import type { RootStackParamList } from '../../navigation';
 
@@ -80,6 +80,7 @@ export default function AnnouncementsScreen() {
         ListEmptyComponent={!q.isLoading ? <Empty icon={filtering ? 'search' : 'bell'} title={filtering ? 'Nada coincide' : 'No hay comunicados'} text={filtering ? 'Probá con otras palabras o quitá los filtros.' : 'Cuando la escuela mande uno, aparece acá.'} /> : undefined}
         renderItem={({ item }) => {
           const unread = !item.readAt;
+          const cat = announcementCategoryLabel(item.category);
           return (
             <Pressable onPress={() => nav.navigate('AnnouncementDetail', { id: item.id })} android_ripple={{ color: colors.surface2 }} style={({ pressed }) => [{ backgroundColor: colors.surface, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: unread ? colors.primary : colors.border, gap: 6 }, pressed && { opacity: 0.85 }]}>
               <Row>
@@ -91,12 +92,15 @@ export default function AnnouncementsScreen() {
                 {unread && <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary }} />}
               </Row>
               <T kind="small" muted numberOfLines={2}>{item.preview}</T>
-              {(item.priority === 'URGENT' || item.requiresAck || item.hasAttachments || item.children.length > 0 || item.status === 'ARCHIVED') && (
+              {(!!cat || item.allowReplies || item.priority === 'URGENT' || item.requiresAck || item.hasAttachments || item.children.length > 0 || item.status === 'ARCHIVED') && (
                 <Row style={{ flexWrap: 'wrap', gap: 6 }}>
                   {item.status === 'ARCHIVED' && <Badge>Archivado</Badge>}
+                  {cat && <Badge tone="info">{cat}</Badge>}
                   {item.priority === 'URGENT' && <Badge tone="danger">Urgente</Badge>}
                   {item.requiresAck && <Badge tone={item.ackAt ? 'ok' : 'warn'}>{item.ackAt ? 'Confirmado' : 'Pide confirmación'}</Badge>}
                   {item.hasAttachments && <Badge><Feather name="paperclip" size={11} /> Adjuntos</Badge>}
+                  {/* Archivado ya no se puede responder (la API lo rechaza): solo queda "Respondiste" si hubo charla. */}
+                  {item.allowReplies && (item.myThreadId || item.status !== 'ARCHIVED') && <Badge tone={item.myThreadId ? 'ok' : undefined}><Feather name="message-circle" size={11} /> {item.myThreadId ? 'Respondiste' : 'Podés responder'}</Badge>}
                   {item.children.map((c) => <Badge key={c}>{c}</Badge>)}
                 </Row>
               )}

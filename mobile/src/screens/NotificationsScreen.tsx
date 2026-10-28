@@ -9,7 +9,8 @@ import { useRealtimeEvent } from '../lib/realtime';
 import { NotificationRow } from '../types';
 import { openPath } from '../navigation';
 
-const ICONS: Record<string, keyof typeof Feather.glyphMap> = { announcement: 'bell', thread: 'message-circle', attendance: 'check-square', grades: 'book', alert: 'alert-triangle' };
+// La API manda type 'message' para mensajes y respuestas a comunicados ('thread' queda por avisos viejos).
+const ICONS: Record<string, keyof typeof Feather.glyphMap> = { announcement: 'bell', message: 'message-circle', thread: 'message-circle', conduct: 'clipboard', account: 'user', attendance: 'check-square', grades: 'book', alert: 'alert-triangle' };
 
 export default function NotificationsScreen() {
   const { colors } = useTheme();

@@ -47,7 +47,7 @@ export const StudentsAdminTab = () => {
 
   const create = useMutation({
     mutationFn: () =>
-      apiSend<{ credentials: Credential[]; guardiansLinked: number }>('POST', '/school/students', {
+      apiSend<{ credentials: Credential[]; guardiansLinked: number; studentAccount?: { status: 'created' | 'reactivated' | 'exists' | 'skipped'; reason?: string } }>('POST', '/school/students', {
         firstName: form.firstName,
         lastName: form.lastName,
         dni: form.dni || null,
@@ -58,7 +58,9 @@ export const StudentsAdminTab = () => {
       }),
     onSuccess: (r) => {
       const n = r.guardiansLinked ?? 0;
-      toast(`Alumno cargado con ${n} familiar${n === 1 ? '' : 'es'} ✅`);
+      // En Secundario la cuenta del estudiante se crea sola (sus credenciales vienen junto a las de la familia).
+      const acc = r.studentAccount;
+      toast(`Alumno cargado con ${n} familiar${n === 1 ? '' : 'es'} ✅${acc?.status === 'created' ? ' · cuenta de estudiante creada' : acc?.status === 'skipped' ? ` · no se creó su cuenta de estudiante${acc.reason ? `: ${acc.reason}` : ''}` : ''}`, acc?.status === 'skipped');
       setCreds(r.credentials);
       setSubmitError('');
       setShowErrors(false);
@@ -108,6 +110,9 @@ export const StudentsAdminTab = () => {
             ))}
           </select>
         </Field>
+        {structure.data.levels.find((l) => l.id === structure.data!.divisions.find((d) => d.id === form.divisionId)?.levelId)?.type === 'SECUNDARIO' && (
+          <p className="xs muted" style={{ marginTop: -6 }}>En Secundario se le crea su cuenta de estudiante: ingresa con su DNI (sin DNI no se puede crear). Te mostramos la contraseña al guardar.</p>
+        )}
         {form.guardians.map((g, i) => (
           <div key={i} className="card card-pad stack" style={{ background: 'var(--surface-2)' }}>
             <div className="row-between">

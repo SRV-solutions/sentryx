@@ -465,6 +465,68 @@ const migrations: Array<{
       await (M.TeacherAbsence as unknown as { sync: () => Promise<unknown> }).sync();
     },
   },
+  {
+    // Comunicados y conversaciones unificados: tipo de comunicado, "permitir respuestas" (cada respuesta abre una
+    // conversación privada SOLO con quien lo envió), convivencia (historial que no se edita ni se borra), aviso de
+    // cuentas de estudiantes sin email y calendario del aula (evaluaciones y TPs por fecha).
+    name: "2026-10-28-comunicados-convivencia",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "Announcement", "category", { type: DataTypes.STRING(20), allowNull: false, defaultValue: "INSTITUCIONAL" });
+      await addColumnIfMissing(qi, "Announcement", "allowReplies", { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false });
+      // Bandeja de enviados: WHERE "authorId" = ? ORDER BY "createdAt".
+      await index(`CREATE INDEX IF NOT EXISTS "announcement_author_created" ON "Announcement" ("authorId", "createdAt")`);
+
+      await addColumnIfMissing(qi, "Thread", "announcementId", {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: { model: "Announcement", key: "id" },
+        onDelete: "CASCADE",
+      });
+      // Una conversación por persona que responde (y búsqueda de respuestas de un comunicado).
+      await index(`CREATE UNIQUE INDEX IF NOT EXISTS "thread_announcement_creator" ON "Thread" ("announcementId", "createdById") WHERE "announcementId" IS NOT NULL`);
+
+      await addColumnIfMissing(qi, "Student", "noEmailNoticeAt", { type: DataTypes.DATE, allowNull: true });
+
+      // Calendario del aula: evaluaciones y TPs de un curso entre dos fechas.
+      await index(`CREATE INDEX IF NOT EXISTS "classroom_post_division_due" ON "ClassroomPost" ("divisionId", "dueDate") WHERE "dueDate" IS NOT NULL`);
+
+      // Convivencia: solo se agregan registros. La base rechaza cualquier UPDATE o DELETE, salvo la eliminación
+      // definitiva de un colegio (services/schoolDeletion.ts activa sentryx.purge dentro de su transacción).
+      await (M.ConductRecord as unknown as { sync: () => Promise<unknown> }).sync();
+      await index(`
+        CREATE OR REPLACE FUNCTION conduct_record_append_only() RETURNS trigger AS $$
+        BEGIN
+          IF TG_OP = 'DELETE' AND current_setting('sentryx.purge', true) = 'on' THEN
+            RETURN OLD;
+          END IF;
+          -- ON DELETE SET NULL de materia, curso o ciclo (lo dispara la FK, nunca un UPDATE directo): el hecho
+          -- queda igual, solo se pierde el vínculo. Cualquier otro cambio se rechaza.
+          IF TG_OP = 'UPDATE' AND pg_trigger_depth() > 1
+            AND (NEW."subjectId" IS NULL OR NEW."subjectId" = OLD."subjectId")
+            AND (NEW."divisionId" IS NULL OR NEW."divisionId" = OLD."divisionId")
+            AND (NEW."academicYearId" IS NULL OR NEW."academicYearId" = OLD."academicYearId")
+            AND (to_jsonb(NEW) - 'subjectId' - 'divisionId' - 'academicYearId') = (to_jsonb(OLD) - 'subjectId' - 'divisionId' - 'academicYearId') THEN
+            RETURN NEW;
+          END IF;
+          RAISE EXCEPTION 'El historial de convivencia no se puede modificar ni borrar';
+        END
+        $$ LANGUAGE plpgsql`);
+      await index(`DROP TRIGGER IF EXISTS "conduct_record_append_only" ON "ConductRecord"`);
+      await index(`CREATE TRIGGER "conduct_record_append_only" BEFORE UPDATE OR DELETE ON "ConductRecord" FOR EACH ROW EXECUTE PROCEDURE conduct_record_append_only()`);
+
+      // Permisos nuevos (conduct:read / conduct:create): se asignan a los roles según su configuración por defecto.
+      await syncRbacCatalog();
+    },
+  },
+  {
+    // Emails de estudiantes: la conducción puede pedirle al estudiante que cambie un email inventado; el pedido
+    // queda visible para el estudiante hasta que lo cambia.
+    name: "2026-10-29-student-email-change-request",
+    up: async (qi) => {
+      await addColumnIfMissing(qi, "Student", "emailChangeRequestedAt", { type: DataTypes.DATE, allowNull: true });
+      await addColumnIfMissing(qi, "Student", "emailChangeReason", { type: DataTypes.STRING(300), allowNull: true });
+    },
+  },
 ];
 
 const run = async () => {

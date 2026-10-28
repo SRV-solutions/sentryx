@@ -1,7 +1,7 @@
 /** Controlador de students: la lógica de cada ruta de routes/students.routes.ts. */
 import { z } from 'zod';
 import { Op, WhereOptions } from 'sequelize';
-import { UserRole, User, Level, Student, Enrollment, StudentGuardian, Division, School, AcademicYear, sequelize } from '../models';
+import { UserRole, User, Level, Student, Enrollment, StudentGuardian, Division, School, AcademicYear, Subject, TeachingAssignment, sequelize } from '../models';
 import { asyncHandler, notFound, badRequest, pagination } from '../lib/http';
 import { invalidateSchoolSession, assertStudentAccess, assertDivision, SchoolSession, studentDivisionId, canSeeDivision } from '../services/schoolSession';
 import { findOrCreatePerson, sendWelcome, isTechEmail } from '../services/accounts';
@@ -13,6 +13,9 @@ import { conflict, forbidden } from '../lib/http';
 import { Entity, Action } from '../constants/permissions';
 import { StudentInput, guardianInput, studentBody, studentQuery } from '../validators/students.validator';
 import { RoleCode } from '../constants/roles';
+import { buildReportCard } from '../services/grades';
+import { assertEmailFree } from '../services/studentEmail';
+import { ensureStudentAccount, ensureStudentRole, hasAdultRole, ADULT_DNI_REASON, credentialOf, accountSummary, divisionLevelType, EnsureAccountResult } from '../services/studentAccounts';
 
 
 const sameName = (a: { firstName: string; lastName: string }, b: { firstName: string; lastName: string }) => {
@@ -27,8 +30,14 @@ const assertStaffOverStudent = async (session: SchoolSession, studentId: number)
   if (!div || !canSeeDivision(session, div)) throw forbidden('Ese alumno está fuera de tu alcance.');
 };
 
-/** Crea alumno + inscripción + familias (reutiliza usuarios existentes por DNI/email: hermanos comparten familia). */
-const createStudentWithFamily = async (session: SchoolSession, input: StudentInput) =>
+type Credential = { name: string; login: string; tempPassword: string; email: string | null };
+
+/**
+ * Crea alumno + inscripción + familias (reutiliza usuarios existentes por DNI/email: hermanos comparten familia).
+ * En Secundario también le crea su cuenta (ingresa con DNI) en la misma transacción; si no se puede, `account`
+ * dice por qué y el alta sigue. `levelTypes`: caché de nivel por división (la importación repite cursos).
+ */
+const createStudentWithFamily = async (session: SchoolSession, input: StudentInput, levelTypes = new Map<number, string>()) =>
   sequelize.transaction(async (transaction) => {
     const division = await Division.findOne({ where: { id: input.divisionId, schoolId: session.schoolId }, transaction });
     if (!division) throw badRequest(`División inexistente (${input.divisionId}).`);
@@ -58,7 +67,7 @@ const createStudentWithFamily = async (session: SchoolSession, input: StudentInp
       { transaction, conflictFields: ['studentId', 'academicYearId'] }
     );
 
-    const credentials: Array<{ name: string; login: string; tempPassword: string; email: string | null }> = [];
+    const credentials: Credential[] = [];
     const newUsers: Array<{ user: User; tempPassword: string }> = [];
     const linked = new Map<number, number>(); // userId → nº de familiar en el formulario
     // Si nadie quedó marcado como principal, el primero lo es (recibe los avisos importantes).
@@ -93,7 +102,14 @@ const createStudentWithFamily = async (session: SchoolSession, input: StudentInp
         });
       }
     }
-    return { student, credentials, newUsers, guardiansLinked: linked.size };
+    // Después de las familias: si el DNI del alumno resultó ser el de un familiar, se saltea (no se le da su cuenta).
+    let account: EnsureAccountResult | null = null;
+    if (student.active && (await divisionLevelType(division.id, levelTypes, transaction)) === 'SECUNDARIO') {
+      account = await ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student, transaction, divisionId: division.id, levelTypes });
+      const cred = credentialOf(account, student, '');
+      if (cred) credentials.push({ name: cred.name, login: cred.login, tempPassword: cred.tempPassword, email: null });
+    }
+    return { student, credentials, newUsers, guardiansLinked: linked.size, account };
   });
 
 // =============== CUENTAS DE ESTUDIANTES (solo Secundario) ===============
@@ -111,28 +127,27 @@ const secondaryEnrollment = async (session: SchoolSession, studentId: number) =>
 };
 
 /** Crea (o reactiva) la cuenta del estudiante. Ingresa con su DNI; el email es opcional. */
-const createStudentAccount = async (session: SchoolSession, student: Student, email: string | null) => {
+const createStudentAccount = async (session: SchoolSession, student: Student, rawEmail: string | null) => {
+  const email = rawEmail?.trim().toLowerCase() || null;
   if (!student.dni && !email) throw badRequest(`${student.firstName} ${student.lastName}: cargá su DNI (o un email) para crearle la cuenta.`);
   return sequelize.transaction(async (transaction) => {
     let tempPassword: string | null = null;
     let user: User | null = student.userId ? await User.findByPk(student.userId, { transaction }) : null;
+    // El email tiene que ser propio: el de la mamá (ya usado por su cuenta) se rechaza con un mensaje claro.
+    if (email && !isTechEmail(email)) await assertEmailFree(email, student.firstName, { userId: user?.id ?? null, dni: student.dni, studentId: student.id }, transaction);
+    if (user && email && !isTechEmail(email) && isTechEmail(user.email)) await user.update({ email }, { transaction });
     if (!user) {
       const r = await findOrCreatePerson({ firstName: student.firstName, lastName: student.lastName, dni: student.dni, email }, transaction);
       // Un DNI de alumno que ya es de un adulto (ej: se cargó el DNI de la madre) no se reutiliza.
-      if (!r.created && (await UserRole.count({ where: { userId: r.user.id, role: { [Op.ne]: 'ESTUDIANTE' } }, transaction }))) {
-        throw conflict(`${student.firstName}: ese DNI ya pertenece a una cuenta de personal o familia. Revisá el DNI del alumno.`);
-      }
+      if (!r.created && (await hasAdultRole(r.user.id, transaction))) throw conflict(`${student.firstName}: ${ADULT_DNI_REASON}`);
       user = r.user;
       tempPassword = r.tempPassword;
+      // Encontrada por DNI con email técnico: findOrCreatePerson completa el email; si no lo hizo, se guarda acá.
+      if (email && !isTechEmail(email) && isTechEmail(user.email)) await user.update({ email }, { transaction });
       await student.update({ userId: user.id }, { transaction });
     }
-    const [m, created] = await UserRole.findOrCreate({
-      where: { userId: user.id, schoolId: session.schoolId, role: RoleCode.ESTUDIANTE },
-      defaults: { userId: user.id, schoolId: session.schoolId, role: RoleCode.ESTUDIANTE, levelId: null, title: null },
-      transaction,
-    });
-    if (!created && m.active && !tempPassword) throw conflict(`${student.firstName} ya tiene una cuenta activa.`);
-    if (!created && !m.active) await m.update({ active: true }, { transaction });
+    const role = await ensureStudentRole(user.id, session.schoolId, transaction);
+    if (role === 'exists' && !tempPassword) throw conflict(`${student.firstName} ya tiene una cuenta activa.`);
     await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', entityId: student.id, action: 'create-account', after: { userId: user.id } }, transaction);
     return { user, tempPassword };
   });
@@ -187,7 +202,7 @@ export const getStudent = asyncHandler(async (req, res) => {
     const id = Number(req.params.id);
     const { asGuardian } = await assertStudentAccess(session, id);
     const student = await Student.findByPk(id, {
-      attributes: asGuardian ? ['id', 'firstName', 'lastName', 'dni', 'birthDate', 'photoUrl'] : undefined,
+      attributes: asGuardian ? ['id', 'firstName', 'lastName', 'dni', 'birthDate', 'photoUrl', 'userId', 'emailChangeRequestedAt', 'emailChangeReason'] : undefined,
       include: [
         {
           model: Enrollment,
@@ -225,8 +240,20 @@ export const getStudent = asyncHandler(async (req, res) => {
 
     if (asGuardian) delete json.notes;
     delete json.userId;
+    // Pedido de la conducción de cambiar el email: va dentro de `account` (queda visible hasta que lo cambie).
+    const changeRequest = { emailChangeRequestedAt: student.emailChangeRequestedAt ?? null, emailChangeReason: student.emailChangeReason ?? null };
+    if (asGuardian) {
+      delete json.emailChangeRequestedAt;
+      delete json.emailChangeReason;
+    }
+    const division = student.Enrollments?.[0]?.Division as (Division & { Level?: Level }) | undefined;
+    if (asGuardian) {
+      // Familia o el propio estudiante: si tiene cuenta y si le falta el email (para "Cargar email").
+      const u = student.userId ? await User.findByPk(student.userId, { attributes: ['id', 'email'] }) : null;
+      const hasEmail = !!u && !isTechEmail(u.email);
+      json.account = { eligible: division?.Level?.type === 'SECUNDARIO', exists: !!u, hasEmail, email: hasEmail ? u!.email : null, ...(u ? changeRequest : { emailChangeRequestedAt: null, emailChangeReason: null }) };
+    }
     if (!asGuardian) {
-      const division = student.Enrollments?.[0]?.Division as (Division & { Level?: Level }) | undefined;
       const [u, m] = student.userId
         ? await Promise.all([
             User.findByPk(student.userId, { attributes: ['id', 'lastLogin', 'mustChangePassword', 'dni', 'email'] }),
@@ -241,6 +268,10 @@ export const getStudent = asyncHandler(async (req, res) => {
         login: u ? u.dni ?? u.email : null,
         lastLogin: u?.lastLogin ?? null,
         mustChangePassword: u?.mustChangePassword ?? null,
+        hasEmail: !!u && !isTechEmail(u.email),
+        // El email real solo con permiso de datos de contacto (el técnico nunca se muestra).
+        email: u && !isTechEmail(u.email) && session.can(Entity.CONTACT_INFO, Action.READ) ? u.email : null,
+        ...changeRequest,
       };
     }
     res.json(json);
@@ -256,7 +287,7 @@ export const createStudent = asyncHandler(async (req, res) => {
     else result.credentials = result.credentials.map((c) => ({ ...c, email: null }));
     invalidateSchoolSession();
     touchAccess(session.schoolId);
-    res.status(201).json({ student: result.student, credentials: result.credentials, guardiansLinked: result.guardiansLinked });
+    res.status(201).json({ student: result.student, credentials: result.credentials, guardiansLinked: result.guardiansLinked, studentAccount: accountSummary(result.account) });
   });
 
 /**
@@ -269,7 +300,10 @@ export const importStudents = asyncHandler(async (req, res) => {
     const name = await schoolName(session.schoolId);
     const ok: number[] = [];
     const errors: Array<{ row: number; message: string }> = [];
-    const credentials: Array<{ name: string; login: string; tempPassword: string; email: string | null; student: string }> = [];
+    const credentials: Array<Credential & { student: string }> = [];
+    const levelTypes = new Map<number, string>();
+    let accountsCreated = 0;
+    const accountsSkipped: Array<{ row: number; student: string; reason: string }> = [];
 
     for (const [i, raw] of (req.body.rows as unknown[]).entries()) {
       const parsed = studentBody.safeParse(raw);
@@ -278,8 +312,10 @@ export const importStudents = asyncHandler(async (req, res) => {
         continue;
       }
       try {
-        const r = await createStudentWithFamily(session, parsed.data);
+        const r = await createStudentWithFamily(session, parsed.data, levelTypes);
         ok.push(i + 1);
+        if (r.account?.status === 'created') accountsCreated++;
+        if (r.account?.status === 'skipped') accountsSkipped.push({ row: i + 1, student: `${r.student.lastName}, ${r.student.firstName}`, reason: r.account.reason ?? 'sin motivo' });
         credentials.push(...r.credentials.map((c) => ({ ...c, student: `${r.student.lastName}, ${r.student.firstName}` })));
         if (req.body.sendEmails) r.newUsers.forEach(({ user, tempPassword }) => sendWelcome(user, tempPassword, name));
       } catch (err) {
@@ -288,8 +324,8 @@ export const importStudents = asyncHandler(async (req, res) => {
     }
     invalidateSchoolSession();
     touchAccess(session.schoolId);
-    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', action: 'import', after: { imported: ok.length, failed: errors.length } });
-    res.json({ imported: ok.length, errors, credentials });
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', action: 'import', after: { imported: ok.length, failed: errors.length, accountsCreated, accountsSkipped: accountsSkipped.length } });
+    res.json({ imported: ok.length, errors, credentials, accountsCreated, accountsSkipped });
   });
 
 // PATCH /students/:id
@@ -299,22 +335,38 @@ export const updateStudent = asyncHandler(async (req, res) => {
     if (!student) throw notFound();
     await assertStaffOverStudent(session, student.id);
     const { divisionId, ...data } = req.body;
-    await sequelize.transaction(async (transaction) => {
+    const hadDni = !!student.dni;
+    const levelTypes = new Map<number, string>();
+    const account = await sequelize.transaction(async (transaction) => {
       if (data.dni) data.dni = data.dni.replace(/\D/g, '');
       await student.update(data, { transaction });
+      // Cuenta automática solo al ENTRAR a Secundario (desde otro nivel o sin curso) o al cargarle el DNI que le
+      // faltaba: pasar de 4º A a 4º B no reactiva una cuenta que la escuela desactivó a propósito.
+      let enters: { divisionId?: number; academicYearId?: number | null } | null = null;
       if (divisionId) {
         const division = await Division.findOne({ where: { id: divisionId, schoolId: session.schoolId }, transaction });
         if (!division) throw badRequest('División inválida.');
         assertDivision(session, division.id);
+        const prev = await Enrollment.findOne({ where: { studentId: student.id, academicYearId: division.academicYearId as number, status: 'ACTIVE' }, attributes: ['divisionId'], transaction });
         await Enrollment.upsert(
           { studentId: student.id, divisionId, academicYearId: division.academicYearId as number, status: 'ACTIVE' },
           { transaction, conflictFields: ['studentId', 'academicYearId'] }
         );
+        const wasSecondary = !!prev && (await divisionLevelType(prev.divisionId as number, levelTypes, transaction)) === 'SECUNDARIO';
+        if (prev?.divisionId !== division.id && !wasSecondary) enters = { divisionId: division.id };
       }
+      if (!enters && !hadDni && student.dni && !student.userId) enters = { academicYearId: session.academicYearId };
+      if (!enters || !student.active) return null;
+      return ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student, transaction, levelTypes, ...enters });
     });
     invalidateSchoolSession();
     touchAccess(session.schoolId);
-    res.json(student);
+    const cred = account ? credentialOf(account, student, '') : null;
+    res.json({
+      ...student.toJSON(),
+      credentials: cred ? [{ name: cred.name, login: cred.login, tempPassword: cred.tempPassword, email: null }] : [],
+      studentAccount: accountSummary(account),
+    });
   });
 
 // POST /students/:id/guardians
@@ -461,4 +513,141 @@ export const listMyChildren = asyncHandler(async (req, res) => {
       order: [['firstName', 'ASC']],
     });
     res.json(children);
+  });
+
+// =============== MI PERFIL: MATERIAS Y NOTAS ===============
+
+type TeacherInfo = { id: number; firstName: string; lastName: string; avatar: string | null };
+
+/**
+ * Materias del curso con sus docentes y notas por período. Lista TODAS las materias del año (aunque no tengan
+ * docente ni notas todavía), no solo las del boletín. Familia, estudiante o personal sin grades:read: solo lo publicado.
+ */
+// GET /students/:id/subjects
+export const getStudentSubjects = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const id = Number(req.params.id);
+    const { asGuardian } = await assertStudentAccess(session, id);
+    const academicYearId = (req.query as { yearId?: number }).yearId ?? session.academicYearId;
+    const onlyPublished = asGuardian || !session.can(Entity.GRADES, Action.READ);
+    const empty = { division: null, level: null, periods: [], subjects: [], onlyPublished };
+    if (!academicYearId) return res.json(empty);
+
+    const [card, enrollment] = await Promise.all([
+      buildReportCard({ studentId: id, academicYearId, onlyPublished }),
+      Enrollment.findOne({ where: { studentId: id, academicYearId }, attributes: ['divisionId'], include: [{ model: Division, attributes: ['id', 'name', 'gradeYear', 'levelId'] }] }),
+    ]);
+    const division = enrollment?.Division;
+    if (!card || !division) return res.json(empty);
+
+    // Las del boletín (con docente asignado o con notas) también entran aunque sean de otro año o estén inactivas.
+    const cardSubjectIds = card.rows.map((r) => r.subjectId);
+    const [subjects, assignments] = await Promise.all([
+      Subject.findAll({
+        where: {
+          schoolId: session.schoolId,
+          [Op.or]: [
+            { levelId: division.levelId as number, active: true, gradeYear: { [Op.or]: [null, division.gradeYear] } },
+            ...(cardSubjectIds.length ? [{ id: cardSubjectIds }] : []),
+          ],
+        },
+        attributes: ['id', 'name'],
+      }),
+      TeachingAssignment.findAll({
+        where: { divisionId: division.id },
+        attributes: ['subjectId'],
+        include: [{ model: User, as: 'Teacher', attributes: ['id', 'firstName', 'lastName', 'avatar'] }],
+      }),
+    ]);
+
+    const teachersBySubject = new Map<number, TeacherInfo[]>();
+    for (const a of assignments) {
+      const t = (a as TeachingAssignment & { Teacher?: User }).Teacher;
+      if (!t) continue;
+      const list = teachersBySubject.get(a.subjectId as number) ?? [];
+      list.push({ id: t.id, firstName: t.firstName, lastName: t.lastName, avatar: t.avatar ?? null });
+      teachersBySubject.set(a.subjectId as number, list);
+    }
+    const rows = new Map(card.rows.map((r) => [r.subjectId, r]));
+    res.json({
+      division: { id: division.id, name: division.name, gradeYear: division.gradeYear },
+      level: { id: card.level.id, name: card.level.name, type: card.level.type },
+      periods: card.periods.map((p) => ({ id: p.id, name: p.name, kind: p.kind, groupName: p.groupName ?? null })),
+      subjects: subjects
+        .map((sub) => {
+          const row = rows.get(sub.id);
+          return { id: sub.id, name: sub.name, teachers: teachersBySubject.get(sub.id) ?? [], grades: row?.grades ?? {}, final: row?.final ?? null, finalApproved: row?.finalApproved ?? null };
+        })
+        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+      onlyPublished,
+    });
+  });
+
+// =============== EMAIL DE LA CUENTA DEL ESTUDIANTE ===============
+
+/**
+ * Carga (o cambia) el email de la cuenta del estudiante. Sin email ingresa con DNI pero no puede recuperar la contraseña.
+ * - El propio estudiante: siempre (también es como responde a "Actualizá tu email" de la conducción).
+ * - El personal con users:update sobre el alumno: siempre. Sin cuenta, con users:create la crea con ese email.
+ * - Su familia: solo si la cuenta no tiene email real (lo carga una vez; después es del estudiante).
+ * Cambiarlo borra el pedido de cambio de la conducción. Habilitada para familias y estudiantes en
+ * nonStaffWriteGuard: el control de acceso está acá.
+ */
+// PUT /students/:id/email
+export const setStudentEmail = asyncHandler(async (req, res) => {
+    const session = req.schoolSession!;
+    const id = Number(req.params.id);
+    const email = (req.body.email as string).trim().toLowerCase();
+    const isSelf = session.self?.studentId === id;
+    // Personal que además es familia del alumno: si tiene users:update sobre él, rige lo del personal.
+    const asStaff = !isSelf && session.isStaff && session.can(Entity.USERS, Action.UPDATE) && (session.scope.all || canSeeDivision(session, (await studentDivisionId(session, id)) ?? 0));
+    const asGuardian = !isSelf && !asStaff && session.childIds.includes(id);
+    if (!isSelf && !asStaff && !asGuardian) {
+      if (session.isStaff && session.can(Entity.USERS, Action.UPDATE)) throw forbidden('Ese alumno está fuera de tu alcance.');
+      throw forbidden('No podés cambiar el email de este estudiante.');
+    }
+    const student = await Student.findOne({ where: { id, schoolId: session.schoolId } });
+    if (!student) throw notFound();
+    if (isTechEmail(email)) throw badRequest('Cargá un email real del estudiante.');
+
+    const user = student.userId ? await User.findByPk(student.userId) : null;
+    if (asGuardian && user && !isTechEmail(user.email)) {
+      throw forbidden(`${student.firstName} ya tiene email. Si hay que cambiarlo, lo cambia ${student.firstName} desde su perfil o la escuela.`);
+    }
+    if (!user) {
+      if (!asStaff || !session.can(Entity.USERS, Action.CREATE)) throw conflict(`${student.firstName} todavía no tiene cuenta en Sentryx: pedile a la escuela que se la cree.`);
+      if (!student.active) throw conflict(`${student.firstName} está dado/a de baja.`);
+      await secondaryEnrollment(session, student.id);
+      const created = await createStudentAccount(session, student, email);
+      if (created.tempPassword) sendWelcome(created.user, created.tempPassword, await schoolName(session.schoolId));
+      invalidateSchoolSession(created.user.id);
+      touchAccess(session.schoolId, [created.user.id]);
+      return res.json({ email: created.user.email, hasEmail: true as const });
+    }
+
+    const pending = !!student.emailChangeRequestedAt;
+    const clearRequest = { emailChangeRequestedAt: null, emailChangeReason: null };
+    if (user.email !== email) {
+      const before = isTechEmail(user.email) ? null : user.email;
+      await sequelize.transaction(async (transaction) => {
+        // Familia: se vuelve a mirar con la fila bloqueada (dos cargas a la vez no deben pisar un email real).
+        if (asGuardian) {
+          await user.reload({ transaction, lock: transaction.LOCK.UPDATE });
+          if (!isTechEmail(user.email)) throw forbidden(`${student.firstName} ya tiene email. Si hay que cambiarlo, lo cambia ${student.firstName} desde su perfil o la escuela.`);
+        }
+        await assertEmailFree(email, student.firstName, { userId: user.id, studentId: student.id }, transaction);
+        await user.update({ email }, { transaction });
+        if (pending) await student.update(clearRequest, { transaction, silent: true });
+        await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'User', entityId: user.id, action: 'set-student-email', before: { email: before }, after: { email, studentId: student.id, ...(pending ? { clearedChangeRequest: true } : {}) } }, transaction);
+      });
+      invalidateSchoolSession(user.id);
+    } else if (pending) {
+      // El mismo email no cumple el pedido. Solo el personal puede confirmarlo (ej: se pidió por error) y así lo borra.
+      if (!asStaff) throw conflict('Ese es el mismo email que ya tenías. La escuela te pidió cambiarlo: cargá uno propio y real (si ese es tuyo, avisale a la escuela).');
+      await sequelize.transaction(async (transaction) => {
+        await student.update(clearRequest, { transaction, silent: true });
+        await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', entityId: student.id, action: 'confirm-student-email', after: { email } }, transaction);
+      });
+    }
+    res.json({ email, hasEmail: true as const });
   });

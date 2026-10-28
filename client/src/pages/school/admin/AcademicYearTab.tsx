@@ -5,6 +5,7 @@ import { CalendarPlus, GraduationCap } from 'lucide-react';
 import { apiGet, apiSend } from '../../../lib/api';
 import { Badge, Card, ErrorBox, Field, Sheet, Skeleton, useToast } from '../../../ui';
 import type { Structure } from '../../../school/types';
+import { CredentialsSheet, type Credential } from '../../../school/CredentialsSheet';
 
 type Outcome = 'PROMOTED' | 'REPEATS' | 'GRADUATED';
 interface PlanDivision { id: number; name: string; levelId: number; levelName: string; gradeYear: number }
@@ -52,7 +53,7 @@ const CreateNextYearCard = ({ currentYear }: { currentYear: number }) => {
 };
 
 /** Plan de promoción: un destino por alumno (sugerido automáticamente) y aplicación en un paso. */
-const PromotionPlanner = ({ targetYearId }: { targetYearId: number }) => {
+const PromotionPlanner = ({ targetYearId, onCredentials }: { targetYearId: number; onCredentials: (c: Credential[]) => void }) => {
   const qc = useQueryClient();
   const toast = useToast();
   const plan = useQuery({ queryKey: ['promotion-plan', targetYearId], queryFn: () => apiGet<PromotionPlan>(`/school/promotions/plan?targetYearId=${targetYearId}`) });
@@ -69,12 +70,15 @@ const PromotionPlanner = ({ targetYearId }: { targetYearId: number }) => {
 
   const apply = useMutation({
     mutationFn: () =>
-      apiSend<{ promoted: number; repeating: number; graduated: number; skipped: number }>('POST', '/school/promotions', {
+      apiSend<{ promoted: number; repeating: number; graduated: number; skipped: number; accounts?: { created: number; skipped: number; credentials: Credential[] } }>('POST', '/school/promotions', {
         targetYearId,
         moves: Object.entries(moves).map(([studentId, move]) => ({ studentId: Number(studentId), ...move })),
       }),
     onSuccess: (r) => {
-      toast(`Listo: ${r.promoted} promovidos, ${r.repeating} repiten, ${r.graduated} egresados. Ya estás en el ciclo ${plan.data?.toYear}.`);
+      const acc = r.accounts;
+      toast(`Listo: ${r.promoted} promovidos, ${r.repeating} repiten, ${r.graduated} egresados. Ya estás en el ciclo ${plan.data?.toYear}.${acc?.created ? ` ${acc.created} ${acc.created === 1 ? 'cuenta de estudiante nueva' : 'cuentas de estudiante nuevas'} (Secundario).` : ''}${acc?.skipped ? ` ${acc.skipped} sin cuenta (sin DNI u otro motivo): crealas desde Alertas → Emails de estudiantes.` : ''}`, !!acc?.skipped);
+      // Los que entraron a Secundario estrenan cuenta: las contraseñas se muestran una sola vez.
+      if (acc?.credentials.length) onCredentials(acc.credentials);
       setConfirming(false);
       qc.invalidateQueries();
     },
@@ -178,6 +182,7 @@ const PromotionPlanner = ({ targetYearId }: { targetYearId: number }) => {
             Se inscribe a {totals.PROMOTED + totals.REPEATS} alumnos en sus cursos de {p.toYear} y {totals.GRADUATED} quedan como egresados. El ciclo {p.toYear} pasa a ser el actual
             para toda la escuela. Las notas y la asistencia de {p.fromYear} quedan guardadas como historial.
           </p>
+          <p className="xs muted">Los que pasan a Secundario reciben su cuenta de estudiante (ingresan con su DNI): al terminar te mostramos las contraseñas para entregárselas.</p>
           <div className="row">
             <button className="btn btn-ghost grow" onClick={() => setConfirming(false)}>Cancelar</button>
             <button className="btn btn-accent grow" disabled={apply.isPending} onClick={() => apply.mutate()}>{apply.isPending ? 'Aplicando…' : 'Confirmar'}</button>
@@ -189,6 +194,8 @@ const PromotionPlanner = ({ targetYearId }: { targetYearId: number }) => {
 };
 
 export const AcademicYearTab = () => {
+  // Vive acá y no en el planificador: al aplicar la promoción el ciclo cambia y el planificador desaparece.
+  const [creds, setCreds] = useState<Credential[]>([]);
   const structure = useQuery({ queryKey: ['structure'], queryFn: () => apiGet<Structure>('/school/structure') });
   if (structure.isLoading) return <Skeleton count={2} h={120} />;
   if (structure.error) return <ErrorBox error={structure.error} />;
@@ -199,7 +206,8 @@ export const AcademicYearTab = () => {
   return (
     <div className="stack-lg">
       <p className="small muted">Ciclo actual: <b>{current.year}</b>. Para cerrar el año: 1) preparás el ciclo siguiente, 2) revisás quién promueve, repite o egresa, 3) aplicás.</p>
-      {nextYear ? <PromotionPlanner targetYearId={nextYear.id} /> : <CreateNextYearCard currentYear={current.year} />}
+      {nextYear ? <PromotionPlanner targetYearId={nextYear.id} onCredentials={setCreds} /> : <CreateNextYearCard currentYear={current.year} />}
+      <CredentialsSheet items={creds} onClose={() => setCreds([])} title="Cuentas de estudiantes nuevas" />
     </div>
   );
 };

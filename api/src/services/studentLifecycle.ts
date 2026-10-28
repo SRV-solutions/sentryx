@@ -6,6 +6,7 @@ import { audit } from './audit';
 import { touchAccess } from './billing';
 import { invalidateSchoolSession } from './schoolSession';
 import { badRequest, conflict, notFound } from '../lib/http';
+import { ensureStudentAccount, credentialOf, notApplicable, EnsureAccountResult, StudentCredential } from './studentAccounts';
 
 /**
  * RECORRIDO DEL ALUMNO: cambio de curso, baja (con motivo), reactivación y promoción anual.
@@ -13,6 +14,22 @@ import { badRequest, conflict, notFound } from '../lib/http';
  */
 
 const LEVEL_ORDER = ['INICIAL', 'PRIMARIO', 'SECUNDARIO'];
+
+/** Cuentas automáticas creadas al entrar a Secundario (las credenciales se entregan en la hoja imprimible). */
+const newAccountsTally = () => ({ created: 0, skipped: 0, credentials: [] as StudentCredential[] });
+const tally = (acc: ReturnType<typeof newAccountsTally>, res: EnsureAccountResult, student: { firstName: string; lastName: string }, label: string) => {
+  const cred = credentialOf(res, student, label);
+  if (cred) {
+    acc.created++;
+    acc.credentials.push(cred);
+  } else if (res.status === 'skipped' && !notApplicable(res)) acc.skipped++;
+};
+
+/** Tipo de nivel de varias divisiones en una consulta (caché para ensureStudentAccount). */
+const levelTypesOf = async (ids: number[]) =>
+  new Map(
+    ((await Division.findAll({ where: { id: [...new Set(ids)] }, attributes: ['id'], include: [{ model: Level, attributes: ['type'] }] })) as Array<Division & { Level?: Level }>).map((d) => [d.id, d.Level?.type ?? ''])
+  );
 
 // ---------------- Cambio de curso (mismo ciclo) ----------------
 
@@ -25,24 +42,34 @@ export const transferStudents = async (session: SchoolSession, studentIds: numbe
 
   const enrollments = await Enrollment.findAll({
     where: { studentId: studentIds, academicYearId: session.academicYearId!, status: 'ACTIVE' },
-    include: [{ model: Student, where: { schoolId: session.schoolId, active: true }, attributes: ['id', 'firstName', 'lastName'] }],
+    include: [{ model: Student, where: { schoolId: session.schoolId, active: true }, attributes: ['id', 'firstName', 'lastName', 'dni', 'userId'] }],
   });
   if (enrollments.length !== new Set(studentIds).size) throw badRequest('Algún alumno no está inscripto en el ciclo actual o está dado de baja.');
   for (const enrollment of enrollments) assertDivision(session, enrollment.divisionId as number);
 
+  const levelTypes = await levelTypesOf([target.id, ...enrollments.map((e) => e.divisionId as number)]);
+  const toSecondary = levelTypes.get(target.id) === 'SECUNDARIO';
+  const accounts = newAccountsTally();
   await sequelize.transaction(async (transaction) => {
     for (const enrollment of enrollments) {
       if (enrollment.divisionId === target.id) continue;
-      const fromDivisionId = enrollment.divisionId;
+      const fromDivisionId = enrollment.divisionId as number;
       await enrollment.update({ divisionId: target.id }, { transaction });
       await audit(
         { schoolId: session.schoolId, userId: session.userId, entity: 'Student', entityId: enrollment.studentId as number, action: 'transfer', before: { divisionId: fromDivisionId }, after: { divisionId: target.id, reason } },
         transaction
       );
+      // Entra a Secundario desde otro nivel: cuenta automática. Entre cursos de Secundario no se toca la cuenta.
+      if (toSecondary && levelTypes.get(fromDivisionId) !== 'SECUNDARIO') {
+        const st = enrollment.Student!;
+        tally(accounts, await ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student: st, transaction, divisionId: target.id, levelTypes }), st, target.name);
+      }
     }
   });
   invalidateSchoolSession();
-  return { moved: enrollments.filter((e) => e.divisionId === target.id).length, target: target.name };
+  // Cuentas nuevas o reactivadas: abre su acceso en la facturación (como el alta y la reincorporación).
+  if (toSecondary) touchAccess(session.schoolId);
+  return { moved: enrollments.filter((e) => e.divisionId === target.id).length, target: target.name, accounts };
 };
 
 // ---------------- Baja y reactivación ----------------
@@ -77,18 +104,21 @@ export const reactivateStudent = async (session: SchoolSession, studentId: numbe
   const division = await Division.findOne({ where: { id: divisionId, schoolId: session.schoolId, academicYearId: session.academicYearId ?? 0 } });
   if (!division) throw badRequest('Elegí un curso del ciclo actual.');
   assertDivision(session, division.id);
-  await sequelize.transaction(async (transaction) => {
+  const account = await sequelize.transaction(async (transaction) => {
     await student.update({ active: true, leftAt: null, leaveReason: null, leaveNotes: null }, { transaction });
     await Enrollment.upsert(
       { studentId, divisionId: division.id, academicYearId: division.academicYearId as number, status: 'ACTIVE' },
       { transaction, conflictFields: ['studentId', 'academicYearId'] }
     );
-    if (student.userId) await UserRole.update({ active: true }, { where: { userId: student.userId, schoolId: session.schoolId, role: RoleCode.ESTUDIANTE }, transaction });
+    // Secundario: reactiva su cuenta (o se la crea si nunca tuvo). Otro nivel: solo se reactiva la que tenía.
+    const r = await ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student, transaction, divisionId: division.id });
+    if (notApplicable(r) && student.userId) await UserRole.update({ active: true }, { where: { userId: student.userId, schoolId: session.schoolId, role: RoleCode.ESTUDIANTE }, transaction });
     await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', entityId: student.id, action: 'reactivate', after: { divisionId: division.id } }, transaction);
+    return r;
   });
   invalidateSchoolSession();
   touchAccess(session.schoolId);
-  return student;
+  return { student, account, credential: credentialOf(account, student, division.name) };
 };
 
 // ---------------- Promoción anual ----------------
@@ -185,14 +215,21 @@ export const applyPromotion = async (
 ) => {
   const targetYear = await AcademicYear.findOne({ where: { id: targetYearId, schoolId: session.schoolId } });
   if (!targetYear) throw notFound('Ciclo lectivo inexistente.');
-  const targetDivisionIds = new Set((await Division.findAll({ where: { schoolId: session.schoolId, academicYearId: targetYear.id }, attributes: ['id'], raw: true })).map((d) => d.id));
+  const targetDivisions = (await Division.findAll({ where: { schoolId: session.schoolId, academicYearId: targetYear.id }, attributes: ['id', 'name'], include: [{ model: Level, attributes: ['type'] }] })) as Array<Division & { Level?: Level }>;
+  const targetDivisionIds = new Set(targetDivisions.map((d) => d.id));
+  const targetNames = new Map(targetDivisions.map((d) => [d.id, d.name]));
+  const levelTypes = new Map(targetDivisions.map((d) => [d.id, d.Level?.type ?? '']));
   const result = { promoted: 0, repeating: 0, graduated: 0, skipped: 0 };
+  const accounts = newAccountsTally();
 
   await sequelize.transaction(async (transaction) => {
     for (const move of moves) {
       const current = await Enrollment.findOne({
         where: { studentId: move.studentId, academicYearId: session.academicYearId ?? 0, status: 'ACTIVE' },
-        include: [{ model: Student, where: { schoolId: session.schoolId, active: true }, attributes: ['id', 'userId'] }],
+        include: [
+          { model: Student, where: { schoolId: session.schoolId, active: true }, attributes: ['id', 'userId', 'firstName', 'lastName', 'dni'] },
+          { model: Division, attributes: ['id'], include: [{ model: Level, attributes: ['type'] }] },
+        ],
         transaction,
       });
       if (!current) {
@@ -219,13 +256,21 @@ export const applyPromotion = async (
       await current.update({ status: 'COMPLETED' }, { transaction });
       if (move.outcome === 'REPEATS') result.repeating++;
       else result.promoted++;
+      // Pasa a Secundario (ej: 7º de Primario → 1º año): cuenta automática con la inscripción del ciclo de destino.
+      const fromType = (current.Division as (Division & { Level?: Level }) | undefined)?.Level?.type;
+      if (levelTypes.get(move.targetDivisionId) === 'SECUNDARIO' && fromType !== 'SECUNDARIO') {
+        const st = current.Student!;
+        const r = await ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student: st, transaction, divisionId: move.targetDivisionId, levelTypes });
+        tally(accounts, r, st, targetNames.get(move.targetDivisionId) ?? '');
+      }
     }
     await AcademicYear.update({ isCurrent: false }, { where: { schoolId: session.schoolId }, transaction });
     await targetYear.update({ isCurrent: true }, { transaction });
-    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'AcademicYear', entityId: targetYear.id, action: 'promotion', after: result }, transaction);
+    // Sin las credenciales: las contraseñas temporales no van al registro de auditoría.
+    await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'AcademicYear', entityId: targetYear.id, action: 'promotion', after: { ...result, accountsCreated: accounts.created, accountsSkipped: accounts.skipped } }, transaction);
   });
   invalidateSchoolSession();
   touchAccess(session.schoolId);
-  return result;
+  return { ...result, accounts };
 };
 

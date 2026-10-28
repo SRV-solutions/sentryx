@@ -69,6 +69,18 @@ export const passwordResetLimiter = rateLimit({
   message: tooMany('Ya pediste varias veces. Revisá tu email o probá de nuevo en una hora.'),
 });
 
+/**
+ * Cambio del email de un estudiante (PUT /students/:id/email): lo usan familias y estudiantes y responde 409 si el
+ * email ya existe, así que sin tope serviría para probar direcciones en masa. Un uso real son 1 o 2 intentos.
+ */
+export const studentEmailLimiter = rateLimit({
+  ...common,
+  windowMs: 15 * MINUTE,
+  limit: 10,
+  keyGenerator: (req) => `student-email:${req.user?.id ?? clientIp(req)}`,
+  message: tooMany('Probaste muchos emails seguidos. Esperá unos minutos y volvé a intentar.'),
+});
+
 /** Mensajes y publicaciones: frena spam en chats y canales. */
 export const messageLimiter = rateLimit({
   ...common,

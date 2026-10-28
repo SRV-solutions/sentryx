@@ -1,6 +1,6 @@
 import {
-  Home, Megaphone, MessageCircle, ClipboardCheck, BookOpenCheck, BellRing, GraduationCap,
-  Settings, Baby, School, FolderOpen, Contact, Hash, Receipt, FileText, Building2, LifeBuoy, ShieldCheck, CalendarDays, BookOpen, Gamepad2, IdCard, Briefcase, Gem, BarChart3, CircleHelp,
+  Home, Megaphone, UserRound, ClipboardCheck, BookOpenCheck, BellRing, GraduationCap,
+  Settings, Baby, School, FolderOpen, Contact, Hash, Receipt, Building2, LifeBuoy, ShieldCheck, CalendarDays, BookOpen, Gamepad2, IdCard, Briefcase, Gem, BarChart3, CircleHelp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { SchoolSession } from '../school/types';
@@ -11,7 +11,8 @@ export interface NavItem {
   to: string;
   label: string;
   icon: LucideIcon;
-  badge?: 'announcements' | 'threads' | 'channels';
+  /** comms = comunicados sin leer + conversaciones con mensajes nuevos (son la misma sección). */
+  badge?: 'comms' | 'channels';
   section: 'school' | 'platform';
 }
 
@@ -26,13 +27,12 @@ export const buildNav = (opts: {
   /** Familias y estudiantes ven estas secciones solo si su plan las incluye (el personal las ve para poder pedirlas). */
   const has = (feature: PlanFeature) => !!session?.plan?.features.includes(feature);
   if (session?.self && !session.isStaff) {
-    // Estudiante (Secundario): su curso, sus canales, mensajes con docentes y su boletín.
+    // Estudiante (Secundario): comunicados con sus docentes, su curso, su perfil (materias, notas, convivencia) y canales.
     items.push({ to: '/inicio', label: 'Inicio', icon: Home, section: 'school' });
-    items.push({ to: '/canales', label: 'Canales', icon: Hash, badge: 'channels', section: 'school' });
-    items.push({ to: '/mensajes', label: 'Mensajes', icon: MessageCircle, badge: 'threads', section: 'school' });
+    items.push({ to: '/comunicados', label: 'Comunicados', icon: Megaphone, badge: 'comms', section: 'school' });
     items.push({ to: '/aulas', label: 'Aulas', icon: School, section: 'school' });
-    items.push({ to: `/familia/${session.self.studentId}`, label: 'Mi boletín', icon: FileText, section: 'school' });
-    items.push({ to: '/comunicados', label: 'Comunicados', icon: Megaphone, badge: 'announcements', section: 'school' });
+    items.push({ to: `/familia/${session.self.studentId}`, label: 'Mi perfil', icon: UserRound, section: 'school' });
+    items.push({ to: '/canales', label: 'Canales', icon: Hash, badge: 'channels', section: 'school' });
     items.push({ to: '/juegos', label: 'Juegos', icon: Gamepad2, section: 'school' });
     if (has(PlanFeature.EVENTS)) items.push({ to: '/calendario', label: 'Calendario', icon: CalendarDays, section: 'school' });
     if (has(PlanFeature.SUBJECT_PROGRAMS)) items.push({ to: '/programas', label: 'Programas', icon: BookOpen, section: 'school' });
@@ -42,8 +42,7 @@ export const buildNav = (opts: {
     if (session.isGuardian) items.push({ to: '/familia', label: session.childIds.length > 1 ? 'Mis hijos' : 'Mi hijo/a', icon: Baby, section: 'school' });
     items.push({ to: '/aulas', label: 'Aulas', icon: School, section: 'school' });
     if (session.teaching.length || can(Entity.GRADES, Action.READ)) items.push({ to: '/materias', label: 'Materias', icon: BookOpenCheck, section: 'school' });
-    items.push({ to: '/comunicados', label: 'Comunicados', icon: Megaphone, badge: 'announcements', section: 'school' });
-    items.push({ to: '/mensajes', label: 'Mensajes', icon: MessageCircle, badge: 'threads', section: 'school' });
+    items.push({ to: '/comunicados', label: 'Comunicados', icon: Megaphone, badge: 'comms', section: 'school' });
     if (session.hasChannels) items.push({ to: '/canales', label: 'Canales', icon: Hash, badge: 'channels', section: 'school' });
     if (can(Entity.ALERTS, Action.READ)) items.push({ to: '/alertas', label: 'Alertas', icon: BellRing, section: 'school' });
     if (session.isStaff && can(Entity.ATTENDANCE, Action.READ) && can(Entity.GRADES, Action.READ)) items.push({ to: '/estadisticas', label: 'Estadísticas', icon: BarChart3, section: 'school' });

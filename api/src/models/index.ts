@@ -28,6 +28,7 @@ import { PlanAssignment, PlanRequest } from './school/plans';
 import { StaffPosition, PayrollReceipt } from './school/staff';
 import { TeacherAbsence } from './school/absences';
 import { SchoolEvent, EventManager, EventPost } from './school/events';
+import { ConductRecord } from './school/conduct';
 import { SubjectProgram, ProgramUnit, Quiz, QuizAssignment, QuizAttempt, LiveGame, LivePlayer, LiveAnswer } from './school/teaching';
 
 let associated = false;
@@ -113,6 +114,8 @@ export const associateModels = () => {
   AnnouncementRecipient.belongsTo(User, req('userId'));
 
   Thread.belongsTo(Student, opt('studentId'));
+  Thread.belongsTo(Announcement, { foreignKey: 'announcementId' });
+  Announcement.hasMany(Thread, { foreignKey: 'announcementId', as: 'Replies' });
   Thread.belongsTo(User, { ...req('createdById'), as: 'CreatedBy' });
   Thread.hasMany(ThreadParticipant, { ...req('threadId'), as: 'Participants' });
   Thread.hasMany(ThreadMessage, req('threadId'));
@@ -159,6 +162,12 @@ export const associateModels = () => {
   SchoolEvent.hasMany(EventPost, { foreignKey: 'eventId' });
   EventPost.belongsTo(User, { foreignKey: 'authorId', as: 'Author' });
 
+  // --- Convivencia ---
+  ConductRecord.belongsTo(User, { foreignKey: 'createdById', as: 'CreatedBy' });
+  ConductRecord.belongsTo(Subject, { foreignKey: 'subjectId' });
+  ConductRecord.belongsTo(Division, { foreignKey: 'divisionId' });
+  Student.hasMany(ConductRecord, { foreignKey: 'studentId' });
+
   // --- Programas y juegos ---
   SubjectProgram.hasMany(ProgramUnit, { foreignKey: 'programId', as: 'Units' });
   SubjectProgram.belongsTo(Subject, { foreignKey: 'subjectId' });
@@ -190,4 +199,5 @@ export {
   Channel, ChannelMessage, ChannelRead, ChannelMute,
   PlanAssignment, PlanRequest, StaffPosition, PayrollReceipt, TeacherAbsence, SchoolEvent, EventManager, EventPost,
   SubjectProgram, ProgramUnit, Quiz, QuizAssignment, QuizAttempt, LiveGame, LivePlayer, LiveAnswer,
+  ConductRecord,
 };

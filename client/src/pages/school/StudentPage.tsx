@@ -13,6 +13,11 @@ import { Entity, Action } from '../../school/permissions';
 import { StudentLifecycleCard } from '../../school/StudentLifecycle';
 import { UpgradeCard } from '../../school/PlanGate';
 import { PlanFeature, usePlan } from '../../school/plans';
+import { StudentSubjects } from '../../school/StudentSubjects';
+import { ConductPanel } from '../../school/ConductPanel';
+import { StudentEmailCard, LoadEmailForm, emailNeedsAttention } from '../../school/StudentEmailCard';
+
+type Tab = 'materias' | 'boletin' | 'asistencia' | 'convivencia' | 'juegos' | 'datos';
 
 interface QuizResults { student?: string; results: Array<{ id: number; title?: string; subject: string | null; score: number; correctCount: number; questionCount: number; finishedAt: string }> }
 
@@ -50,7 +55,14 @@ interface StudentDetail {
   leftAt?: string | null;
   leaveReason?: string | null;
   leaveNotes?: string | null;
-  account?: { eligible: boolean; exists: boolean; active: boolean; userId: number | null; login: string | null; lastLogin: string | null; mustChangePassword: boolean | null };
+  /**
+   * Personal: datos completos de la cuenta. Familia: exists + hasEmail (+ el pedido de cambio). El propio estudiante: además su email.
+   * emailChangeRequestedAt: la escuela le pidió que cambie el email; se limpia solo cuando lo cambia.
+   */
+  account?: {
+    eligible?: boolean; exists: boolean; hasEmail?: boolean; email?: string | null; active?: boolean; userId?: number | null; login?: string | null; lastLogin?: string | null; mustChangePassword?: boolean | null;
+    emailChangeRequestedAt?: string | null; emailChangeReason?: string | null;
+  };
   Enrollments?: Array<{ Division?: { id: number; name: string; Level?: { name: string; type: string } } }>;
   /** Trayectoria: un registro por ciclo lectivo (el más nuevo primero). */
   history?: Array<{ academicYearId: number; year: number; status: string; division: { id: number; name: string; level: string | null } | null }>;
@@ -100,9 +112,12 @@ const StudentAccountCard = ({ studentId, name, account }: { studentId: number; n
   const qc = useQueryClient();
   const toast = useToast();
   const [creds, setCreds] = useState<Credential[]>([]);
+  const [newEmail, setNewEmail] = useState('');
+  const [loadingEmail, setLoadingEmail] = useState(false);
   const refresh = () => qc.invalidateQueries({ queryKey: ['student', studentId] });
   const create = useMutation({
-    mutationFn: () => apiSend<{ credentials: Credential[] }>('POST', `/school/students/${studentId}/account`, {}),
+    // El email es opcional: sin él entra con el DNI, pero no podría recuperar la contraseña.
+    mutationFn: () => apiSend<{ credentials: Credential[] }>('POST', `/school/students/${studentId}/account`, newEmail.trim() ? { email: newEmail.trim().toLowerCase() } : {}),
     onSuccess: (r) => (refresh(), r.credentials.length ? setCreds(r.credentials) : toast('Cuenta reactivada')),
     onError: (e: Error) => toast(e.message, true),
   });
@@ -117,14 +132,25 @@ const StudentAccountCard = ({ studentId, name, account }: { studentId: number; n
       <div className="stack" style={{ gap: 10 }}>
         <div className="row-between">
           <h3 className="h3 row"><KeySquare size={18} /> Cuenta del estudiante</h3>
-          {account.exists ? <Badge tone={account.active ? 'ok' : 'danger'}>{account.active ? 'Activa' : 'Desactivada'}</Badge> : <Badge>Sin cuenta</Badge>}
+          <div className="row wrap" style={{ gap: 6, justifyContent: 'flex-end' }}>
+            {account.exists && account.hasEmail === false && <Badge tone="warn">Sin email</Badge>}
+            {account.exists ? <Badge tone={account.active ? 'ok' : 'danger'}>{account.active ? 'Activa' : 'Desactivada'}</Badge> : <Badge>Sin cuenta</Badge>}
+          </div>
         </div>
         {account.exists ? (
           <>
             <div className="small">
               Usuario: <b>{account.login?.endsWith('@sin-email.local') ? account.login.split('@')[0] : account.login}</b> · {account.lastLogin ? `último ingreso ${fmtDate(account.lastLogin)}` : 'nunca ingresó'}
+              {account.hasEmail && account.email && <> · {account.email}</>}
             </div>
+            {account.emailChangeRequestedAt && (
+              <div className="xs"><Badge tone="info">Pedido de cambio enviado el {fmtDate(account.emailChangeRequestedAt, { day: 'numeric', month: 'long' })}</Badge>{account.emailChangeReason && <span className="muted"> · {account.emailChangeReason}</span>}</div>
+            )}
+            {loadingEmail
+              ? <LoadEmailForm studentId={studentId} autoFocus replace={!!account.hasEmail} onDone={() => setLoadingEmail(false)} hint="Un email propio del estudiante (no el de la familia si ya lo usa en su cuenta)." />
+              : account.hasEmail === false && <p className="xs muted">Sin email: entra con su DNI y puede cambiar la contraseña, pero si la olvida no puede recuperarla.</p>}
             <div className="row wrap">
+              {!loadingEmail && <button className={`btn btn-sm${account.hasEmail ? ' btn-ghost' : ''}`} onClick={() => setLoadingEmail(true)}><Mail size={14} /> {account.hasEmail ? 'Cambiar email' : 'Cargar email'}</button>}
               {account.active && account.userId && <ResetPasswordButton userId={account.userId} name={name} />}
               <button className="btn btn-sm btn-ghost" disabled={toggle.isPending} onClick={() => toggle.mutate(!account.active)}>{account.active ? 'Desactivar cuenta' : 'Reactivar cuenta'}</button>
             </div>
@@ -132,6 +158,9 @@ const StudentAccountCard = ({ studentId, name, account }: { studentId: number; n
         ) : (
           <>
             <p className="small muted">Con cuenta propia puede escribirles a sus docentes y participar del canal de su curso. Ingresa con su DNI.</p>
+            <Field label="Email del estudiante (opcional)" hint="Con email puede recuperar su contraseña si la olvida. Tiene que ser propio, no el de la familia.">
+              <input className="input" type="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={120} placeholder="email@ejemplo.com" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} />
+            </Field>
             <button className="btn btn-sm" style={{ alignSelf: 'flex-start' }} onClick={() => create.mutate()} disabled={create.isPending}><KeySquare size={16} /> Crear cuenta</button>
           </>
         )}
@@ -215,8 +244,19 @@ export default function StudentPage() {
     onSuccess: () => (qc.invalidateQueries({ queryKey: ['student', id] }), setUnlinking(null), toast('Familiar desvinculado')),
     onError: (e: Error) => toast(e.message, true),
   });
-  const [params] = useSearchParams();
-  const [tab, setTab] = useState<'grades' | 'attendance' | 'info' | 'quizzes'>(params.get('tab') === 'datos' ? 'info' : 'grades');
+  const isSelf = !!session?.self && session.self.studentId === id;
+  // Convivencia: la familia y el estudiante siempre (la API filtra lo interno); el personal, con permiso.
+  const showConduct = isGuardian || can(Entity.CONDUCT, Action.READ) || can(Entity.CONDUCT, Action.CREATE);
+  // La pestaña vive en la URL (?tab=…): las notificaciones y el inicio linkean directo (ej: ?tab=convivencia).
+  const [params, setParams] = useSearchParams();
+  const tabs: Array<{ value: Tab; label: string }> = [
+    { value: 'materias', label: 'Materias' }, { value: 'boletin', label: 'Boletín' }, { value: 'asistencia', label: 'Asistencia' },
+    ...(showConduct ? [{ value: 'convivencia' as Tab, label: 'Convivencia' }] : []), { value: 'juegos', label: 'Juegos' }, { value: 'datos', label: 'Datos' },
+  ];
+  // Familia / estudiante arrancan en sus materias; el personal, en el boletín (como siempre).
+  const defaultTab: Tab = isGuardian ? 'materias' : 'boletin';
+  const tab: Tab = tabs.find((t) => t.value === params.get('tab'))?.value ?? defaultTab;
+  const setTab = (t: Tab) => setParams(t === defaultTab ? {} : { tab: t }, { replace: true });
   const { hasFeature } = usePlan();
 
   const student = useQuery({ queryKey: ['student', id], queryFn: () => apiGet<StudentDetail>(`/school/students/${id}`) });
@@ -225,7 +265,7 @@ export default function StudentPage() {
   const report = useQuery({
     queryKey: ['report-card', id, yearId],
     queryFn: () => apiGet<ReportCard>(`/school/grades/report-card/${id}${yearId ? `?yearId=${yearId}` : ''}`),
-    enabled: tab === 'grades',
+    enabled: tab === 'boletin',
     retry: false,
   });
 
@@ -245,20 +285,24 @@ export default function StudentPage() {
         <div className="row">
           <Avatar name={`${s.firstName} ${s.lastName}`} src={s.photoUrl} size="lg" />
           <div className="grow">
-            <h1 className="h1">{s.firstName} {s.lastName} {s.active === false && <Badge tone="danger">Dado/a de baja</Badge>}</h1>
-            <div className="small muted">{division ? `${division.name} · ${division.Level?.name}` : 'Sin inscripción en el ciclo actual'}</div>
+            <h1 className="h1">{isSelf ? 'Mi perfil' : `${s.firstName} ${s.lastName}`} {s.active === false && <Badge tone="danger">Dado/a de baja</Badge>}</h1>
+            <div className="small muted">{isSelf ? `${s.firstName} ${s.lastName} · ` : ''}{division ? `${division.name} · ${division.Level?.name}` : 'Sin inscripción en el ciclo actual'}</div>
           </div>
-          <Link to={`/mensajes/nuevo?alumno=${id}`} className="btn btn-sm btn-ghost no-print"><MessageCircle size={16} /> <span className="hide-mobile">Escribir</span></Link>
+          <Link to={isSelf ? '/comunicados/nuevo' : `/comunicados/nuevo?alumno=${id}`} className="btn btn-sm btn-ghost no-print"><MessageCircle size={16} /> <span className="hide-mobile">Escribir</span></Link>
         </div>
       )}
 
       {s && manage && <div className="no-print"><StudentLifecycleCard student={s} divisionId={division?.id} /></div>}
+      {/* Sin email (o la escuela le pidió al estudiante cambiarlo): arriba de todo, para cargarlo acá mismo. Si no, va en "Datos". */}
+      {s && isGuardian && s.account && emailNeedsAttention(s.account, isSelf) && <StudentEmailCard studentId={id} firstName={s.firstName} self={isSelf} account={s.account} />}
 
       <div className="no-print">
-        <Tabs value={tab} onChange={setTab} items={[{ value: 'grades', label: 'Boletín' }, { value: 'attendance', label: 'Asistencia' }, { value: 'quizzes', label: 'Juegos' }, { value: 'info', label: 'Datos' }]} />
+        <Tabs value={tab} onChange={setTab} items={tabs} />
       </div>
 
-      {tab === 'grades' && (
+      {tab === 'materias' && <StudentSubjects studentId={id} canWrite={isGuardian} self={isSelf} />}
+      {tab === 'convivencia' && s && <ConductPanel studentId={id} studentName={s.firstName} staffView={!isGuardian} />}
+      {tab === 'boletin' && (
         <>
           {years.length > 1 && (
             <div className="chips no-print" style={{ flexWrap: 'wrap' }}>
@@ -285,9 +329,9 @@ export default function StudentPage() {
           )}
         </>
       )}
-      {tab === 'attendance' && <AttendanceTab id={id} />}
-      {tab === 'quizzes' && <QuizResultsTab id={id} locked={isGuardian && !session?.self && !hasFeature(PlanFeature.QUIZZES)} />}
-      {tab === 'info' && s && (
+      {tab === 'asistencia' && <AttendanceTab id={id} />}
+      {tab === 'juegos' && <QuizResultsTab id={id} locked={isGuardian && !session?.self && !hasFeature(PlanFeature.QUIZZES)} />}
+      {tab === 'datos' && s && (
         <div className="stack">
           <Card>
             <div className="stack" style={{ gap: 6 }}>
@@ -296,6 +340,7 @@ export default function StudentPage() {
               {!isGuardian && s.notes && <div className="alert alert-warn small" style={{ marginTop: 8 }}><b>Notas internas:</b> {s.notes}</div>}
             </div>
           </Card>
+          {isGuardian && s.account?.exists && !emailNeedsAttention(s.account, isSelf) && <StudentEmailCard studentId={id} firstName={s.firstName} self={isSelf} account={s.account} />}
           {manage && s.account && <StudentAccountCard studentId={id} name={`${s.firstName} ${s.lastName}`} account={s.account} />}
           {years.length > 0 && (
             <>
@@ -307,7 +352,7 @@ export default function StudentPage() {
                       <div className="h3">{h.year} · {h.division ? `${h.division.name}${h.division.level ? ` · ${h.division.level}` : ''}` : 'Sin curso'}</div>
                     </div>
                     <Badge tone={h.status === 'ACTIVE' ? 'ok' : h.status === 'COMPLETED' ? 'info' : undefined}>{h.status === 'ACTIVE' ? 'En curso' : h.status === 'COMPLETED' ? 'Cursado' : h.status === 'WITHDRAWN' ? 'Baja' : h.status}</Badge>
-                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => (setYearId(h.academicYearId === currentYearId ? null : h.academicYearId), setTab('grades'))}>Ver boletín</button>
+                    <button type="button" className="btn btn-sm btn-ghost" onClick={() => (setYearId(h.academicYearId === currentYearId ? null : h.academicYearId), setTab('boletin'))}>Ver boletín</button>
                   </div>
                 ))}
               </div>

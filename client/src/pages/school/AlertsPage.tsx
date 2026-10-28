@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { BellRing, Check, Eye, Plus, RefreshCw, Pencil } from 'lucide-react';
 import { apiGet, apiSend } from '../../lib/api';
@@ -7,6 +7,7 @@ import { useSchool } from '../../school/SchoolContext';
 import { Badge, Chips, Empty, ErrorBox, Field, PageHeader, Sheet, Skeleton, Tabs, timeAgo, useToast } from '../../ui';
 import type { Severity } from '../../school/types';
 import { Entity, Action } from '../../school/permissions';
+import { NoEmailPanel } from '../../school/NoEmailPanel';
 
 interface AlertRow {
   id: number;
@@ -17,7 +18,8 @@ interface AlertRow {
   note: string | null;
   updatedAt: string;
   Student: { id: number; firstName: string; lastName: string; Enrollments?: Array<{ Division?: { name: string } }> };
-  AttendanceRule: { name: string; type: Rule['type'] };
+  /** Puede venir null (regla borrada o alerta de otro tipo): la tarjeta no debe romperse. */
+  AttendanceRule: { name: string; type: Rule['type'] } | null;
   HandledBy?: { firstName: string; lastName: string } | null;
 }
 
@@ -92,7 +94,7 @@ const AlertsList = () => {
               <Badge tone={SEV[a.severity].tone}>{SEV[a.severity].label}</Badge>
             </div>
             <div className="small">
-              {a.AttendanceRule.name} · <b>{a.value}{a.AttendanceRule.type === 'PERCENT' ? '%' : a.AttendanceRule.type === 'CONSECUTIVE' ? ' días seguidos' : ' faltas'}</b>
+              {a.AttendanceRule?.name ?? a.message} · <b>{a.value}{a.AttendanceRule?.type === 'PERCENT' ? '%' : a.AttendanceRule?.type === 'CONSECUTIVE' ? ' días seguidos' : ' faltas'}</b>
               {a.Student.Enrollments?.[0]?.Division && <span className="muted"> · {a.Student.Enrollments[0].Division.name}</span>}
             </div>
             <div className="xs muted">
@@ -106,7 +108,7 @@ const AlertsList = () => {
                   <button className="btn btn-sm btn-ghost" onClick={() => update.mutate({ id: a.id, status: 'ACKNOWLEDGED' })}><Eye size={14} /> Tomar seguimiento</button>
                 )}
                 <button className="btn btn-sm btn-ghost" onClick={() => update.mutate({ id: a.id, status: 'RESOLVED' })}><Check size={14} /> Resolver</button>
-                <Link to={`/mensajes/nuevo?alumno=${a.Student.id}`} className="btn btn-sm btn-ghost">Escribir a la familia</Link>
+                <Link to={`/comunicados/nuevo?alumno=${a.Student.id}`} className="btn btn-sm btn-ghost">Escribir a la familia</Link>
               </div>
             )}
           </div>
@@ -229,13 +231,20 @@ const RulesPanel = () => {
   );
 };
 
+type Tab = 'alertas' | 'reglas' | 'sin-email';
+const TABS: Tab[] = ['alertas', 'reglas', 'sin-email'];
+
 export default function AlertsPage() {
-  const [tab, setTab] = useState<'alerts' | 'rules'>('alerts');
+  // La pestaña vive en la URL: el inicio linkea directo a ?tab=emails (?tab=sin-email sigue andando: hay avisos y tutoriales viejos).
+  const [params, setParams] = useSearchParams();
+  const raw = params.get('tab') === 'emails' ? 'sin-email' : (params.get('tab') as Tab | null);
+  const tab: Tab = raw && TABS.includes(raw) ? raw : 'alertas';
+  const setTab = (t: Tab) => setParams(t === 'alertas' ? {} : { tab: t === 'sin-email' ? 'emails' : t }, { replace: true });
   return (
     <div className="stack">
-      <PageHeader title="Alertas" subtitle="Seguimiento de asistencia según las reglas de la institución." />
-      <Tabs value={tab} onChange={setTab} items={[{ value: 'alerts', label: 'Alertas' }, { value: 'rules', label: 'Reglas' }]} />
-      {tab === 'alerts' ? <AlertsList /> : <RulesPanel />}
+      <PageHeader title="Alertas" subtitle="Seguimiento de asistencia y de los emails de las cuentas de estudiantes." />
+      <Tabs value={tab} onChange={setTab} items={[{ value: 'alertas', label: 'Alertas' }, { value: 'sin-email', label: 'Emails de estudiantes' }, { value: 'reglas', label: 'Reglas' }]} />
+      {tab === 'alertas' ? <AlertsList /> : tab === 'reglas' ? <RulesPanel /> : <NoEmailPanel />}
     </div>
   );
 }

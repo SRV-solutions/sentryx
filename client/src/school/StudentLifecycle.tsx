@@ -5,6 +5,7 @@ import { ArrowRightLeft, UserMinus, UserCheck } from 'lucide-react';
 import { apiGet, apiSend } from '../lib/api';
 import { Card, Field, Sheet, useToast, fmtDate } from '../ui';
 import type { Structure } from './types';
+import { CredentialsSheet, type Credential } from './CredentialsSheet';
 
 export interface LeaveReason { code: string; label: string }
 
@@ -38,20 +39,32 @@ export const TransferSheet = ({ studentIds, currentDivisionId, title, open, onCl
   const toast = useToast();
   const [divisionId, setDivisionId] = useState<number | ''>('');
   const [reason, setReason] = useState('');
+  // Si pasa a Secundario se le crea la cuenta: la contraseña se muestra una sola vez (por eso la hoja vive fuera del Sheet).
+  const [creds, setCreds] = useState<Credential[]>([]);
   const move = useMutation({
-    mutationFn: () => apiSend<{ moved: number; target: string }>('POST', '/school/students/transfer', { studentIds, divisionId, reason: reason || null }),
-    onSuccess: (r) => (invalidateStudents(qc), toast(`${r.moved === 1 ? 'Alumno movido' : `${r.moved} alumnos movidos`} a ${r.target}`), onClose(), onDone?.()),
+    mutationFn: () => apiSend<{ moved: number; target: string; accounts?: { created: number; skipped: number; credentials: Credential[] } }>('POST', '/school/students/transfer', { studentIds, divisionId, reason: reason || null }),
+    onSuccess: (r) => {
+      invalidateStudents(qc);
+      const acc = r.accounts;
+      toast(`${r.moved === 1 ? 'Alumno movido' : `${r.moved} alumnos movidos`} a ${r.target}${acc?.created ? ` · ${acc.created === 1 ? 'se creó su cuenta de estudiante' : `${acc.created} cuentas de estudiante creadas`}` : ''}${acc?.skipped ? ` · ${acc.skipped} sin cuenta (revisá el DNI)` : ''}`);
+      if (acc?.credentials.length) setCreds(acc.credentials);
+      onClose();
+      onDone?.();
+    },
     onError: (e: Error) => toast(e.message, true),
   });
   return (
-    <Sheet open={open} onClose={onClose} title={title}>
-      <form className="stack" onSubmit={(e: FormEvent) => (e.preventDefault(), move.mutate())}>
-        <Field label="Curso nuevo"><DivisionSelect value={divisionId} onChange={setDivisionId} exclude={currentDivisionId} /></Field>
-        <Field label="Motivo (opcional)"><input className="input" maxLength={200} placeholder="Ej: cambio de turno" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
-        <p className="xs muted">Las notas y la asistencia ya cargadas se conservan. Desde ahora lo ven los docentes y preceptores del curso nuevo.</p>
-        <button className="btn btn-block" disabled={!divisionId || move.isPending}>{move.isPending ? 'Moviendo…' : 'Cambiar de curso'}</button>
-      </form>
-    </Sheet>
+    <>
+      <Sheet open={open} onClose={onClose} title={title}>
+        <form className="stack" onSubmit={(e: FormEvent) => (e.preventDefault(), move.mutate())}>
+          <Field label="Curso nuevo"><DivisionSelect value={divisionId} onChange={setDivisionId} exclude={currentDivisionId} /></Field>
+          <Field label="Motivo (opcional)"><input className="input" maxLength={200} placeholder="Ej: cambio de turno" value={reason} onChange={(e) => setReason(e.target.value)} /></Field>
+          <p className="xs muted">Las notas y la asistencia ya cargadas se conservan. Desde ahora lo ven los docentes y preceptores del curso nuevo.</p>
+          <button className="btn btn-block" disabled={!divisionId || move.isPending}>{move.isPending ? 'Moviendo…' : 'Cambiar de curso'}</button>
+        </form>
+      </Sheet>
+      <CredentialsSheet items={creds} onClose={() => setCreds([])} title="Cuentas de estudiantes" />
+    </>
   );
 };
 
@@ -65,14 +78,15 @@ export const StudentLifecycleCard = ({ student, divisionId }: { student: Lifecyc
   const [sheet, setSheet] = useState<null | 'transfer' | 'withdraw' | 'reactivate'>(null);
   const [leave, setLeave] = useState({ reason: 'CAMBIO_DE_COLEGIO', date: new Date().toISOString().slice(0, 10), notes: '' });
   const [returnTo, setReturnTo] = useState<number | ''>('');
+  const [creds, setCreds] = useState<Credential[]>([]);
   const withdraw = useMutation({
     mutationFn: () => apiSend('POST', `/school/students/${student.id}/withdraw`, { ...leave, notes: leave.notes || null }),
     onSuccess: () => (invalidateStudents(qc), toast(`${student.firstName} quedó dado/a de baja. Se conserva su historial.`), setSheet(null)),
     onError: (e: Error) => toast(e.message, true),
   });
   const reactivate = useMutation({
-    mutationFn: () => apiSend('POST', `/school/students/${student.id}/reactivate`, { divisionId: returnTo }),
-    onSuccess: () => (invalidateStudents(qc), toast(`${student.firstName} fue reincorporado/a`), setSheet(null)),
+    mutationFn: () => apiSend<{ credentials?: Credential[] }>('POST', `/school/students/${student.id}/reactivate`, { divisionId: returnTo }),
+    onSuccess: (r) => (invalidateStudents(qc), toast(`${student.firstName} fue reincorporado/a`), r?.credentials?.length && setCreds(r.credentials), setSheet(null)),
     onError: (e: Error) => toast(e.message, true),
   });
   const inactive = student.active === false;
@@ -122,6 +136,7 @@ export const StudentLifecycleCard = ({ student, divisionId }: { student: Lifecyc
           <button className="btn btn-block" disabled={!returnTo || reactivate.isPending}>{reactivate.isPending ? 'Guardando…' : 'Reincorporar'}</button>
         </form>
       </Sheet>
+      <CredentialsSheet items={creds} onClose={() => setCreds([])} title="Cuenta del estudiante" />
     </>
   );
 };

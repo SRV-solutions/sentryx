@@ -11,7 +11,40 @@ export const isStaffRole = (r: SchoolRole) => r !== 'TUTOR' && r !== 'ESTUDIANTE
 export type PeriodKind = 'CONCEPTUAL' | 'NUMERIC' | 'NARRATIVE';
 export type AttendanceStatus = 'PRESENTE' | 'AUSENTE' | 'TARDE' | 'RETIRO';
 export type Severity = 'INFO' | 'WARNING' | 'CRITICAL';
-export type AudienceType = 'SCHOOL' | 'LEVEL' | 'DIVISION' | 'STUDENTS' | 'GUARDIANS' | 'STAFF';
+export type AudienceType = 'SCHOOL' | 'LEVEL' | 'DIVISION' | 'STUDENTS' | 'GUARDIANS' | 'STAFF' | 'USERS';
+/** A quién de cada alumno le llega (SCHOOL/LEVEL/DIVISION/STUDENTS). Los estudiantes solo si tienen cuenta (Secundario). */
+export type AudienceTarget = 'FAMILIES' | 'STUDENTS' | 'BOTH';
+export const AUDIENCE_TARGET_LABELS: Record<AudienceTarget, string> = { FAMILIES: 'Familias', STUDENTS: 'Estudiantes', BOTH: 'Familias y estudiantes' };
+
+/** Tipo de comunicado (espejo de ANNOUNCEMENT_CATEGORIES en api/src/constants/school.ts). */
+export type AnnouncementCategory = 'INSTITUCIONAL' | 'ACADEMICO' | 'AULICO' | 'ASISTENCIA' | 'CONVIVENCIA' | 'ADMINISTRATIVO' | 'EVENTO' | 'CONSULTA';
+export const ANNOUNCEMENT_CATEGORIES: AnnouncementCategory[] = ['INSTITUCIONAL', 'ACADEMICO', 'AULICO', 'ASISTENCIA', 'CONVIVENCIA', 'ADMINISTRATIVO', 'EVENTO', 'CONSULTA'];
+export const ANNOUNCEMENT_CATEGORY_LABELS: Record<AnnouncementCategory, string> = {
+  INSTITUCIONAL: 'Institucional', ACADEMICO: 'Académico', AULICO: 'Áulico', ASISTENCIA: 'Asistencia',
+  CONVIVENCIA: 'Convivencia', ADMINISTRATIVO: 'Administrativo', EVENTO: 'Eventos y actos', CONSULTA: 'Consulta',
+};
+/** Para qué sirve cada tipo (ayuda en el compositor). */
+export const ANNOUNCEMENT_CATEGORY_HINTS: Record<AnnouncementCategory, string> = {
+  INSTITUCIONAL: 'Novedades generales de la escuela',
+  ACADEMICO: 'Evaluaciones, notas, boletines, materias previas',
+  AULICO: 'Lo del aula o la materia: tareas, materiales, recuperatorios',
+  ASISTENCIA: 'Faltas, llegadas tarde, justificaciones',
+  CONVIVENCIA: 'Situaciones de convivencia o disciplinarias',
+  ADMINISTRATIVO: 'Cuotas, documentación, trámites',
+  EVENTO: 'Actos, salidas, reuniones',
+  CONSULTA: 'Una pregunta o pedido a la escuela',
+};
+/** Lo que pueden elegir familias y estudiantes al escribirle a la escuela. */
+export const NON_STAFF_CATEGORIES: AnnouncementCategory[] = ['CONSULTA', 'ACADEMICO', 'ASISTENCIA', 'ADMINISTRATIVO'];
+
+/** Convivencia (espejo de CONDUCT_KINDS). quantity: amonestaciones (cuántas) o suspensión (días). */
+export type ConductKind = 'OBSERVACION' | 'LLAMADO_ATENCION' | 'APERCIBIMIENTO' | 'AMONESTACION' | 'SUSPENSION' | 'ACTA' | 'RECONOCIMIENTO' | 'RECTIFICACION';
+export const CONDUCT_KINDS: ConductKind[] = ['OBSERVACION', 'LLAMADO_ATENCION', 'APERCIBIMIENTO', 'AMONESTACION', 'SUSPENSION', 'ACTA', 'RECONOCIMIENTO', 'RECTIFICACION'];
+export const CONDUCT_KIND_LABELS: Record<ConductKind, string> = {
+  OBSERVACION: 'Observación', LLAMADO_ATENCION: 'Llamado de atención', APERCIBIMIENTO: 'Apercibimiento', AMONESTACION: 'Amonestación',
+  SUSPENSION: 'Suspensión', ACTA: 'Acta / acuerdo de convivencia', RECONOCIMIENTO: 'Reconocimiento', RECTIFICACION: 'Rectificación',
+};
+export const CONDUCT_KINDS_WITH_QUANTITY: ConductKind[] = ['AMONESTACION', 'SUSPENSION'];
 
 export const ROLE_LABELS: Record<SchoolRole, string> = {
   REPRESENTANTE_LEGAL: 'Representante Legal', DIRECTOR: 'Dirección', VICEDIRECTOR: 'Vicedirección', RECTOR: 'Rectoría',

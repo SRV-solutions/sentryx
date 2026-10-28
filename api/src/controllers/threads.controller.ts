@@ -1,27 +1,18 @@
 /** Controlador de threads: la lógica de cada ruta de routes/threads.routes.ts. */
 import { z } from 'zod';
 import { Op, QueryTypes } from 'sequelize';
-import { Thread, ThreadParticipant, ThreadMessage, Student, User, UserRole, sequelize } from '../models';
+import { Thread, ThreadParticipant, ThreadMessage, Student, User, UserRole, Announcement, sequelize } from '../models';
 import { asyncHandler, notFound, forbidden, badRequest } from '../lib/http';
 import { assertStudentAccess, SchoolSession } from '../services/schoolSession';
 import { NON_STAFF_ROLES } from '../constants/school';
 import { roleLabel } from '../services/roleRegistry';
 import { contactsForGuardian, contactsForStudent, guardiansOf } from '../services/audience';
+import { roleLabelFor } from '../services/announcementReplies';
 import { notify } from '../services/notifications';
 import { emitToUsers } from '../services/realtime';
 import { Entity, Action } from '../constants/permissions';
 import { newThreadBody } from '../validators/announcements.validator';
 import { signAttachments, toAttachments } from './announcements.controller';
-
-const roleLabelFor = async (session: SchoolSession, userId: number, studentId: number | null) => {
-  if (studentId && session.self?.studentId === studentId && userId === session.userId) return 'Estudiante';
-  if (studentId) {
-    const g = (await guardiansOf(studentId)).find((c) => c.userId === userId);
-    if (g) return `Familia · ${g.detail ?? ''}`.trim();
-  }
-  const m = await UserRole.findOne({ where: { userId, schoolId: session.schoolId, active: true, role: { [Op.notIn]: NON_STAFF_ROLES } } });
-  return m ? roleLabel(m.role) : 'Familia';
-};
 
 const participantOf = async (session: SchoolSession, threadId: number) => {
   const p = await ThreadParticipant.findOne({
@@ -89,7 +80,7 @@ export const createThread = asyncHandler(async (req, res) => {
 export const listThreads = asyncHandler(async (req, res) => {
     const session = req.schoolSession!;
     const rows = (await sequelize.query(
-      `SELECT t.id, t.subject, t."studentId", t."lastMessageAt", t."lastMessagePreview", t."closedAt",
+      `SELECT t.id, t.subject, t."studentId", t."announcementId", t."lastMessageAt", t."lastMessagePreview", t."closedAt",
               s."firstName" AS "studentFirstName", s."lastName" AS "studentLastName",
               (SELECT COUNT(*)::int FROM "ThreadMessage" m
                  WHERE m."threadId" = t.id AND m."senderId" <> :uid
@@ -129,7 +120,7 @@ export const getThread = asyncHandler(async (req, res) => {
     const p = await participantOf(session, Number(req.params.id));
     const thread = p.Thread!;
     const before = (req.query as { before?: number }).before;
-    const [messages, participants, student] = await Promise.all([
+    const [messages, participants, student, announcement] = await Promise.all([
       ThreadMessage.findAll({
         where: { threadId: thread.id, ...(before ? { id: { [Op.lt]: before } } : {}) },
         order: [['id', 'DESC']],
@@ -137,10 +128,12 @@ export const getThread = asyncHandler(async (req, res) => {
       }),
       ThreadParticipant.findAll({ where: { threadId: thread.id }, include: [{ model: User, attributes: ['id', 'firstName', 'lastName', 'avatar'] }] }),
       thread.studentId ? Student.findByPk(thread.studentId as number, { attributes: ['id', 'firstName', 'lastName'] }) : null,
+      // Respuesta a un comunicado: el contexto para mostrar "En respuesta a «…»".
+      thread.announcementId ? Announcement.findOne({ where: { id: thread.announcementId, schoolId: session.schoolId }, attributes: ['id', 'title', 'category'] }) : null,
     ]);
     if (!before) await p.update({ lastReadAt: new Date() });
     res.json({
-      thread: { id: thread.id, subject: thread.subject, closedAt: thread.closedAt, student },
+      thread: { id: thread.id, subject: thread.subject, closedAt: thread.closedAt, student, announcement },
       participants: participants.map((x) => ({ ...(x as ThreadParticipant & { User?: User }).User!.toJSON(), roleLabel: x.roleLabel, lastReadAt: x.lastReadAt })),
       messages: await Promise.all(messages.reverse().map(async (m) => ({ ...m.toJSON(), attachments: await signAttachments(m.attachments) }))),
       hasMore: messages.length === 50,

@@ -57,6 +57,8 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
   /** Cursos creados en este momento: clave del CSV → id (por si se les cambió el nombre al crearlos). */
   const [createdAs, setCreatedAs] = useState<Record<string, number>>({});
   const [result, setResult] = useState<Array<{ row: number; message: string }>>([]);
+  /** Alumnos de Secundario a los que no se les pudo crear la cuenta (ej: sin DNI): se muestran aparte, no son errores de la fila. */
+  const [accountsSkipped, setAccountsSkipped] = useState<Array<{ row: number; student: string; reason: string }>>([]);
   const [sendEmails, setSendEmails] = useState(true);
 
   /** Busca el curso de cada fila. Lo que no aparece se agrupa para crearlo. */
@@ -109,6 +111,7 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
     setDrafts({});
     setCreatedAs({});
     setResult([]);
+    setAccountsSkipped([]);
     setRaw(parseCSV(await file.text()));
   };
 
@@ -166,13 +169,20 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
           .filter((g) => g.firstName && g.lastName);
         return [{ firstName: r.alumno_nombre, lastName: r.alumno_apellido, dni: r.alumno_dni || null, birthDate: r.fecha_nacimiento || null, divisionId, guardians }];
       });
-      const r = await apiSend<{ imported: number; errors: Array<{ row: number; message: string }>; credentials: Credential[] }>('POST', '/school/students/import', { rows, sendEmails });
-      return { ...r, credentials: sendEmails ? r.credentials : r.credentials.map((c) => ({ ...c, email: null })), errors: r.errors.map((e) => ({ ...e, row: original[e.row - 1] ?? e.row })) };
+      const r = await apiSend<{ imported: number; errors: Array<{ row: number; message: string }>; credentials: Credential[]; accountsCreated?: number; accountsSkipped?: Array<{ row: number; student: string; reason: string }> }>('POST', '/school/students/import', { rows, sendEmails });
+      const toOriginal = (row: number) => original[row - 1] ?? row;
+      return {
+        ...r,
+        credentials: sendEmails ? r.credentials : r.credentials.map((c) => ({ ...c, email: null })),
+        errors: r.errors.map((e) => ({ ...e, row: toOriginal(e.row) })),
+        accountsSkipped: (r.accountsSkipped ?? []).map((a) => ({ ...a, row: toOriginal(a.row) })),
+      };
     },
     onSuccess: (r) => {
       const skipped = plan!.divisionIds.filter((id) => !id).length;
-      toast(`${r.imported} alumnos importados${r.errors.length ? ` · ${r.errors.length} con errores` : ''}${skipped ? ` · ${skipped} sin curso` : ''}`, r.errors.length > 0);
+      toast(`${r.imported} alumnos importados${r.accountsCreated ? ` · ${r.accountsCreated} cuentas de estudiante` : ''}${r.errors.length ? ` · ${r.errors.length} con errores` : ''}${skipped ? ` · ${skipped} sin curso` : ''}`, r.errors.length > 0);
       setResult([...r.errors, ...unassigned].sort((a, b) => a.row - b.row));
+      setAccountsSkipped(r.accountsSkipped);
       onCredentials(r.credentials);
       setRaw(null);
       qc.invalidateQueries({ queryKey: ['students'] });
@@ -274,6 +284,14 @@ export const StudentsImportCard = ({ structure, onCredentials }: { structure: St
           <div className="alert alert-danger small" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
             {errors.slice(0, 30).map((e, i) => <div key={`${e.row}-${i}`}>Fila {e.row}: {e.message}</div>)}
             {errors.length > 30 && <div>… y {errors.length - 30} más</div>}
+          </div>
+        )}
+        {!raw && accountsSkipped.length > 0 && (
+          <div className="alert alert-warn small" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+            <b>Sin cuenta de estudiante ({accountsSkipped.length}):</b>
+            {accountsSkipped.slice(0, 30).map((a, i) => <div key={`${a.row}-${i}`}>Fila {a.row} · {a.student}: {a.reason}</div>)}
+            {accountsSkipped.length > 30 && <div>… y {accountsSkipped.length - 30} más</div>}
+            <div className="xs">Se importaron igual. Cuando esté resuelto, creá la cuenta desde Alertas → Emails de estudiantes ("Crear cuentas del curso").</div>
           </div>
         )}
       </div>

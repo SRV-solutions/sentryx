@@ -2,8 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Search, X, Users, CheckSquare, Square } from 'lucide-react';
 import { apiGet } from '../lib/api';
-import { Avatar, Skeleton, Badge } from '../ui';
+import { Avatar, Skeleton, Badge, ErrorBox } from '../ui';
 import type { Paginated } from './types';
+import { useDebounced } from './announcements';
 
 export interface FamilyRow {
   userId: number;
@@ -22,15 +23,6 @@ interface Props {
   levels: Array<{ id: number; name: string }>;
   divisions: Array<{ id: number; name: string; levelId: number; gradeYear?: number }>;
 }
-
-const useDebounced = (value: string, ms = 300) => {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
-};
 
 const ordinal = (n: number) => `${n}º`;
 
@@ -107,6 +99,7 @@ export const FamilyPicker = ({ value, onChange, levels, divisions }: Props) => {
         {value.length > 0 && <button type="button" className="btn btn-sm btn-ghost" onClick={() => onChange([])}><X size={14} /> Quitar todas</button>}
       </div>
 
+      {list.error && <ErrorBox error={list.error} retry={() => list.refetch()} />}
       {list.isLoading && <Skeleton count={4} h={56} />}
       {list.data && !list.data.data.length && <div className="small muted" style={{ padding: 12 }}>Ninguna familia coincide.</div>}
       {!!list.data?.data.length && (

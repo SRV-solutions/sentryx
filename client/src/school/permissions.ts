@@ -25,6 +25,7 @@ export enum Entity {
   EVENTS = 'events',
   SUBJECT_PROGRAMS = 'subject_programs',
   QUIZZES = 'quizzes',
+  CONDUCT = 'conduct',
 }
 
 export enum Action {

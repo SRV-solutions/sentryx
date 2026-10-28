@@ -37,6 +37,11 @@ export class Student extends Model<InferAttributes<Student>, InferCreationAttrib
   declare leftAt: CreationOptional<string | null>;
   declare leaveReason: CreationOptional<LeaveReason | null>;
   declare leaveNotes: CreationOptional<string | null>;
+  /** Último aviso a la familia de que su cuenta no tiene email (Alertas → Sin email). */
+  declare noEmailNoticeAt: CreationOptional<Date | null>;
+  /** La conducción le pidió al estudiante que cambie su email (ej: uno inventado). Se borra cuando lo cambia. */
+  declare emailChangeRequestedAt: CreationOptional<Date | null>;
+  declare emailChangeReason: CreationOptional<string | null>;
   declare createdAt: CreationOptional<Date>;
   declare updatedAt: CreationOptional<Date>;
   declare Enrollments?: NonAttribute<Enrollment[]>;
@@ -57,6 +62,9 @@ Student.init(
     leftAt: { type: DataTypes.DATEONLY, allowNull: true },
     leaveReason: { type: DataTypes.STRING(30), allowNull: true },
     leaveNotes: { type: DataTypes.TEXT, allowNull: true },
+    noEmailNoticeAt: { type: DataTypes.DATE, allowNull: true },
+    emailChangeRequestedAt: { type: DataTypes.DATE, allowNull: true },
+    emailChangeReason: { type: DataTypes.STRING(300), allowNull: true },
     createdAt: DataTypes.DATE,
     updatedAt: DataTypes.DATE,
   },
