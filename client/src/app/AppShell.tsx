@@ -175,6 +175,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
                 <NavLink key={item.to} to={item.to} end={exactOnly(item)} className={({ isActive }) => (isActive ? 'active' : '')}>
                   <item.icon size={19} />
                   {item.label}
+                  {item.soon && <span className="badge badge-accent" style={{ marginLeft: 'auto', fontSize: 10, padding: '1px 6px' }}>Pronto</span>}
                   {badgeFor(item) > 0 && <span className="count">{badgeFor(item)}</span>}
                 </NavLink>
               ))}
@@ -256,6 +257,7 @@ export const AppShell = ({ children, title }: { children: ReactNode; title?: str
             <Link key={item.to} to={item.to} className="list-item" onClick={() => setMoreOpen(false)}>
               <item.icon size={20} />
               <span className="grow">{item.label}</span>
+              {item.soon && <span className="badge badge-accent">Pronto</span>}
               {badgeFor(item) > 0 && <span className="count">{badgeFor(item)}</span>}
             </Link>
           ))}

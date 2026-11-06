@@ -1,6 +1,6 @@
 import {
   Home, Megaphone, UserRound, ClipboardCheck, BookOpenCheck, BellRing, GraduationCap,
-  Settings, Baby, School, FolderOpen, Contact, Hash, Receipt, Building2, LifeBuoy, ShieldCheck, CalendarDays, BookOpen, Gamepad2, IdCard, Briefcase, Gem, BarChart3, CircleHelp,
+  HandCoins, Settings, Baby, School, FolderOpen, Contact, Hash, Receipt, Building2, LifeBuoy, ShieldCheck, CalendarDays, BookOpen, Gamepad2, IdCard, Briefcase, Gem, BarChart3, CircleHelp,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { SchoolSession } from '../school/types';
@@ -13,6 +13,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** comms = comunicados sin leer + conversaciones con mensajes nuevos (son la misma sección). */
   badge?: 'comms' | 'channels';
+  /** Sección en desarrollo: se muestra en el menú con la etiqueta "Pronto". */
+  soon?: boolean;
   section: 'school' | 'platform';
 }
 
@@ -48,6 +50,7 @@ export const buildNav = (opts: {
     if (session.isStaff && can(Entity.ATTENDANCE, Action.READ) && can(Entity.GRADES, Action.READ)) items.push({ to: '/estadisticas', label: 'Estadísticas', icon: BarChart3, section: 'school' });
     if (can(Entity.USERS, Action.READ)) items.push({ to: '/alumnos', label: 'Alumnos', icon: GraduationCap, section: 'school' });
     if (can(Entity.USERS, Action.READ)) items.push({ to: '/personas', label: 'Personas', icon: Contact, section: 'school' });
+    if (session.isStaff) items.push({ to: '/cobros', label: 'Cobrar a estudiantes', icon: HandCoins, soon: true, section: 'school' });
     if (session.isStaff && (session.teaching.length || can(Entity.ANNOUNCEMENTS, Action.CREATE))) items.push({ to: '/archivos', label: 'Archivos', icon: FolderOpen, section: 'school' });
     if (can(Entity.SCHOOL, Action.UPDATE) || can(Entity.USERS, Action.UPDATE)) items.push({ to: '/admin', label: 'Administración', icon: Settings, section: 'school' });
     // Funciones por plan (si el plan no las incluye, la pantalla ofrece pedirlo).

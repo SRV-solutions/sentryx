@@ -17,6 +17,7 @@ const AnnouncementComposePage = lazy(() => import('./pages/school/AnnouncementCo
 const ThreadPage = lazy(() => import('./pages/school/ThreadPage'));
 const FamilyPage = lazy(() => import('./pages/school/FamilyPage'));
 const StudentPage = lazy(() => import('./pages/school/StudentPage'));
+const CollectionsSoonPage = lazy(() => import('./pages/school/CollectionsSoonPage'));
 const StudentsPage = lazy(() => import('./pages/school/StudentsPage'));
 const SubjectsPage = lazy(() => import('./pages/school/SubjectsPage'));
 const GradeSheetPage = lazy(() => import('./pages/school/GradeSheetPage'));
@@ -158,6 +159,7 @@ export default function App() {
             <Route path="/alertas" element={<Need perm={[Entity.ALERTS, Action.READ]}><AlertsPage /></Need>} />
             <Route path="/admin" element={<Need any={[[Entity.SCHOOL, Action.UPDATE], [Entity.USERS, Action.UPDATE]]}><AdminPage /></Need>} />
             <Route path="/personas" element={<Need perm={[Entity.USERS, Action.READ]}><PeoplePage /></Need>} />
+            <Route path="/cobros" element={<CollectionsSoonPage />} />
             <Route path="/personas/:id" element={<PersonPage />} />
             <Route path="/perfil/me" element={<ProfilePage />} />
             <Route path="/canales" element={<ChannelsPage />} />
