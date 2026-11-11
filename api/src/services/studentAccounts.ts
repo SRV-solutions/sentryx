@@ -55,6 +55,19 @@ export const ensureStudentRole = async (userId: number, schoolId: number, transa
   return 'exists' as const;
 };
 
+/**
+ * Sale de Secundario a otro nivel (pase o corrección de curso): la cuenta de estudiante se desactiva, porque
+ * las cuentas son solo de Secundario y fuera de ese nivel no se cobran. No se borra nada; si vuelve a
+ * Secundario, la cuenta se reactiva sola. Devuelve si había una cuenta activa.
+ */
+export const disableStudentAccount = async (opts: { schoolId: number; actorUserId: number; student: { id: number; userId?: number | null }; transaction: Transaction }) => {
+  const { schoolId, actorUserId, student, transaction } = opts;
+  if (!student.userId) return false;
+  const [n] = await UserRole.update({ active: false }, { where: { userId: student.userId, schoolId, role: RoleCode.ESTUDIANTE, active: true }, transaction });
+  if (n) await audit({ schoolId, userId: actorUserId, entity: 'Student', entityId: student.id, action: 'disable-account', after: { auto: true, reason: 'Sale de Secundario' } }, transaction);
+  return n > 0;
+};
+
 /** Tipo de nivel de una división, con caché por división (importación y promoción repiten divisiones). */
 export const divisionLevelType = async (divisionId: number, cache: Map<number, string>, transaction?: Transaction) => {
   if (cache.has(divisionId)) return cache.get(divisionId)!;

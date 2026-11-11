@@ -448,7 +448,7 @@ story += [P('14. Archivos', 'h1'),
 # ---------------- 15 ----------------
 story += [CondPageBreak(10 * cm), P('15. Facturación y planes', 'h1'),
           P('Facturación', 'h2'),
-          P('Se cobra por <b>persona con acceso</b> al colegio (personal, familias y estudiantes con cuenta), por mes calendario. Quien tuvo acceso al menos un día del mes se cobra ese mes completo; si se desactiva, deja de cobrarse desde el mes siguiente. La pantalla de <b>Facturación</b> (solo para la Representante Legal) muestra el total del mes, el detalle persona por persona y se puede exportar a Excel.'),
+          P('Se cobra por <b>persona con acceso</b> al colegio (personal, familias y estudiantes de Secundario), por mes calendario. Los alumnos de Inicial y Primario no se cobran: se cobra a cada familiar con acceso, una sola vez aunque tenga varios hijos. Quien tuvo acceso al menos un día del mes se cobra ese mes completo; si se desactiva, deja de cobrarse desde el mes siguiente. La pantalla de <b>Facturación</b> (solo para la Representante Legal) muestra el total del mes, el detalle persona por persona y se puede exportar a Excel.'),
           shot('d_facturacion', 'Facturación del Colegio Demo.'),
           P('Planes', 'h2'),
           P('Este colegio de demostración está en el <b>plan Básico</b>, que incluye todo lo que se describe en este manual salvo lo indicado. Hay planes superiores con funciones adicionales, que se asignan <b>por persona</b> (por ejemplo, solo a la conducción o a algunos docentes):'),

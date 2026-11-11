@@ -14,8 +14,10 @@ import { DEFAULT_PLAN, PLAN_CODES, PlanCode, planPrice, planRank } from '../cons
  *
  * "Tener acceso" = cuenta habilitada (User.isActive) y además alguno de:
  *  - rol de personal activo (UserRole),
- *  - cuenta de estudiante activa vinculada a un alumno activo,
- *  - vínculo familiar vigente con un alumno activo.
+ *  - cuenta de estudiante activa de un alumno activo inscripto en un curso de SECUNDARIO del ciclo actual
+ *    (los alumnos de Inicial y Primario no se cobran: se cobra a cada familiar con acceso),
+ *  - vínculo familiar vigente con un alumno activo (cualquier nivel).
+ * Cada persona se cobra una sola vez, aunque tenga varios roles o varios hijos.
  *
  * Nada se borra: los cambios abren o cierran AccessPeriod. Los ciclos pasados se congelan en
  * BillingStatement con el precio de ese momento.
@@ -34,8 +36,13 @@ const currentAccess = async (schoolId: number, userIds?: number[]) =>
        SELECT m."userId", m.role::text AS role, m."createdAt" AS since FROM "UserRole" m
         WHERE m."schoolId" = :sid AND m.active AND m.role NOT IN ('TUTOR', 'ESTUDIANTE')
        UNION ALL
+       -- Estudiantes: solo Secundario. Aunque una cuenta quede activa fuera de Secundario, no se cobra.
        SELECT m."userId", 'ESTUDIANTE', m."createdAt" FROM "UserRole" m
          JOIN "Student" s ON s."userId" = m."userId" AND s."schoolId" = m."schoolId" AND s.active
+         JOIN "Enrollment" e ON e."studentId" = s.id AND e.status = 'ACTIVE'
+         JOIN "AcademicYear" y ON y.id = e."academicYearId" AND y."schoolId" = :sid AND y."isCurrent"
+         JOIN "Division" d ON d.id = e."divisionId"
+         JOIN "Level" l ON l.id = d."levelId" AND l.type = 'SECUNDARIO'
         WHERE m."schoolId" = :sid AND m.active AND m.role = 'ESTUDIANTE'
        UNION ALL
        SELECT g."userId", 'TUTOR', g."createdAt" FROM "StudentGuardian" g

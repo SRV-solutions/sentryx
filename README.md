@@ -164,6 +164,7 @@ Cada persona del colegio tiene un plan. La Representante Legal los cambia desde 
 - **Cómo se protege cada función:** las rutas exigen el permiso del rol (`authorize`) **y** que el plan incluya la función (`requireFeature`).
 - **Si el plan no alcanza:** la API responde 402 con el plan necesario, y la app muestra qué incluye y ofrece pedirlo.
 - **Familias:** con planes superiores solo *ven* más cosas: el calendario, los programas de sus hijos y los resultados de los juegos.
+- **A quién se cobra:** al personal, a cada familiar con acceso y a los estudiantes de **Secundario** con cuenta. Los alumnos de Inicial y Primario no se cobran. Cada persona se cobra una vez, aunque tenga varios roles o varios hijos. La regla está en `currentAccess` (`api/src/services/billing.ts`).
 - **Facturación:** se cobra el mes completo del plan **más alto** que la persona tuvo en el mes. El historial queda en `PlanAssignment`.
 - **Juegos en vivo:**
   - Los alumnos entran desde `/jugar` con el PIN y un apodo, sin cuenta.

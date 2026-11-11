@@ -6,7 +6,7 @@ import { audit } from './audit';
 import { touchAccess } from './billing';
 import { invalidateSchoolSession } from './schoolSession';
 import { badRequest, conflict, notFound } from '../lib/http';
-import { ensureStudentAccount, credentialOf, notApplicable, EnsureAccountResult, StudentCredential } from './studentAccounts';
+import { ensureStudentAccount, disableStudentAccount, credentialOf, notApplicable, EnsureAccountResult, StudentCredential } from './studentAccounts';
 
 /**
  * RECORRIDO DEL ALUMNO: cambio de curso, baja (con motivo), reactivación y promoción anual.
@@ -50,6 +50,7 @@ export const transferStudents = async (session: SchoolSession, studentIds: numbe
   const levelTypes = await levelTypesOf([target.id, ...enrollments.map((e) => e.divisionId as number)]);
   const toSecondary = levelTypes.get(target.id) === 'SECUNDARIO';
   const accounts = newAccountsTally();
+  let disabled = 0;
   await sequelize.transaction(async (transaction) => {
     for (const enrollment of enrollments) {
       if (enrollment.divisionId === target.id) continue;
@@ -63,12 +64,15 @@ export const transferStudents = async (session: SchoolSession, studentIds: numbe
       if (toSecondary && levelTypes.get(fromDivisionId) !== 'SECUNDARIO') {
         const st = enrollment.Student!;
         tally(accounts, await ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student: st, transaction, divisionId: target.id, levelTypes }), st, target.name);
+      } else if (!toSecondary && levelTypes.get(fromDivisionId) === 'SECUNDARIO') {
+        // Sale de Secundario (ej: lo habían inscripto en un curso equivocado): su cuenta se desactiva.
+        if (await disableStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student: enrollment.Student!, transaction })) disabled++;
       }
     }
   });
   invalidateSchoolSession();
-  // Cuentas nuevas o reactivadas: abre su acceso en la facturación (como el alta y la reincorporación).
-  if (toSecondary) touchAccess(session.schoolId);
+  // Cuentas nuevas, reactivadas o desactivadas: actualiza su acceso en la facturación.
+  if (toSecondary || disabled) touchAccess(session.schoolId);
   return { moved: enrollments.filter((e) => e.divisionId === target.id).length, target: target.name, accounts };
 };
 
@@ -110,9 +114,9 @@ export const reactivateStudent = async (session: SchoolSession, studentId: numbe
       { studentId, divisionId: division.id, academicYearId: division.academicYearId as number, status: 'ACTIVE' },
       { transaction, conflictFields: ['studentId', 'academicYearId'] }
     );
-    // Secundario: reactiva su cuenta (o se la crea si nunca tuvo). Otro nivel: solo se reactiva la que tenía.
+    // Secundario: reactiva su cuenta (o se la crea si nunca tuvo). Otro nivel: la cuenta sigue desactivada,
+    // porque las cuentas de estudiante son solo de Secundario.
     const r = await ensureStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student, transaction, divisionId: division.id });
-    if (notApplicable(r) && student.userId) await UserRole.update({ active: true }, { where: { userId: student.userId, schoolId: session.schoolId, role: RoleCode.ESTUDIANTE }, transaction });
     await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', entityId: student.id, action: 'reactivate', after: { divisionId: division.id } }, transaction);
     return r;
   });

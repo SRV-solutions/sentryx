@@ -138,6 +138,7 @@ export default function BillingPage() {
           <div className="alert alert-info small">
             <Info size={18} />
             <div>
+              Se cobra por <b>persona con acceso</b>: personal, familias y estudiantes de Secundario. Los alumnos de Inicial y Primario <b>no se cobran</b>: se cobra a cada familiar con acceso, una sola vez aunque tenga varios hijos.
               Se cobra el <b>mes completo</b> a cada cuenta que tuvo acceso <b>al menos un día</b> del ciclo ({fmtDate(d.period.start)} al {fmtDate(new Date(new Date(d.period.end).getTime() - 1))}), aunque se haya desactivado después.
               Desactivar a alguien deja de cobrarse <b>desde el mes siguiente</b>. Nada se borra: el historial queda para auditar.
               Para desactivar cuentas, entrá a <Link to="/personas">Personas</Link>.

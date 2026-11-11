@@ -15,7 +15,7 @@ import { StudentInput, guardianInput, studentBody, studentQuery } from '../valid
 import { RoleCode } from '../constants/roles';
 import { buildReportCard } from '../services/grades';
 import { assertEmailFree } from '../services/studentEmail';
-import { ensureStudentAccount, ensureStudentRole, hasAdultRole, ADULT_DNI_REASON, credentialOf, accountSummary, divisionLevelType, EnsureAccountResult } from '../services/studentAccounts';
+import { ensureStudentAccount, ensureStudentRole, disableStudentAccount, hasAdultRole, ADULT_DNI_REASON, credentialOf, accountSummary, divisionLevelType, EnsureAccountResult } from '../services/studentAccounts';
 
 
 const sameName = (a: { firstName: string; lastName: string }, b: { firstName: string; lastName: string }) => {
@@ -354,6 +354,10 @@ export const updateStudent = asyncHandler(async (req, res) => {
         );
         const wasSecondary = !!prev && (await divisionLevelType(prev.divisionId as number, levelTypes, transaction)) === 'SECUNDARIO';
         if (prev?.divisionId !== division.id && !wasSecondary) enters = { divisionId: division.id };
+        // Sale de Secundario (ej: lo habían inscripto en un curso equivocado): su cuenta se desactiva.
+        if (wasSecondary && (await divisionLevelType(division.id, levelTypes, transaction)) !== 'SECUNDARIO') {
+          await disableStudentAccount({ schoolId: session.schoolId, actorUserId: session.userId, student, transaction });
+        }
       }
       if (!enters && !hadDni && student.dni && !student.userId) enters = { academicYearId: session.academicYearId };
       if (!enters || !student.active) return null;
@@ -487,6 +491,8 @@ export const setAccountStatus = asyncHandler(async (req, res) => {
     const student = await Student.findOne({ where: { id: req.params.id, schoolId: session.schoolId } });
     if (!student?.userId) throw notFound('El alumno no tiene cuenta.');
     await assertStaffOverStudent(session, student.id);
+    // Reactivar solo en Secundario: fuera de ese nivel los estudiantes no tienen cuenta (ni se cobran).
+    if (req.body.active) await secondaryEnrollment(session, student.id);
     await UserRole.update({ active: req.body.active }, { where: { userId: student.userId, schoolId: session.schoolId, role: RoleCode.ESTUDIANTE } });
     await audit({ schoolId: session.schoolId, userId: session.userId, entity: 'Student', entityId: student.id, action: req.body.active ? 'enable-account' : 'disable-account' });
     invalidateSchoolSession(student.userId);
